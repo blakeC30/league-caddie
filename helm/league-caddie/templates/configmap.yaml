@@ -2,7 +2,7 @@
 # ConfigMap — non-secret environment variables shared by api, scraper, and worker.
 #
 # These values are safe to inspect with `kubectl describe configmap` and are
-# visible in pod specs. Put anything sensitive (passwords, keys) in secret.yaml.
+# visible in pod specs. Put anything sensitive (passwords, keys) in secrets.yaml.
 apiVersion: v1
 kind: ConfigMap
 metadata:

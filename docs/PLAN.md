@@ -478,7 +478,7 @@ awslocal ses verify-email-identity --email-address noreply@league-caddie.com
 
 ---
 
-## Phase 6: Kubernetes & Helm Charts ⬅️ NEXT STEP
+## Phase 6: Kubernetes & Helm Charts ✅ DONE
 
 ### Goal
 
@@ -529,8 +529,8 @@ helm/
 | EC2 instance | t2.micro (free tier) | t3a.small (~$14/month) |
 | K8s cluster | Separate K3s instance | Separate K3s instance |
 | Database | `league_caddie_dev` | `league_caddie_prod` |
-| Deploy trigger | push to `dev` branch | push to `main` branch |
-| Image tag | `dev-latest` | `latest` |
+| Deploy trigger | push to `main` + approval (gate #1) | push to `main` + approval (gate #2, after dev) |
+| Image tag | `latest` | `latest` |
 | Backend replicas | 1 | 2 |
 | URL | `dev.yourdomain.com` | `yourdomain.com` |
 
@@ -563,15 +563,31 @@ helm/
 
 ### Goal
 
-Automated pipeline: test on PRs, build + deploy on merge to `dev` or `main`.
+Automated pipeline: test on PRs, build + deploy on merge to `main`.
+
+### Branching Strategy
+
+Single long-lived branch: `main`. All changes come in via PRs (or direct commits for trivial fixes). There is no `dev` branch — the K8s `dev` namespace serves as a staging environment that must be deployed and verified before prod can be deployed.
 
 ### Workflow Triggers
 
 | Trigger | Jobs Run |
 |---|---|
-| Pull request (any branch) | lint + test only |
-| Push to `dev` branch | lint + test + build + push to ECR + deploy to dev EC2 instance |
-| Push to `main` branch | lint + test + build + push to ECR + deploy to prod EC2 instance |
+| Pull request (to `main`) | lint + test + helm lint + docker build (no push) |
+| Push to `main` branch | lint + test + helm lint + build + scan + push to ECR → **approve dev** → deploy to dev → **approve prod** → deploy to prod |
+
+### Manual Approval Gates
+
+Two sequential gates enforce the rule that dev must be deployed before prod can be deployed. Both use GitHub Environments with required reviewers.
+
+**How it works:**
+- Create two GitHub Environments in repo Settings → Environments: `dev` and `prod`
+- Add yourself as a required reviewer on both
+- `deploy-dev` targets `environment: dev` — GitHub pauses and waits for approval before deploying to the dev namespace
+- `deploy-prod` targets `environment: prod` AND has `needs: deploy-dev` — it cannot run until `deploy-dev` has succeeded
+- This makes it structurally impossible to deploy to prod without first deploying to dev in the same pipeline run
+
+**Cost:** Free — GitHub Environments with required reviewers are available on public repos.
 
 ### Pipeline Jobs
 
@@ -587,18 +603,38 @@ jobs:
     - npm run lint (ESLint)
     - npm run type-check (tsc --noEmit)
 
-  build-and-push:
-    needs: [test-backend, test-frontend]
-    if: github.ref == 'refs/heads/dev' || 'refs/heads/main'
-    - aws ecr get-login-password | docker login
-    - docker build + push all 4 images tagged `dev-latest` (dev branch) or `latest` (main branch)
-    - Each push overwrites the previous tag — only one image version stored per repo at any time
+  helm-lint:
+    - helm lint helm/league-caddie -f helm/league-caddie/values-dev.yaml
+    - helm lint helm/league-caddie -f helm/league-caddie/values-prod.yaml
 
-  deploy:
-    needs: build-and-push
-    - SSH into EC2 (or use kubeconfig stored as GitHub secret)
-    - helm upgrade --install (always pulls the fixed `latest`/`dev-latest` tag)
-    - kubectl rollout status (wait for healthy)
+  build:
+    needs: [test-backend, test-frontend, helm-lint]
+    # On PRs: build all 4 images but do NOT push (validates Dockerfiles)
+    # On push to main: build + push to ECR tagged `latest`
+    - aws ecr get-login-password | docker login  (push only)
+    - docker build all 4 images
+    - docker push all 4 images  (push only)
+    - Each push overwrites the previous `latest` tag — only one image version stored per repo at any time
+
+  scan:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    # Trivy scans the pushed images for known CVEs
+    - trivy image --exit-code 1 --severity CRITICAL <ecr-url>/backend:latest
+    - trivy image --exit-code 1 --severity CRITICAL <ecr-url>/frontend:latest
+    # exit-code 1 = fail the pipeline on any CRITICAL severity finding
+
+  deploy-dev:
+    needs: scan
+    environment: dev   # approval gate #1 — must be approved before dev deploys
+    - helm upgrade --install targeting dev namespace
+    - kubectl rollout status -n dev (wait for healthy)
+
+  deploy-prod:
+    needs: deploy-dev  # structurally blocked until deploy-dev succeeds
+    environment: prod  # approval gate #2 — approve only after verifying dev
+    - helm upgrade --install targeting prod namespace
+    - kubectl rollout status -n prod (wait for healthy)
 ```
 
 ### GitHub Secrets Required
@@ -608,13 +644,13 @@ jobs:
 | `AWS_ACCESS_KEY_ID` | ECR push (CI/CD only — NOT used by running app) |
 | `AWS_SECRET_ACCESS_KEY` | ECR push |
 | `AWS_ACCOUNT_ID` | Construct ECR image URL |
-| `EC2_HOST_DEV` | SSH target — dev t2.micro Elastic IP |
-| `EC2_HOST_PROD` | SSH target — prod t3a.small Elastic IP |
-| `EC2_SSH_KEY` | Private key for SSH (shared or separate per instance) |
+| `EC2_HOST_DEV` | SSH target — dev EC2 Elastic IP |
+| `EC2_HOST_PROD` | SSH target — prod EC2 Elastic IP |
+| `EC2_SSH_KEY` | Private key for SSH into EC2 |
 | `KUBECONFIG_DEV` | Kubectl/helm access for dev K3s cluster |
 | `KUBECONFIG_PROD` | Kubectl/helm access for prod K3s cluster |
 | `JWT_SECRET_DEV` / `JWT_SECRET_PROD` | K8s secret values injected at deploy |
-| `GOOGLE_CLIENT_ID` | Same for both envs |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `DATABASE_URL_DEV` / `DATABASE_URL_PROD` | Per-environment DB connection strings |
 
 ### AWS IAM for CI/CD
@@ -641,7 +677,7 @@ Create a dedicated IAM user `fantasy-golf-deploy` with a minimal policy — ECR 
 1. Write `.github/workflows/ci-cd.yml`
 2. Set up all GitHub repository secrets
 3. Create IAM user `fantasy-golf-deploy` with ECR-push-only policy
-4. Test: open a PR → tests run; merge to `dev` → deploys to dev namespace
+4. Test: open a PR → tests run; merge to `main` → approve dev deploy → verify dev → approve prod deploy
 
 ---
 
@@ -723,7 +759,7 @@ Before deploying:
 
 ### Goal
 
-Two isolated environments on the same K3s cluster, each with its own database, deployed from different git branches.
+Two isolated environments on the same K3s cluster, each with its own database. `main` is the only branch — dev is deployed manually when needed for cluster testing.
 
 ### Environment Separation
 
@@ -731,8 +767,8 @@ Two isolated environments on the same K3s cluster, each with its own database, d
 |---|---|---|
 | K8s namespace | `dev` | `prod` |
 | Database | `league_caddie_dev` | `league_caddie_prod` |
-| Deploy trigger | push to `dev` branch | push to `main` branch |
-| Image tag | `dev-latest` | `latest` |
+| Deploy trigger | manual (`helm upgrade` CLI) | push to `main` + approval |
+| Image tag | `latest` | `latest` |
 | Backend replicas | 1 | 2 |
 | Scraper replicas | 1 | 1 (never scale above 1) |
 | Worker replicas | 1 | 1 (never scale above 1) |
@@ -741,11 +777,11 @@ Two isolated environments on the same K3s cluster, each with its own database, d
 ### Promotion Flow
 
 1. Develop feature locally (`docker compose up`)
-2. Push to `dev` branch → CI tests + deploys to dev namespace
-3. Test on `dev.yourdomain.com` (real K8s, real DB, isolated)
-4. Open PR: `dev → main`
-5. CI runs tests on the PR
-6. Merge → auto-deploys to prod namespace
+2. Open a PR → CI runs lint + test + helm lint + docker build (no push)
+3. Merge PR to `main` → CI builds + scans
+4. Approve gate #1 → deploys to dev namespace
+5. Verify the feature on `dev.yourdomain.com`
+6. Approve gate #2 → deploys to prod namespace
 
 ### Postgres on K8s
 
@@ -778,7 +814,7 @@ Phase 2  → Backend core (auth + API + all routers/services)         ✅ DONE
 Phase 5  → Docker (containerize early; local dev via docker-compose) ✅ DONE
 Phase 3  → Web scraping (ESPN API, APScheduler, SQS pipeline)       ✅ DONE
 Phase 4  → Frontend (18 pages, all features)                        ✅ DONE
-Phase 6  → Helm charts (define K8s deployment)                      ⬅️ NEXT
+Phase 6  → Helm charts (define K8s deployment)                      ✅ DONE
 Phase 8  → AWS setup (EC2, ECR, SQS, SES, IAM, K3s install)
 Phase 7  → CI/CD pipeline (GitHub Actions)
 Phase 9  → Dev/prod environments (namespaces, migrations, ingress)
