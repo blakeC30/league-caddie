@@ -112,8 +112,7 @@ def validate_new_pick(
             raise HTTPException(
                 status_code=400,
                 detail=(
-                    f"Picks for this tournament are not available until "
-                    f"'{active.name}' completes"
+                    f"Picks for this tournament are not available until '{active.name}' completes"
                 ),
             )
 

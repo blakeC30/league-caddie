@@ -424,8 +424,7 @@ def admin_override_pick(
         raise HTTPException(
             status_code=422,
             detail=(
-                "This is a playoff tournament — "
-                "manage picks through the playoff bracket endpoints"
+                "This is a playoff tournament — manage picks through the playoff bracket endpoints"
             ),
         )
 
