@@ -23,7 +23,7 @@ class TestRegister:
     def test_register_duplicate_email(self, client):
         payload = {
             "email": "dup@example.com",
-            "password": "pass",
+            "password": "password123",
             "display_name": "Dup",
         }
         client.post("/api/v1/auth/register", json=payload)
@@ -36,7 +36,7 @@ class TestRegister:
             "/api/v1/auth/register",
             json={
                 "email": "Upper@Example.COM",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Upper",
             },
         )
@@ -46,7 +46,7 @@ class TestRegister:
             "/api/v1/auth/login",
             json={
                 "email": "upper@example.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         assert login.status_code == 200
@@ -105,7 +105,7 @@ class TestLogin:
             "/api/v1/auth/register",
             json={
                 "email": "cookie@example.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Cookie",
             },
         )
@@ -113,7 +113,7 @@ class TestLogin:
             "/api/v1/auth/login",
             json={
                 "email": "cookie@example.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         assert "refresh_token" in resp.cookies
@@ -144,7 +144,7 @@ class TestRefresh:
             "/api/v1/auth/register",
             json={
                 "email": "refresh@example.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Refresh",
             },
         )
@@ -152,7 +152,7 @@ class TestRefresh:
             "/api/v1/auth/login",
             json={
                 "email": "refresh@example.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         # TestClient stores cookies automatically.

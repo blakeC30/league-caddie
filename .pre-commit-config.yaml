@@ -1,0 +1,57 @@
+# Pre-commit hooks — run automatically on every `git commit`.
+#
+# Install:  uv tool install pre-commit && pre-commit install
+# Run once: pre-commit run --all-files
+# Update:   pre-commit autoupdate
+
+default_install_hook_types: [pre-commit]
+
+repos:
+  # ── General file hygiene ───────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: check-yaml
+        exclude: ^helm/  # Helm templates use Go templating — not valid YAML
+      - id: check-toml
+      - id: check-json
+
+  # ── Backend: Python linting & formatting (ruff) ────────────────────────────
+  # Runs only when backend files change. Auto-fixes where possible so the
+  # commit includes clean code; if ruff can't auto-fix, the hook fails and
+  # shows what needs to be resolved manually.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+        files: ^backend/
+      - id: ruff-format
+        files: ^backend/
+
+  # ── Frontend: ESLint & TypeScript ──────────────────────────────────────────
+  # Local hooks run the same commands the CI pipeline uses so failures are
+  # caught before push. pass_filenames: false runs the full project check
+  # (required for ESLint flat config and project-wide tsc).
+  - repo: local
+    hooks:
+      - id: frontend-lint
+        name: frontend lint (eslint)
+        language: system
+        entry: bash -c 'cd frontend && npm run lint'
+        pass_filenames: false
+        files: ^frontend/src/.*\.(ts|tsx|js|jsx)$
+
+      - id: frontend-typecheck
+        name: frontend type-check (tsc)
+        language: system
+        entry: bash -c 'cd frontend && npm run type-check'
+        pass_filenames: false
+        files: ^frontend/src/.*\.(ts|tsx)$

@@ -1,8 +1,8 @@
 # Fantasy Golf League — Playoff Feature Design
 
-**Document version:** 1.0  
-**Date:** 2026-03-10  
-**Status:** Implementation-ready  
+**Document version:** 1.0
+**Date:** 2026-03-10
+**Status:** Implementation-ready
 
 ---
 

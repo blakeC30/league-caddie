@@ -137,6 +137,16 @@ class TestSubmitPick:
         )
         assert resp1.status_code == 201
 
+        # Mark t1 as completed so t2 becomes the globally-next scheduled tournament.
+        # Without this, the schedule check would fire ("t1 hasn't been played yet")
+        # before the no-repeat check, producing the wrong error message.
+        # Also set earnings on t1's entry — the service blocks new picks if the last
+        # completed tournament has field entries but no earnings (results not finalized).
+        t1.status = TournamentStatus.COMPLETED.value
+        t1_entry = db.query(TournamentEntry).filter_by(tournament_id=t1.id).first()
+        t1_entry.earnings_usd = 500_000
+        db.commit()
+
         # Same golfer for a different tournament should fail.
         resp2 = client.post(
             f"/api/v1/leagues/{league.id}/picks",
@@ -171,7 +181,12 @@ class TestSubmitPick:
         league, season = make_league(db, user)
         golfer = make_golfer(db)
         tournament = make_tournament(db, days_from_now=7, league=league)
-        # Intentionally NOT adding golfer to tournament.
+        # Add a different golfer to release the field, but NOT the golfer being picked.
+        # When no TournamentEntry rows exist, the service treats the field as unreleased
+        # and allows any known golfer. To test the "not in field" check, the field must
+        # have at least one entry so the service knows it has been published.
+        other_golfer = make_golfer(db, name="Field Golfer")
+        add_golfer_to_tournament(db, tournament, other_golfer)
 
         resp = client.post(
             f"/api/v1/leagues/{league.id}/picks",
@@ -194,7 +209,7 @@ class TestSubmitPick:
             "/api/v1/auth/register",
             json={
                 "email": "outsider@example.com",
-                "password": "pass",
+                "password": "password123",
                 "display_name": "Outsider",
             },
         )
@@ -202,7 +217,7 @@ class TestSubmitPick:
             "/api/v1/auth/login",
             json={
                 "email": "outsider@example.com",
-                "password": "pass",
+                "password": "password123",
             },
         )
         headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
