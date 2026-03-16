@@ -1,0 +1,144 @@
+"""
+Scoring service.
+
+Calculates season standings from picks stored in the database.
+
+Scoring rules:
+  - points_earned = golfer_earnings_usd * tournament.multiplier
+  - If a user has no pick row for a completed tournament → league.no_pick_penalty is applied
+  - Standings are sorted by total_points descending (highest wins)
+
+Tie-breaking (applied in order when total_points are equal):
+  1. Most picks submitted (higher pick_count wins — rewards consistent participation)
+  2. Highest single-tournament score (best_week — rewards peak performance)
+  3. Earliest league join date (joined_at ascending — stable, ungameable last resort)
+
+This module contains pure calculation logic with no HTTP concerns. It can be
+called from both the standings router and the scraper (when finalizing results).
+"""
+
+import datetime
+
+from sqlalchemy.orm import Session, joinedload
+
+from app.models import League, LeagueMember, LeagueMemberStatus, LeagueTournament, Pick, PlayoffConfig, PlayoffRound, Season, Tournament, TournamentStatus
+
+
+def calculate_standings(db: Session, league: League, season: Season) -> list[dict]:
+    """
+    Return standings rows for a league season, sorted best to worst.
+
+    Each row is a dict with:
+      user_id, display_name, total_points, pick_count, missed_count
+    """
+    # Only count tournaments the league admin explicitly added to the schedule
+    # AND that have completed. This lets leagues start mid-season and handles
+    # weeks with multiple simultaneous events.
+    scheduled_ids_subq = (
+        db.query(LeagueTournament.tournament_id)
+        .filter(LeagueTournament.league_id == league.id)
+        .scalar_subquery()
+    )
+    season_tournaments = (
+        db.query(Tournament)
+        .filter(
+            Tournament.id.in_(scheduled_ids_subq),
+            Tournament.status == TournamentStatus.COMPLETED.value,
+            Tournament.start_date >= datetime.date(season.year, 1, 1),
+            Tournament.start_date <= datetime.date(season.year, 12, 31),
+        )
+        .all()
+    )
+
+    # Exclude playoff tournaments — playoff members play via PlayoffPick, not
+    # Pick, so they have no regular-season Pick records for those weeks. Without
+    # this exclusion they'd receive spurious no-pick penalties in the standings.
+    config = db.query(PlayoffConfig).filter_by(league_id=league.id, season_id=season.id).first()
+    playoff_tournament_ids: set = set()
+    if config:
+        rows = (
+            db.query(PlayoffRound.tournament_id)
+            .filter(
+                PlayoffRound.playoff_config_id == config.id,
+                PlayoffRound.tournament_id.isnot(None),
+            )
+            .all()
+        )
+        playoff_tournament_ids = {row.tournament_id for row in rows}
+
+    completed_ids = {t.id for t in season_tournaments if t.id not in playoff_tournament_ids}
+
+    # Only approved members appear in standings — pending requests are excluded.
+    members = (
+        db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+        .options(joinedload(LeagueMember.user))
+        .all()
+    )
+
+    if not completed_ids:
+        # Season hasn't started yet — everyone tied at 0.
+        return [
+            {
+                "user_id": m.user_id,
+                "display_name": m.user.display_name,
+                "total_points": 0.0,
+                "pick_count": 0,
+                "missed_count": 0,
+            }
+            for m in members
+        ]
+
+    # Load all settled picks (points already calculated) for this league/season.
+    picks = (
+        db.query(Pick)
+        .filter(
+            Pick.league_id == league.id,
+            Pick.season_id == season.id,
+            Pick.tournament_id.in_(completed_ids),
+            Pick.points_earned.is_not(None),
+        )
+        .all()
+    )
+
+    # Index picks by user for O(1) lookup.
+    picks_by_user: dict = {}
+    for pick in picks:
+        picks_by_user.setdefault(pick.user_id, []).append(pick)
+
+    standings = []
+    for member in members:
+        user_picks = picks_by_user.get(member.user_id, [])
+        picked_ids = {p.tournament_id for p in user_picks}
+        total = sum(p.points_earned for p in user_picks)  # type: ignore[misc]
+
+        missed = completed_ids - picked_ids
+        total += len(missed) * league.no_pick_penalty
+
+        best_week = max((p.points_earned for p in user_picks), default=0.0)  # type: ignore[misc]
+
+        standings.append(
+            {
+                "user_id": member.user_id,
+                "display_name": member.user.display_name,
+                "total_points": total,
+                "pick_count": len(picked_ids),
+                "missed_count": len(missed),
+                "best_week": best_week,
+                "joined_at": member.joined_at,
+            }
+        )
+
+    # Sort by total_points desc, then tie-break:
+    #   1. pick_count desc  — most picks submitted (consistent participation)
+    #   2. best_week desc   — highest single-tournament score (peak performance)
+    #   3. joined_at asc    — earliest join date (stable, ungameable last resort)
+    standings.sort(
+        key=lambda x: (
+            -x["total_points"],
+            -x["pick_count"],
+            -x["best_week"],
+            x["joined_at"],
+        )
+    )
+    return standings

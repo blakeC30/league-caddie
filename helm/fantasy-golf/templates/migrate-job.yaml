@@ -1,0 +1,61 @@
+---
+# Migration Job — runs `alembic upgrade head` before every install or upgrade.
+#
+# Helm hooks: pre-install fires on first `helm install`, pre-upgrade fires on every
+# `helm upgrade`. The hook runs the job and Helm waits for it to complete (succeed)
+# before proceeding to deploy the application pods. This guarantees the schema is
+# always up-to-date before new API code starts.
+#
+# delete-hook policy: "before-hook-creation" deletes the previous Job before creating
+# a new one, so you never accumulate old completed jobs.
+#
+# The job uses the same backend image as the API (target: api) because alembic and all
+# migration scripts are included in that image.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "fantasy-golf.fullname" . }}-migrate
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fantasy-golf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+  annotations:
+    # Run before install AND before every upgrade.
+    "helm.sh/hook": pre-install,pre-upgrade
+    # Delete the old Job before creating the new one (keeps cluster tidy).
+    "helm.sh/hook-delete-policy": before-hook-creation
+    # Wait for the job to complete before Helm proceeds.
+    "helm.sh/hook-weight": "0"
+spec:
+  # Retry up to 3 times before marking the job as failed.
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "fantasy-golf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: {{ include "fantasy-golf.image" (dict "root" . "repo" .Values.api.image.repository) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - alembic
+            - upgrade
+            - head
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@postgres:5432/{{ .Values.postgres.database }}"
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "128Mi"

@@ -1,0 +1,175 @@
+# =============================================================================
+# Root .gitignore — covers both fantasy-golf-frontend (Node) and
+# fantasy-golf-backend (Python). Replaces the two sub-repo .gitignore files.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Environment / secrets — never commit these
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+!.env.local.example
+.envrc
+values.secret.yaml
+
+# -----------------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[codz]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+dist/
+build/
+develop-eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+MANIFEST
+
+# Virtual environments
+.venv
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+__pypackages__/
+.pixi
+.pdm-python
+.pdm-build/
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+cover/
+coverage.xml
+*.cover
+nosetests.xml
+
+# Type checkers
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyre/
+.pytype/
+cython_debug/
+
+# Linting
+.ruff_cache/
+
+# Misc Python
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+celerybeat-schedule
+celerybeat.pid
+*.sage.py
+.abstra/
+.pypirc
+.spyderproject
+.spyproject
+.ropeproject
+/site
+docs/_build/
+.pybuilder/
+target/
+.ipynb_checkpoints
+profile_default/
+ipython_config.py
+
+# -----------------------------------------------------------------------------
+# Node / npm / Vite (frontend)
+# -----------------------------------------------------------------------------
+node_modules/
+jspm_packages/
+web_modules/
+bower_components/
+
+# Build output
+.next
+out
+.nuxt
+.svelte-kit/
+**/.vitepress/dist
+**/.vitepress/cache
+.docusaurus
+
+# Cache
+.npm
+.eslintcache
+.stylelintcache
+.parcel-cache
+.cache
+.fusebox/
+.serverless/
+.dynamodb/
+.firebase/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output
+
+# Misc Node
+*.tsbuildinfo
+*.tgz
+.yarn-integrity
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+.node_repl_history
+.tern-port
+.vscode-test
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+pids/
+*.pid
+*.seed
+*.pid.lock
+.lock-wscript
+build/Release
+.grunt
+
+# -----------------------------------------------------------------------------
+# OS
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+
+# -----------------------------------------------------------------------------
+# Helm
+# -----------------------------------------------------------------------------
+values.secret.yaml
+
+# -----------------------------------------------------------------------------
+# Cursor / AI tools
+# -----------------------------------------------------------------------------
+.cursorignore
+.cursorindexingignore

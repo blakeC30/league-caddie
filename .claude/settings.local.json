@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \" import sys, json data = json.load\\(sys.stdin\\) events = data.get\\(''events'', []\\) if not events: for league in data.get\\(''leagues'', []\\): events.extend\\(league.get\\(''events'', []\\)\\) completed = [e for e in events if ''FINAL'' in str\\(e.get\\(''status'', {}\\).get\\(''type'', {}\\).get\\(''name'', ''''\\)\\)] e = completed[0] comp = \\(e.get\\(''competitions''\\) or [{}]\\)[0] # Show all comp keys and tournament details print\\(''Competition keys:'', list\\(comp.keys\\(\\)\\)\\) for k in [''purse'', ''purseAmount'', ''prize'', ''prizeAmount'', ''totalPrize'']: print\\(f''{k}:'', comp.get\\(k\\)\\) \")",
+      "Bash(python3 -c \" import sys, json data = json.load\\(sys.stdin\\) events = data.get\\(''events'', []\\) if events: e = events[0] comp = \\(e.get\\(''competitions''\\) or [{}]\\)[0] # Check competitors for statistics competitors = comp.get\\(''competitors'', []\\) print\\(''Competitors:'', len\\(competitors\\)\\) if competitors: c = competitors[0] print\\(''Competitor keys:'', list\\(c.keys\\(\\)\\)\\) print\\(''Statistics:'', c.get\\(''statistics''\\)\\) print\\(''Order:'', c.get\\(''order''\\)\\) print\\(''Athlete:'', c.get\\(''athlete'', {}\\).get\\(''displayName''\\)\\) print\\(\\) # Check cuts for c in competitors[:5]: status_str = '''' stats = c.get\\(''statistics'', []\\) print\\(f''Order {c.get\\(\"\"order\"\"\\)}: {c.get\\(\"\"athlete\"\", {}\\).get\\(\"\"displayName\"\"\\)} - stats: {stats}''\\) \")",
+      "Bash(python3 -c \" import sys, json d = json.load\\(sys.stdin\\) items = d.get\\(''items'', []\\) print\\(''Total competitors:'', d.get\\(''count''\\), ''Retrieved:'', len\\(items\\)\\) # Show first and last few orders print\\(''First 5 orders:'', [\\(i.get\\(''id''\\), i.get\\(''order''\\)\\) for i in items[:5]]\\) print\\(''Last 5 orders:'', [\\(i.get\\(''id''\\), i.get\\(''order''\\)\\) for i in items[-5:]]\\) \")",
+      "Bash(python3 -c \" import sys, json d = json.load\\(sys.stdin\\) for cat in d.get\\(''splits'', {}\\).get\\(''categories'', []\\): for s in cat.get\\(''stats'', []\\): if s.get\\(''name''\\) in \\(''amount'', ''officialAmount'', ''scoreToPar''\\): print\\(s[''name''], '':'', s.get\\(''displayValue''\\), ''/'', s.get\\(''value''\\)\\) \")",
+      "Bash(python3 -c \" import sys, json d = json.load\\(sys.stdin\\) print\\(''Name:'', d.get\\(''displayName''\\)\\) print\\(''Country:'', d.get\\(''citizenship''\\) or d.get\\(''countryFlag'', {}\\).get\\(''alt''\\)\\) print\\(''Top keys:'', list\\(d.keys\\(\\)\\)[:15]\\) \")",
+      "Bash(python -c \"from app.services.scraper import sync_tournament, full_sync, _fetch_tournament_data; print\\(''Import OK''\\)\")",
+      "Bash(python3 -c \"from app.services.scraper import sync_tournament, full_sync, _fetch_tournament_data; print\\(''Import OK''\\)\")",
+      "Bash(python3 -c \" import sys, json d = json.load\\(sys.stdin\\) events = d.get\\(''events'', []\\) print\\(''Events:'', len\\(events\\)\\) if events: comp = events[0].get\\(''competitions'', [{}]\\)[0] competitors = comp.get\\(''competitors'', []\\) print\\(''Competitors:'', len\\(competitors\\)\\) if competitors: c = competitors[0] print\\(''Sample:'', c.get\\(''id''\\), c.get\\(''athlete'', {}\\).get\\(''displayName''\\), ''order:'', c.get\\(''order''\\)\\) \")",
+      "Bash(python3 -c \" import sys, json data = json.load\\(sys.stdin\\) events = data.get\\(''events'', []\\) if not events: for league in data.get\\(''leagues'', []\\): events.extend\\(league.get\\(''events'', []\\)\\) statuses = set\\(\\) for e in events: statuses.add\\(e.get\\(''status'', {}\\).get\\(''type'', {}\\).get\\(''name'', ''UNKNOWN''\\)\\) print\\(''Status types found:'', statuses\\) \")",
+      "Bash(python3 -c \"from app.services.scraper import sync_tournament, full_sync, _fetch_tournament_data, _fetch_golfer_earnings; print\\(''Import OK''\\)\")",
+      "Bash(python3 -c \":*)",
+      "Bash(alembic revision --autogenerate -m \"expand_golfer_country_to_100\")",
+      "Bash(alembic upgrade head)",
+      "Bash(/usr/local/opt/postgresql@17/bin/psql postgresql://fantasygolf:fantasygolf@localhost:5432/fantasygolf_dev -c \":*)",
+      "Bash(/usr/local/opt/postgresql@17/bin/psql postgresql://fantasygolf:fantasygolf@localhost:5432/fantasygolf_dev -c \"SELECT COUNT\\(*\\) as total_golfers FROM golfers;\")",
+      "Bash(/usr/local/opt/postgresql@17/bin/psql postgresql://fantasygolf:fantasygolf@localhost:5432/fantasygolf_dev -c \"DELETE FROM tournament_entries; DELETE FROM golfers;\")",
+      "Bash(curl -s --compressed \"https://sports.core.api.espn.com/v2/sports/golf/leagues/pga/events/401811935/competitions/401811935/competitors?limit=5\")",
+      "Bash(__NEW_LINE_8da7f4d14b329698__ echo \"\")",
+      "Bash(/usr/local/opt/postgresql@17/bin/psql postgresql://fantasygolf:fantasygolf@localhost:5432/fantasygolf_dev -c \"SELECT COUNT\\(*\\) as golfers FROM golfers;\")",
+      "Bash(/usr/local/opt/postgresql@17/bin/psql postgresql://fantasygolf:fantasygolf@localhost:5432/fantasygolf_dev -c \"SELECT version FROM alembic_version;\")",
+      "Bash(/usr/local/opt/postgresql@17/bin/psql postgresql://fantasygolf:fantasygolf@localhost:5432/fantasygolf_dev -c \"SELECT * FROM alembic_version;\")",
+      "Bash(alembic revision --autogenerate -m \"add_league_tournaments\")",
+      "Bash(python -c \"from app.models import LeagueTournament; from app.routers.leagues import router; from app.services.picks import validate_new_pick; from app.services.scoring import calculate_standings; print\\(''All imports OK''\\)\")",
+      "Bash(alembic revision --autogenerate -m \"add_invite_code_is_public_member_status\")",
+      "Bash(alembic current)",
+      "Bash(python -c \":*)",
+      "Bash(docker compose -f ../docker-compose.yml run --rm backend alembic revision --autogenerate -m \"remove_slug_from_leagues\")"
+    ]
+  }
+}

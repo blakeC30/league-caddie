@@ -1,0 +1,26 @@
+# Dependencies — reinstalled during build
+node_modules/
+
+# Build output — rebuilt during image build
+dist/
+
+# Environment files — values are baked in at build time via Vite; never include secrets
+.env
+.env.*
+.env.local
+!.env.example
+
+# Dev/documentation files
+*.md
+README*
+
+# Docker artifacts
+Dockerfile*
+.dockerignore
+
+# Editor + OS noise
+.git/
+.gitignore
+.DS_Store
+*.swp
+*.swo

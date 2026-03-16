@@ -1,0 +1,12 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy package files and install dependencies before mounting source code.
+# This bakes node_modules into the image so the volume mount doesn't wipe them.
+COPY package*.json ./
+RUN npm install
+
+# At runtime, docker-compose mounts the source code over /app and uses an
+# anonymous volume at /app/node_modules to preserve the installed packages.
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

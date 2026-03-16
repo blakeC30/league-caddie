@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install uv
+RUN pip install uv --quiet
+
+# Install dependencies into the system Python, not a virtualenv.
+# uv sync always creates /app/.venv, which the volume mount would shadow at
+# runtime. uv pip install --system targets /usr/local/lib/python3.12/site-packages/
+# which is outside /app and is never affected by the bind mount.
+COPY pyproject.toml uv.lock ./
+RUN uv export --frozen --no-dev -o /tmp/requirements.txt \
+    && uv pip install --system -r /tmp/requirements.txt
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

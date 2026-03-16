@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/test_scoring.py -v)",
+      "Bash(docker compose exec postgres psql -U fantasygolf -c \"CREATE DATABASE fantasygolf_test;\")",
+      "Bash(docker compose exec postgres psql -U postgres -c \"CREATE DATABASE fantasygolf_test;\")",
+      "Bash(docker compose exec postgres psql -U fantasygolf -d fantasygolf_dev -c \"CREATE DATABASE fantasygolf_test;\")",
+      "Bash(python -m pytest tests/ -v --tb=short)",
+      "Bash(python -m pytest tests/ -q)",
+      "Bash(python -m pytest tests/test_scraper.py -v)",
+      "Bash(python -m pytest -v)",
+      "Bash(npm run type-check)"
+    ]
+  }
+}

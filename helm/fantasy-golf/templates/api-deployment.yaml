@@ -1,0 +1,123 @@
+---
+# API Deployment — FastAPI + uvicorn HTTP server.
+#
+# Runs 2 uvicorn workers (appropriate for t2.micro: 1 vCPU).
+# Health check hits GET /health which FastAPI responds to immediately.
+#
+# DATABASE_URL is constructed from the postgres service hostname and password secret
+# using Kubernetes env var substitution: $(VAR_NAME) is resolved before the process starts.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fantasy-golf.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fantasy-golf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "fantasy-golf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        {{- include "fantasy-golf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: api
+          image: {{ include "fantasy-golf.image" (dict "root" . "repo" .Values.api.image.repository) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            # --- Constructed values (env var substitution) ---
+            # POSTGRES_PASSWORD is resolved first; DATABASE_URL references it via $(POSTGRES_PASSWORD).
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@postgres:5432/{{ .Values.postgres.database }}"
+
+            # --- Secrets ---
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: SECRET_KEY
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: GOOGLE_CLIENT_ID
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: AWS_SECRET_ACCESS_KEY
+
+            # --- ConfigMap (non-secret) ---
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: ENVIRONMENT
+            - name: DEBUG
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: DEBUG
+            - name: FRONTEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: FRONTEND_URL
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: AWS_REGION
+            - name: AWS_ENDPOINT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: AWS_ENDPOINT_URL
+            - name: SES_FROM_EMAIL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: SES_FROM_EMAIL
+            - name: LEAGUE_CREATION_RESTRICTED
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: LEAGUE_CREATION_RESTRICTED
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}

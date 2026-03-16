@@ -1,0 +1,79 @@
+---
+# Scraper Deployment — APScheduler background process.
+#
+# Runs ESPN sync jobs on a time-based schedule (see app/scraper_main.py):
+#   - Every 5 min: live score sync (during active tournaments)
+#   - Daily 06:00 UTC: schedule sync (upserts tournaments, fires TOURNAMENT_COMPLETED events)
+#   - Daily 14:00 / 18:00 / 11:00 UTC: golfer field sync (2 days / 1 day / same day before start)
+#   - Daily 09:00, 15:00, 21:00 UTC: results finalization safety net
+#
+# No HTTP port — this pod only writes to Postgres and publishes SQS events.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fantasy-golf.fullname" . }}-scraper
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fantasy-golf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: scraper
+spec:
+  replicas: {{ .Values.scraper.replicas }}
+  selector:
+    matchLabels:
+      {{- include "fantasy-golf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: scraper
+  template:
+    metadata:
+      labels:
+        {{- include "fantasy-golf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: scraper
+    spec:
+      containers:
+        - name: scraper
+          image: {{ include "fantasy-golf.image" (dict "root" . "repo" .Values.scraper.image.repository) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@postgres:5432/{{ .Values.postgres.database }}"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: SECRET_KEY
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: ENVIRONMENT
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: AWS_REGION
+            - name: AWS_ENDPOINT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: AWS_ENDPOINT_URL
+            - name: SQS_QUEUE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "fantasy-golf.configmapName" . }}
+                  key: SQS_QUEUE_URL
+          resources:
+            {{- toYaml .Values.scraper.resources | nindent 12 }}

@@ -1,0 +1,81 @@
+---
+# Postgres Deployment — single-instance PostgreSQL 15.
+#
+# We use a Deployment (not a StatefulSet) because we only ever run one replica.
+# The PVC provides durability; a StatefulSet's extra machinery (ordered pod names,
+# headless service) is unnecessary for a single node.
+#
+# The postgres password is read from the Secret so it is never exposed in plain text.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "fantasy-golf.fullname" . }}-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "fantasy-golf.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  replicas: 1
+  # Recreate strategy: stop the old pod before starting the new one.
+  # Required because ReadWriteOnce volumes can only be mounted by one pod at a time.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "fantasy-golf.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "fantasy-golf.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.user | quote }}
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "fantasy-golf.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            # Store data files in a subdirectory of the mount so the mount point itself
+            # (owned by root) does not conflict with postgres's ownership requirements.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U {{ .Values.postgres.user }} -d {{ .Values.postgres.database }}
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: {{ include "fantasy-golf.fullname" . }}-postgres-data
