@@ -67,7 +67,7 @@ This separation means scraper failures cannot take down the API, and the three c
 
 ## Phase 0: Foundation & Project Setup ✅ COMPLETE
 
-Monorepo initialized at `FantasyGolf/` with `fantasy-golf-frontend/` and `fantasy-golf-backend/` as siblings.
+Monorepo initialized at `FantasyGolf/` with `frontend/` and `backend/` as siblings.
 
 - Git repo initialized and pushed to GitHub (public)
 - `.gitignore`, `.editorconfig` in place
@@ -133,7 +133,7 @@ Monorepo initialized at `FantasyGolf/` with `fantasy-golf-frontend/` and `fantas
 ### Directory Structure (actual)
 
 ```
-fantasy-golf-backend/
+backend/
 ├── app/
 │   ├── main.py              # FastAPI app, CORS, rate limiter, router registration
 │   ├── config.py            # Pydantic BaseSettings (env vars)
@@ -345,7 +345,7 @@ LocalStack emulates SQS locally (same boto3 code, no real AWS cost). Queue: `fan
 ### Directory Structure (actual)
 
 ```
-fantasy-golf-frontend/src/
+frontend/src/
 ├── main.tsx
 ├── App.tsx                         # All route definitions
 ├── api/
@@ -430,7 +430,7 @@ fantasy-golf-frontend/src/
 
 | Service | Image | Port | Purpose |
 |---|---|---|---|
-| `postgres` | postgres:15-alpine | 5432 | Local DB (`fantasygolf_dev`) |
+| `postgres` | postgres:15-alpine | 5432 | Local DB (`league_caddie_dev`) |
 | `localstack` | localstack/localstack:3 | 4566 | Local AWS (SQS + SES emulation) |
 | `backend` | Dockerfile.dev | 8000 | FastAPI HTTP API (hot reload) |
 | `scraper` | Dockerfile.dev | — | APScheduler jobs (hot reload) |
@@ -451,8 +451,8 @@ awslocal ses verify-email-identity --email-address noreply@league-caddie.com
 
 ### Production Dockerfiles
 
-- `fantasy-golf-backend/Dockerfile` — multi-stage Python build (slim runtime, no dev tools)
-- `fantasy-golf-frontend/Dockerfile` — multi-stage Node build → Nginx alpine serving `/dist`
+- `backend/Dockerfile` — multi-stage Python build (slim runtime, no dev tools)
+- `frontend/Dockerfile` — multi-stage Node build → Nginx alpine serving `/dist`
 
 > **Important:** The frontend Nginx does **not** proxy `/api` requests. In production, Traefik ingress handles routing at the cluster level — `/api/*` goes to the backend service, `/*` goes to the frontend service. Nginx in the frontend container never sees API traffic, which is why `nginx.conf` has no proxy block.
 
@@ -461,7 +461,7 @@ awslocal ses verify-email-identity --email-address noreply@league-caddie.com
 **Backend:**
 | Variable | Dev Value | Prod Value |
 |---|---|---|
-| DATABASE_URL | postgresql://...@postgres:5432/fantasygolf_dev | postgresql://...@postgres:5432/fantasygolf_prod |
+| DATABASE_URL | postgresql://...@postgres:5432/league_caddie_dev | postgresql://...@postgres:5432/league_caddie_prod |
 | SECRET_KEY | any random string | from K8s secret |
 | GOOGLE_CLIENT_ID | real client ID | same |
 | FRONTEND_URL | http://localhost:5173 | https://yourdomain.com |
@@ -528,7 +528,7 @@ helm/
 |---|---|---|
 | EC2 instance | t2.micro (free tier) | t3a.small (~$14/month) |
 | K8s cluster | Separate K3s instance | Separate K3s instance |
-| Database | `fantasygolf_dev` | `fantasygolf_prod` |
+| Database | `league_caddie_dev` | `league_caddie_prod` |
 | Deploy trigger | push to `dev` branch | push to `main` branch |
 | Image tag | `dev-latest` | `latest` |
 | Backend replicas | 1 | 2 |
@@ -659,7 +659,7 @@ Provision all AWS resources needed for production (and dev). Use only free-tier 
    - EC2 instance role `fantasy-golf-ec2-role`: policies for SES send + SQS full access
 
 2. **ECR (Elastic Container Registry)**
-   - Create four repositories: `fantasy-golf-backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `fantasy-golf-frontend`
+   - Create four repositories: `backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `frontend`
    - Free tier: 500 MB/month storage
    - **Tag strategy: `latest` (prod) and `dev-latest` (dev) only** — each push overwrites the previous tag, keeping storage at a minimum. Rollback = push a revert commit and redeploy.
 
@@ -708,7 +708,7 @@ Before deploying:
 1. Create AWS account (use personal email, enables full free tier 12 months)
 2. Enable root MFA
 3. Create IAM user (`fantasy-golf-deploy`) + EC2 role (`fantasy-golf-ec2-role`)
-4. Create ECR repositories (`fantasy-golf-backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `fantasy-golf-frontend`)
+4. Create ECR repositories (`backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `frontend`)
 5. Create SQS queues (`fantasy-golf-events-prod`, `-dlq`)
 6. Verify SES sender identity; request sandbox exit
 7. Launch EC2 instances (t2.micro for dev, t3a.small for prod), assign Elastic IPs, attach IAM role to each
@@ -730,7 +730,7 @@ Two isolated environments on the same K3s cluster, each with its own database, d
 | | Dev | Prod |
 |---|---|---|
 | K8s namespace | `dev` | `prod` |
-| Database | `fantasygolf_dev` | `fantasygolf_prod` |
+| Database | `league_caddie_dev` | `league_caddie_prod` |
 | Deploy trigger | push to `dev` branch | push to `main` branch |
 | Image tag | `dev-latest` | `latest` |
 | Backend replicas | 1 | 2 |
@@ -749,7 +749,7 @@ Two isolated environments on the same K3s cluster, each with its own database, d
 
 ### Postgres on K8s
 
-Both `fantasygolf_dev` and `fantasygolf_prod` run as separate databases on the same Postgres pod (single K8s Deployment, single PVC). Migrations are run manually (or as a K8s Job on deploy) per environment:
+Both `league_caddie_dev` and `league_caddie_prod` run as separate databases on the same Postgres pod (single K8s Deployment, single PVC). Migrations are run manually (or as a K8s Job on deploy) per environment:
 
 ```sh
 # Dev

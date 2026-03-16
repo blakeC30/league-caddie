@@ -207,7 +207,7 @@ publish calls at the status transition points (see deduplication section above).
 ## New Files
 
 ```
-fantasy-golf-backend/
+backend/
   app/
     services/
       sqs.py          ← SQS client wrapper (publish + consume)
@@ -367,14 +367,14 @@ Add the following to `docker-compose.yml`:
 
   worker:
     build:
-      context: ./fantasy-golf-backend
+      context: ./backend
       dockerfile: Dockerfile.dev
     volumes:
-      - ./fantasy-golf-backend:/app
+      - ./backend:/app
     env_file:
-      - ./fantasy-golf-backend/.env
+      - ./backend/.env
     environment:
-      DATABASE_URL: postgresql://fantasygolf:fantasygolf@postgres:5432/fantasygolf_dev
+      DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       AWS_ENDPOINT_URL: http://localstack:4566
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test       # LocalStack accepts any value
@@ -391,7 +391,7 @@ Add the following to `docker-compose.yml`:
   scraper:
     # existing config — add these env vars:
     environment:
-      DATABASE_URL: postgresql://fantasygolf:fantasygolf@postgres:5432/fantasygolf_dev
+      DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       AWS_ENDPOINT_URL: http://localstack:4566
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
@@ -543,7 +543,7 @@ pipeline has failed permanently.
 
 ## boto3 Dependency
 
-Add `boto3` to `fantasy-golf-backend/requirements.txt`. It is already an AWS
+Add `boto3` to `backend/requirements.txt`. It is already an AWS
 standard library with no additional cost and is pre-installed in most AWS
 environments.
 

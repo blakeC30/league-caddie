@@ -1,0 +1,10 @@
+apiVersion: v2
+name: league-caddie
+description: League Caddie — fantasy golf league management platform
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - league-caddie
+maintainers:
+  - name: League Caddie

@@ -1,0 +1,56 @@
+---
+# ClusterIssuer — Let's Encrypt certificate issuer (staging, for testing).
+#
+# Use letsencrypt-staging first. It has no rate limits and issues valid (but
+# untrusted by browsers) certificates so you can verify the full TLS flow without
+# hitting Let's Encrypt's production rate limits (5 failures/domain/hour).
+#
+# Once confirmed working, switch values.ingress.clusterIssuer to "letsencrypt-prod"
+# and run `helm upgrade` — cert-manager will re-issue a trusted certificate.
+#
+# Prerequisite: cert-manager must be installed on the cluster:
+#   kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+#
+# ACME HTTP-01 challenge: Let's Encrypt verifies domain ownership by hitting
+# http://<domain>/.well-known/acme-challenge/<token>. Traefik handles this automatically
+# when cert-manager creates the required Ingress challenge route.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+spec:
+  acme:
+    # Let's Encrypt staging endpoint — safe for testing.
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    # Email for expiry notifications and ACME account registration.
+    email: {{ .Values.certManager.email | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
+
+---
+# ClusterIssuer — Let's Encrypt production (real, browser-trusted certificates).
+#
+# Rate limits: 5 failed validations per domain per hour; 50 certificates per domain per week.
+# Only switch to this after verifying with letsencrypt-staging.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: {{ .Values.certManager.email | quote }}
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik

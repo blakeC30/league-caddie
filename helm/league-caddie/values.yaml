@@ -1,0 +1,142 @@
+# =============================================================================
+# values.yaml — Base defaults for the league-caddie Helm chart
+#
+# Override per-environment in values-dev.yaml / values-prod.yaml.
+# Never commit real secret values — pass them at deploy time via:
+#   --set secrets.secretKey="..."
+# or a gitignored values.secret.yaml file.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Image configuration
+# registry:   ECR repository URL, e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com
+#             Filled in by CI/CD (Phase 7). Empty = local image name only.
+# tag:        Docker image tag. CI/CD injects the Git SHA.
+# -----------------------------------------------------------------------------
+image:
+  registry: ""
+  tag: latest
+  pullPolicy: IfNotPresent
+
+# -----------------------------------------------------------------------------
+# Backend API  (backend Dockerfile target: api)
+# -----------------------------------------------------------------------------
+api:
+  replicas: 1
+  image:
+    repository: backend
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+# -----------------------------------------------------------------------------
+# Scraper  (backend Dockerfile target: scraper)
+# APScheduler process — syncs ESPN data on a cron schedule.
+# -----------------------------------------------------------------------------
+scraper:
+  replicas: 1
+  image:
+    repository: scraper
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+# -----------------------------------------------------------------------------
+# Worker  (backend Dockerfile target: worker)
+# SQS consumer — DO NOT change replicas. Must be exactly 1.
+# Duplicate consumers cause race conditions on playoff bracket advancement.
+# -----------------------------------------------------------------------------
+worker:
+  image:
+    repository: worker
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+# -----------------------------------------------------------------------------
+# Frontend  (frontend Dockerfile: nginx serving /dist)
+# -----------------------------------------------------------------------------
+frontend:
+  replicas: 1
+  image:
+    repository: frontend
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "32Mi"
+    limits:
+      cpu: "200m"
+      memory: "64Mi"
+
+# -----------------------------------------------------------------------------
+# PostgreSQL  (in-cluster, not RDS — keeps cost at zero)
+# -----------------------------------------------------------------------------
+postgres:
+  image: postgres:15-alpine
+  user: league_caddie
+  database: league_caddie_dev
+  # EBS volume size for the PersistentVolumeClaim.
+  storage: 5Gi
+
+# -----------------------------------------------------------------------------
+# Application configuration  (non-secret — goes into ConfigMap)
+# -----------------------------------------------------------------------------
+config:
+  environment: development
+  debug: "false"
+  frontendUrl: "https://league-caddie.com"
+  awsRegion: "us-east-1"
+  # Empty = use real AWS. Set to LocalStack URL for local dev only.
+  awsEndpointUrl: ""
+  sesFromEmail: "noreply@league-caddie.com"
+  # "true" restricts league creation to platform admins only.
+  leagueCreationRestricted: "true"
+  # SQS queue URL. Phase 7 CI/CD injects the real queue URL.
+  sqsQueueUrl: ""
+
+# -----------------------------------------------------------------------------
+# Secrets  (goes into a K8s Secret — base64 encoded at rest)
+#
+# IMPORTANT: These placeholder values must be overridden at deploy time.
+# Never commit real credentials here. Use:
+#   helm upgrade ... --set secrets.secretKey="real-value"
+# or a gitignored values.secret.yaml.
+# -----------------------------------------------------------------------------
+secrets:
+  # Long random string for JWT signing. Generate with: openssl rand -hex 32
+  secretKey: "change-this-placeholder-not-safe-for-production"
+  # PostgreSQL password.
+  postgresPassword: "league_caddie"
+  # Google OAuth client ID (leave empty to disable Google login).
+  googleClientId: ""
+  # AWS credentials. Leave empty in production — EC2 IAM instance role provides them.
+  awsAccessKeyId: ""
+  awsSecretAccessKey: ""
+
+# -----------------------------------------------------------------------------
+# Ingress (Traefik — built into K3s)
+# -----------------------------------------------------------------------------
+ingress:
+  host: league-caddie.com
+  tlsEnabled: true
+  # cert-manager ClusterIssuer to use. Use letsencrypt-staging first to test.
+  clusterIssuer: letsencrypt-prod
+
+# -----------------------------------------------------------------------------
+# cert-manager / Let's Encrypt
+# email: ACME account email — required for Let's Encrypt registration.
+# -----------------------------------------------------------------------------
+certManager:
+  email: ""

@@ -62,10 +62,10 @@ SES calls can fail transiently. Each reminder row tracks `attempt_count` and `ma
 | 10 | `app/services/scheduler.py` | Register `pick_reminder_send` APScheduler job (Wednesday noon UTC) |
 | 11 | `app/schemas/user.py` | Add `pick_reminders_enabled` to `UserOut` + `UserUpdate` |
 | 12 | `app/routers/users.py` | `PATCH /users/me` already handles `UserUpdate` — no router change needed |
-| 13 | `fantasy-golf-frontend/src/pages/Settings.tsx` | Add opt-out toggle |
-| 14 | `fantasy-golf-frontend/src/api/endpoints.ts` | Add `pick_reminders_enabled` to `User` interface |
-| 15 | `fantasy-golf-backend/CLAUDE.md` | Document new model, service, scheduler job |
-| 16 | `fantasy-golf-frontend/CLAUDE.md` | Document Settings toggle |
+| 13 | `frontend/src/pages/Settings.tsx` | Add opt-out toggle |
+| 14 | `frontend/src/api/endpoints.ts` | Add `pick_reminders_enabled` to `User` interface |
+| 15 | `backend/CLAUDE.md` | Document new model, service, scheduler job |
+| 16 | `frontend/CLAUDE.md` | Document Settings toggle |
 
 ---
 
@@ -306,7 +306,7 @@ All other existing jobs are unchanged.
 7. Add `pick_reminders_enabled` to `UserUpdate` schema + `UserOut` schema
 8. Add opt-out toggle to `Settings.tsx`
 9. Write tests (see below)
-10. Update `fantasy-golf-backend/CLAUDE.md` and `fantasy-golf-frontend/CLAUDE.md`
+10. Update `backend/CLAUDE.md` and `frontend/CLAUDE.md`
 
 ---
 

@@ -1,0 +1,21 @@
+---
+# Frontend Service — ClusterIP so only the ingress can reach it.
+# The ingress routes /* → this service on port 80.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "league-caddie.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "league-caddie.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP

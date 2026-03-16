@@ -1264,7 +1264,7 @@ def downgrade() -> None:
 **Apply manually (per CLAUDE.md convention):**
 
 ```bash
-docker exec fantasygolf-postgres-1 psql -U fantasygolf -d fantasygolf_dev -f /path/to/migration.sql
+docker exec league_caddie-postgres-1 psql -U league_caddie -d league_caddie_dev -f /path/to/migration.sql
 ```
 
 ---
@@ -1500,7 +1500,7 @@ export function useOverridePlayoffResult(leagueId: string) {
 }
 ```
 
-**React Query cache keys (add to `fantasy-golf-frontend/CLAUDE.md`):**
+**React Query cache keys (add to `frontend/CLAUDE.md`):**
 
 | Key | Hook |
 |-----|------|
@@ -1889,9 +1889,9 @@ Build `src/pages/PlayoffBracket.tsx` and `src/components/PlayoffBracketCard.tsx`
 Build `src/pages/PlayoffDraft.tsx`. Wire polling, golfer selector, submit mutation, and auto-refresh.
 
 ### Step 12: CLAUDE.md updates
-- Add new endpoints table to `fantasy-golf-backend/CLAUDE.md`
-- Add new models and migration to `fantasy-golf-backend/CLAUDE.md`
-- Add new routes, hooks, cache keys to `fantasy-golf-frontend/CLAUDE.md`
+- Add new endpoints table to `backend/CLAUDE.md`
+- Add new models and migration to `backend/CLAUDE.md`
+- Add new routes, hooks, cache keys to `frontend/CLAUDE.md`
 
 ---
 
@@ -1953,12 +1953,12 @@ This document is the complete, self-contained design. It is ready to be saved to
 
 ### Critical Files for Implementation
 
-- `/Users/blakechambers/Documents/FantasyGolf/fantasy-golf-backend/app/models/__init__.py` - Must be updated to import the five new playoff models so Alembic and all `from app.models import ...` statements work correctly across the app.
+- `/Users/blakechambers/Documents/FantasyGolf/backend/app/models/__init__.py` - Must be updated to import the five new playoff models so Alembic and all `from app.models import ...` statements work correctly across the app.
 
-- `/Users/blakechambers/Documents/FantasyGolf/fantasy-golf-backend/app/services/scoring.py` - The `calculate_standings()` function here is the direct dependency for `seed_playoff()`; the seeding algorithm calls it unchanged, so understanding its return shape (list of dicts with `user_id`, `total_points`, `display_name`) is critical to getting seed assignment right.
+- `/Users/blakechambers/Documents/FantasyGolf/backend/app/services/scoring.py` - The `calculate_standings()` function here is the direct dependency for `seed_playoff()`; the seeding algorithm calls it unchanged, so understanding its return shape (list of dicts with `user_id`, `total_points`, `display_name`) is critical to getting seed assignment right.
 
-- `/Users/blakechambers/Documents/FantasyGolf/fantasy-golf-backend/app/services/scheduler.py` - No new APScheduler jobs are needed for the playoff draft. The existing scoring job pattern is unchanged. Do not add a `playoff_auto_pick` job.
+- `/Users/blakechambers/Documents/FantasyGolf/backend/app/services/scheduler.py` - No new APScheduler jobs are needed for the playoff draft. The existing scoring job pattern is unchanged. Do not add a `playoff_auto_pick` job.
 
-- `/Users/blakechambers/Documents/FantasyGolf/fantasy-golf-frontend/src/api/endpoints.ts` - All new TypeScript types and the `playoffApi` group live here; this file is the single source of truth for frontend types and must stay in sync with backend Pydantic schemas.
+- `/Users/blakechambers/Documents/FantasyGolf/frontend/src/api/endpoints.ts` - All new TypeScript types and the `playoffApi` group live here; this file is the single source of truth for frontend types and must stay in sync with backend Pydantic schemas.
 
-- `/Users/blakechambers/Documents/FantasyGolf/fantasy-golf-frontend/src/App.tsx` - The three new routes (`/playoff`, `/playoff/draft/:podId`, `/manage/playoff`) must be added here for the bracket view, draft interface, and manager config pages to be reachable.
+- `/Users/blakechambers/Documents/FantasyGolf/frontend/src/App.tsx` - The three new routes (`/playoff`, `/playoff/draft/:podId`, `/manage/playoff`) must be added here for the bracket view, draft interface, and manager config pages to be reachable.

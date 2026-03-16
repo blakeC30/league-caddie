@@ -1,0 +1,25 @@
+---
+# Postgres Service — ClusterIP so only pods in the same namespace can connect.
+#
+# The DNS name "postgres" resolves inside the cluster because all backend services
+# reference DATABASE_URL with "postgres" as the hostname. The full DNS name is:
+#   postgres.<namespace>.svc.cluster.local
+# but within the same namespace, just "postgres" works.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "league-caddie.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+      protocol: TCP

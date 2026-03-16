@@ -76,8 +76,8 @@ This monorepo has two distinct sub-projects. When a task is scoped to one of the
 
 | Task involves… | Delegate to |
 |---|---|
-| Any file under `fantasy-golf-frontend/` | **frontend subagent** — cd into `fantasy-golf-frontend/`, follow `fantasy-golf-frontend/CLAUDE.md` |
-| Any file under `fantasy-golf-backend/` | **backend subagent** — cd into `fantasy-golf-backend/`, follow `fantasy-golf-backend/CLAUDE.md` |
+| Any file under `frontend/` | **frontend subagent** — cd into `frontend/`, follow `frontend/CLAUDE.md` |
+| Any file under `backend/` | **backend subagent** — cd into `backend/`, follow `backend/CLAUDE.md` |
 | Cross-cutting (e.g. new feature touching both) | Spawn **both** subagents in parallel; coordinate via this root CLAUDE.md |
 | Infrastructure only (`helm/`, `docker-compose.yml`, `.github/`) | Work in root; no subagent needed |
 
@@ -97,14 +97,14 @@ The subagent should read the subfolder CLAUDE.md at the start of its task to pic
 This project has three CLAUDE.md files — keep all three current:
 
 - `CLAUDE.md` (this file) — project-wide rules, domain logic, tech stack, guiding principles
-- `fantasy-golf-frontend/CLAUDE.md` — frontend-specific: routes, components, hooks, React Query keys, styling conventions
-- `fantasy-golf-backend/CLAUDE.md` — backend-specific: endpoints, models, dependency chain, migration process, scraper
+- `frontend/CLAUDE.md` — frontend-specific: routes, components, hooks, React Query keys, styling conventions
+- `backend/CLAUDE.md` — backend-specific: endpoints, models, dependency chain, migration process, scraper
 
 **When to update them:**
-- New page, component, or hook added → update `fantasy-golf-frontend/CLAUDE.md`
-- New endpoint, model column, or schema added → update `fantasy-golf-backend/CLAUDE.md`
-- New migration applied → add it to the migration list in `fantasy-golf-backend/CLAUDE.md`
-- New React Query cache key introduced → add it to the cache key table in `fantasy-golf-frontend/CLAUDE.md`
+- New page, component, or hook added → update `frontend/CLAUDE.md`
+- New endpoint, model column, or schema added → update `backend/CLAUDE.md`
+- New migration applied → add it to the migration list in `backend/CLAUDE.md`
+- New React Query cache key introduced → add it to the cache key table in `frontend/CLAUDE.md`
 - Tech stack or architecture decision changes → update this file
 
 Update the relevant CLAUDE.md as part of the same task, not as a separate follow-up.
@@ -155,8 +155,8 @@ FantasyGolf/
 │   └── fantasy-golf/             # Helm chart for K8s deployments
 ├── .github/
 │   └── workflows/ci-cd.yml       # GitHub Actions pipeline
-├── fantasy-golf-frontend/        # React + TypeScript app
-└── fantasy-golf-backend/         # FastAPI + Python app
+├── frontend/        # React + TypeScript app
+└── backend/         # FastAPI + Python app
     ├── app/
     │   ├── main.py
     │   ├── config.py
@@ -184,6 +184,6 @@ FantasyGolf/
 
 ## Environments
 
-- **Dev**: K8s `dev` namespace, `fantasygolf_dev` database, deployed from `dev` branch
-- **Production**: K8s `prod` namespace, `fantasygolf_prod` database, deployed from `main` branch
+- **Dev**: K8s `dev` namespace, `league_caddie_dev` database, deployed from `dev` branch
+- **Production**: K8s `prod` namespace, `league_caddie_prod` database, deployed from `main` branch
 - **Local**: docker-compose (postgres on :5432, backend on :8000, frontend on :5173)

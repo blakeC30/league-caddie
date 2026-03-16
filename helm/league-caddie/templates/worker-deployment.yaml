@@ -1,0 +1,81 @@
+---
+# Worker Deployment — SQS consumer for playoff automation.
+#
+# Handles two event types published by the scraper:
+#   TOURNAMENT_COMPLETED   → score_picks(), score_round(), advance_bracket()
+#   TOURNAMENT_IN_PROGRESS → resolve_draft() for playoff rounds
+#
+# ⚠️  REPLICAS IS HARDCODED TO 1. DO NOT CHANGE IT.
+# Handlers are idempotent within a single event, but duplicate consumers running
+# concurrently can cause race conditions during bracket advancement (two workers
+# could both call advance_bracket() and move different players forward simultaneously).
+# Scaling the worker horizontally requires distributed locking — not currently implemented.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "league-caddie.fullname" . }}-worker
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 1  # DO NOT increase — see comment above.
+  selector:
+    matchLabels:
+      {{- include "league-caddie.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        {{- include "league-caddie.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      containers:
+        - name: worker
+          image: {{ include "league-caddie.image" (dict "root" . "repo" .Values.worker.image.repository) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://{{ .Values.postgres.user }}:$(POSTGRES_PASSWORD)@postgres:5432/{{ .Values.postgres.database }}"
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: SECRET_KEY
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: AWS_ACCESS_KEY_ID
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: AWS_SECRET_ACCESS_KEY
+            - name: ENVIRONMENT
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: ENVIRONMENT
+            - name: AWS_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: AWS_REGION
+            - name: AWS_ENDPOINT_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: AWS_ENDPOINT_URL
+            - name: SQS_QUEUE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: SQS_QUEUE_URL
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}

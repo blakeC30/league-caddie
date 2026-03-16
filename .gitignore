@@ -1,6 +1,6 @@
 # =============================================================================
-# Root .gitignore — covers both fantasy-golf-frontend (Node) and
-# fantasy-golf-backend (Python). Replaces the two sub-repo .gitignore files.
+# Root .gitignore — covers both frontend (Node) and
+# backend (Python). Replaces the two sub-repo .gitignore files.
 # =============================================================================
 
 # -----------------------------------------------------------------------------

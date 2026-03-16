@@ -1,0 +1,56 @@
+---
+# Ingress — Traefik (built into K3s) routes external traffic to services.
+#
+# Routing rules (evaluated top-to-bottom):
+#   /api/   → backend API service (port 8000) — FastAPI handles /api/v1/* routes
+#   /       → frontend nginx service (port 80) — serves React SPA
+#
+# TLS is terminated at the ingress. cert-manager automatically provisions and renews
+# a Let's Encrypt certificate and stores it in the secret named below.
+#
+# The pathType "Prefix" for /api/ means all paths starting with /api/ are matched,
+# including /api/v1/leagues, /api/v1/auth/login, etc.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "league-caddie.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.tlsEnabled }}
+    # Tell cert-manager which ClusterIssuer to use for this ingress.
+    # Use letsencrypt-staging first (no rate limits) then switch to letsencrypt-prod.
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
+    {{- end }}
+    # Traefik-specific: tell it to use the web (HTTP) or websecure (HTTPS) entrypoint.
+    traefik.ingress.kubernetes.io/router.entrypoints: {{ if .Values.ingress.tlsEnabled }}websecure{{ else }}web{{ end }}
+spec:
+  ingressClassName: traefik
+  {{- if .Values.ingress.tlsEnabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+      # cert-manager stores the issued certificate in this Secret.
+      secretName: {{ .Values.ingress.host | replace "." "-" }}-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          # Backend API — must come before the catch-all "/" rule.
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "league-caddie.fullname" . }}-api
+                port:
+                  name: http
+          # Frontend SPA — catches everything else, including deep React Router paths.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "league-caddie.fullname" . }}-frontend
+                port:
+                  name: http

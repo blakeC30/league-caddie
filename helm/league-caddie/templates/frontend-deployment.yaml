@@ -1,0 +1,61 @@
+---
+# Frontend Deployment — Nginx serving the compiled React + Vite build.
+#
+# The image is fully stateless: the Vite build is baked in at image-build time.
+# All runtime configuration (API URL, Google client ID) is handled by the browser
+# reading VITE_* env vars that were baked in at build time — not injected here.
+#
+# The ingress routes /* → this service. /api/* is routed to the backend first, so
+# FastAPI handles those requests before nginx ever sees them.
+#
+# The nginx.conf inside the image handles:
+#   - React Router fallback (unknown paths → index.html)
+#   - Gzip compression
+#   - Long-lived cache headers on hashed Vite asset filenames
+#   - GET /health → 200 (for liveness probes)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "league-caddie.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  selector:
+    matchLabels:
+      {{- include "league-caddie.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "league-caddie.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: {{ include "league-caddie.image" (dict "root" . "repo" .Values.frontend.image.repository) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}

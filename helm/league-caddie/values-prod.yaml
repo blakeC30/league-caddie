@@ -1,0 +1,29 @@
+# =============================================================================
+# values-prod.yaml — Production namespace overrides
+#
+# Deploy with:
+#   helm upgrade --install league-caddie helm/league-caddie \
+#     --namespace prod --create-namespace \
+#     -f helm/league-caddie/values-prod.yaml \
+#     --set secrets.secretKey="..." \
+#     --set secrets.postgresPassword="..." \
+#     --set secrets.googleClientId="..." \
+#     --set certManager.email="your@email.com"
+# =============================================================================
+
+config:
+  environment: production
+  debug: "false"
+  frontendUrl: "https://league-caddie.com"
+  leagueCreationRestricted: "false"
+  # Real SQS queue for prod — replace ACCOUNT_ID with your AWS account number.
+  sqsQueueUrl: "https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/league-caddie-events"
+
+postgres:
+  database: league_caddie_prod
+  storage: 10Gi
+
+ingress:
+  host: league-caddie.com
+  tlsEnabled: true
+  clusterIssuer: letsencrypt-prod
