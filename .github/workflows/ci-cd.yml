@@ -1,0 +1,352 @@
+name: CI/CD
+
+# Triggers:
+#   pull_request → lint + test + helm lint + docker build (no push)
+#   push to main → full pipeline ending in sequential dev → prod deploy with approval gates
+#   workflow_dispatch → manual re-trigger from GitHub UI (same as push)
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel any in-progress run for the same ref when a new one starts.
+# Prevents a queued deploy from running against stale images.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: us-east-1
+  # Constructed from the AWS_ACCOUNT_ID secret — avoids hardcoding the account number.
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  # ────────────────────────────────────────────────────────────────────────────
+  # test-backend
+  #
+  # Runs ruff lint/format check and pytest against a live Postgres service
+  # container. Uses uv for dependency management (matches the Dockerfile).
+  # ────────────────────────────────────────────────────────────────────────────
+  test-backend:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: league_caddie
+          POSTGRES_PASSWORD: league_caddie
+          POSTGRES_DB: league_caddie_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --frozen
+
+      - name: Lint (ruff)
+        working-directory: backend
+        run: uv run ruff check .
+
+      - name: Format check (ruff)
+        working-directory: backend
+        run: uv run ruff format --check .
+
+      - name: Run tests
+        working-directory: backend
+        env:
+          # Both vars set to the same value — conftest reads TEST_DATABASE_URL,
+          # but the app config module validates DATABASE_URL at import time.
+          TEST_DATABASE_URL: postgresql://league_caddie:league_caddie@localhost:5432/league_caddie_test
+          DATABASE_URL: postgresql://league_caddie:league_caddie@localhost:5432/league_caddie_test
+          SECRET_KEY: ci-test-secret-key-not-used-in-prod
+          ENVIRONMENT: test
+          AWS_REGION: us-east-1
+          # Dummy credentials — no real AWS calls are made during tests.
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_ENDPOINT_URL: ""
+          SES_FROM_EMAIL: noreply@league-caddie.com
+          SQS_QUEUE_URL: http://localhost:4566/000000000000/test-queue
+          FRONTEND_URL: http://localhost:5173
+          LEAGUE_CREATION_RESTRICTED: "false"
+        run: uv run pytest
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # test-frontend
+  #
+  # TypeScript type check + ESLint. No unit test suite exists yet.
+  # ────────────────────────────────────────────────────────────────────────────
+  test-frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: frontend
+        run: npm run type-check
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # helm-lint
+  #
+  # Validates the Helm chart renders cleanly against both values files.
+  # ────────────────────────────────────────────────────────────────────────────
+  helm-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Lint (dev values)
+        run: helm lint helm/league-caddie -f helm/league-caddie/values-dev.yaml
+
+      - name: Lint (prod values)
+        run: helm lint helm/league-caddie -f helm/league-caddie/values-prod.yaml
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # build
+  #
+  # Builds all 4 images (api, scraper, worker, frontend).
+  # On pull_request: build only — validates Dockerfiles without pushing.
+  # On push to main: build + push to ECR tagged `latest`.
+  #
+  # Each image uses its own GHA cache scope so backend and frontend cache
+  # don't interfere with each other.
+  #
+  # ECR repo names match the `repository` field in values.yaml exactly:
+  #   backend → api target, scraper → scraper target, worker → worker target,
+  #   frontend → frontend image
+  # ────────────────────────────────────────────────────────────────────────────
+  build:
+    needs: [test-backend, test-frontend, helm-lint]
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      # ECR login only needed when pushing (i.e. push to main, not PRs).
+      - name: Configure AWS credentials
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ── Backend: api target ─────────────────────────────────────────────────
+      - name: Build api
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: api
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.ECR_REGISTRY }}/backend:latest
+          cache-from: type=gha,scope=backend-api
+          cache-to: type=gha,scope=backend-api,mode=max
+
+      # ── Backend: scraper target ─────────────────────────────────────────────
+      - name: Build scraper
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: scraper
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.ECR_REGISTRY }}/scraper:latest
+          cache-from: type=gha,scope=backend-scraper
+          cache-to: type=gha,scope=backend-scraper,mode=max
+
+      # ── Backend: worker target ──────────────────────────────────────────────
+      - name: Build worker
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          target: worker
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.ECR_REGISTRY }}/worker:latest
+          cache-from: type=gha,scope=backend-worker
+          cache-to: type=gha,scope=backend-worker,mode=max
+
+      # ── Frontend ────────────────────────────────────────────────────────────
+      - name: Build frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.ECR_REGISTRY }}/frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # scan
+  #
+  # Trivy CVE scan on all 4 pushed images. Fails the pipeline on any CRITICAL
+  # severity finding. Skipped entirely on pull requests (nothing was pushed).
+  # ────────────────────────────────────────────────────────────────────────────
+  scan:
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Scan api
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/backend:latest
+          exit-code: "1"
+          severity: CRITICAL
+
+      - name: Scan scraper
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/scraper:latest
+          exit-code: "1"
+          severity: CRITICAL
+
+      - name: Scan worker
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/worker:latest
+          exit-code: "1"
+          severity: CRITICAL
+
+      - name: Scan frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/frontend:latest
+          exit-code: "1"
+          severity: CRITICAL
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # deploy-dev
+  #
+  # APPROVAL GATE #1: GitHub pauses here and sends a notification. You must
+  # approve in the GitHub Actions UI before the deploy runs.
+  #
+  # Deploys to the `dev` K8s namespace using the kubeconfig stored as a secret.
+  # The kubeconfig must be base64-encoded and point to the dev K3s cluster's
+  # public IP (port 6443).
+  #
+  # Helm migrations run automatically via the pre-upgrade hook in migrate-job.yaml.
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-dev:
+    needs: scan
+    if: github.event_name != 'pull_request'
+    environment: dev
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Configure kubectl (dev)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to dev namespace
+        run: |
+          helm upgrade --install league-caddie helm/league-caddie \
+            --namespace dev --create-namespace \
+            -f helm/league-caddie/values-dev.yaml \
+            --set image.registry=${{ env.ECR_REGISTRY }} \
+            --set image.tag=latest \
+            --set secrets.secretKey="${{ secrets.JWT_SECRET_DEV }}" \
+            --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_DEV }}" \
+            --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
+            --wait --timeout=5m
+
+      - name: Verify rollout (dev)
+        run: kubectl rollout status deployment -n dev --timeout=120s
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # deploy-prod
+  #
+  # APPROVAL GATE #2: Structurally blocked until deploy-dev succeeds.
+  # You cannot reach this job without dev having deployed successfully first.
+  #
+  # Approve only after verifying the feature works on the dev cluster.
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy-prod:
+    needs: deploy-dev
+    if: github.event_name != 'pull_request'
+    environment: prod
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+
+      - name: Configure kubectl (prod)
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Deploy to prod namespace
+        run: |
+          helm upgrade --install league-caddie helm/league-caddie \
+            --namespace prod --create-namespace \
+            -f helm/league-caddie/values-prod.yaml \
+            --set image.registry=${{ env.ECR_REGISTRY }} \
+            --set image.tag=latest \
+            --set secrets.secretKey="${{ secrets.JWT_SECRET_PROD }}" \
+            --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_PROD }}" \
+            --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
+            --wait --timeout=5m
+
+      - name: Verify rollout (prod)
+        run: kubectl rollout status deployment -n prod --timeout=120s
