@@ -145,20 +145,30 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
     log.info("TOURNAMENT_COMPLETED: scoring regular picks for '%s'", tournament.name)
     try:
         count = score_picks(db, tournament)
-        log.info("TOURNAMENT_COMPLETED: scored %d regular picks for '%s'", count, tournament.name)
+        log.info(
+            "TOURNAMENT_COMPLETED: scored %d regular picks for '%s'",
+            count,
+            tournament.name,
+        )
     except Exception as exc:
         db.rollback()
-        log.error("TOURNAMENT_COMPLETED: score_picks failed for '%s': %s", tournament.name, exc, exc_info=True)
+        log.error(
+            "TOURNAMENT_COMPLETED: score_picks failed for '%s': %s",
+            tournament.name,
+            exc,
+            exc_info=True,
+        )
         raise  # retry
 
     # Step 2: Score playoff round if one is linked to this tournament.
     playoff_round = (
-        db.query(PlayoffRound)
-        .filter_by(tournament_id=tournament_id, status="locked")
-        .first()
+        db.query(PlayoffRound).filter_by(tournament_id=tournament_id, status="locked").first()
     )
     if not playoff_round:
-        log.debug("TOURNAMENT_COMPLETED: no locked playoff round for tournament %s", tournament_id)
+        log.debug(
+            "TOURNAMENT_COMPLETED: no locked playoff round for tournament %s",
+            tournament_id,
+        )
         return
 
     log.info(
@@ -222,4 +232,5 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, _handle_sigterm)
 
     from app.services.sqs import consume
+
     consume(handle)

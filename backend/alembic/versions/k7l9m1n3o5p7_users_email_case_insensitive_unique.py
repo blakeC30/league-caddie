@@ -12,15 +12,15 @@ Create Date: 2026-03-14
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "k7l9m1n3o5p7"
-down_revision: Union[str, Sequence[str], None] = "j6k8l0m2n4o6"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "j6k8l0m2n4o6"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -30,9 +30,7 @@ def upgrade() -> None:
     # Create a functional unique index so Postgres enforces uniqueness on the
     # lowercase form.  This blocks duplicates like "Alice@example.com" vs
     # "alice@example.com" even if application-level normalisation is bypassed.
-    op.execute(
-        "CREATE UNIQUE INDEX ix_users_email_lower ON users (LOWER(email))"
-    )
+    op.execute("CREATE UNIQUE INDEX ix_users_email_lower ON users (LOWER(email))")
 
 
 def downgrade() -> None:

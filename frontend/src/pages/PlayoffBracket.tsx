@@ -249,6 +249,46 @@ function PodModal({
   currentUserId: string | null;
   onClose: () => void;
 }) {
+  // Extract live-pod fields before any early returns (Rules of Hooks).
+  const roundStatus  = selected.kind === "live" ? selected.roundStatus  : null;
+  const tournamentId = selected.kind === "live" ? selected.tournamentId : null;
+  const livePod      = selected.kind === "live" ? selected.pod          : null;
+
+  const needsLeaderboard = roundStatus === "locked" || roundStatus === "scoring";
+  const { data: leaderboard } = useQuery({
+    queryKey: ["tournament-leaderboard", tournamentId],
+    queryFn: () => tournamentsApi.leaderboard(tournamentId!),
+    enabled: needsLeaderboard && !!tournamentId,
+  });
+
+  const positionMap = useMemo(() => {
+    if (!leaderboard) return new Map<string, string>();
+    return new Map(
+      leaderboard.entries.map((e) => {
+        const pos = e.finish_position != null
+          ? `${e.is_tied ? "T" : ""}${e.finish_position}`
+          : "—";
+        const score = e.total_score_to_par != null
+          ? e.total_score_to_par === 0 ? "E"
+            : e.total_score_to_par > 0 ? `+${e.total_score_to_par}`
+            : `${e.total_score_to_par}`
+          : "—";
+        return [e.golfer_id, `${pos} (${score})`];
+      })
+    );
+  }, [leaderboard]);
+
+  const picksByMemberId = useMemo(() => {
+    const map = new Map<number, PlayoffPodOut["picks"]>();
+    if (!livePod) return map;
+    for (const pick of livePod.picks) {
+      const arr = map.get(pick.pod_member_id) ?? [];
+      arr.push(pick);
+      map.set(pick.pod_member_id, arr);
+    }
+    return map;
+  }, [livePod]);
+
   // ── Pending pod ──────────────────────────────────────────────────────────
   if (selected.kind === "pending") {
     return (
@@ -314,44 +354,8 @@ function PodModal({
   }
 
   // ── Live pod ──────────────────────────────────────────────────────────────
-  const { pod, roundStatus, tournamentId, tournamentName } = selected;
-
-  // Fetch leaderboard when the tournament is in progress (locked = picks resolved, game ongoing)
-  const needsLeaderboard = roundStatus === "locked" || roundStatus === "scoring";
-  const { data: leaderboard } = useQuery({
-    queryKey: ["tournament-leaderboard", tournamentId],
-    queryFn: () => tournamentsApi.leaderboard(tournamentId!),
-    enabled: needsLeaderboard && !!tournamentId,
-  });
-
-  // golfer_id → "T4 (-5)" style position string
-  const positionMap = useMemo(() => {
-    if (!leaderboard) return new Map<string, string>();
-    return new Map(
-      leaderboard.entries.map((e) => {
-        const pos = e.finish_position != null
-          ? `${e.is_tied ? "T" : ""}${e.finish_position}`
-          : "—";
-        const score = e.total_score_to_par != null
-          ? e.total_score_to_par === 0 ? "E"
-            : e.total_score_to_par > 0 ? `+${e.total_score_to_par}`
-            : `${e.total_score_to_par}`
-          : "—";
-        return [e.golfer_id, `${pos} (${score})`];
-      })
-    );
-  }, [leaderboard]);
-
-  // Group picks by pod_member_id (integer PK)
-  const picksByMemberId = useMemo(() => {
-    const map = new Map<number, typeof pod.picks>();
-    for (const pick of pod.picks) {
-      const arr = map.get(pick.pod_member_id) ?? [];
-      arr.push(pick);
-      map.set(pick.pod_member_id, arr);
-    }
-    return map;
-  }, [pod.picks]);
+  // roundStatus and tournamentId are already declared above (before early returns).
+  const { pod, tournamentName } = selected;
 
   const isCompleted = roundStatus === "completed";
   const isDrafting  = roundStatus === "drafting";
@@ -732,7 +736,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
 
     return (
       <div className="space-y-6">
-        {!hideHeader && <PageHeader config={config} leagueId={leagueId!} badge="projected" />}
+        {!hideHeader && <PageHeader config={config} badge="projected" />}
 
         <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-700">
           <strong>Projected bracket</strong> based on current standings — seedings will be confirmed when the playoff begins.
@@ -819,7 +823,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
 
   return (
     <div className="space-y-6">
-      {!hideHeader && <PageHeader config={config} leagueId={leagueId!} badge={config.status} />}
+      {!hideHeader && <PageHeader config={config} badge={config.status} />}
 
       {champion && (
         <div className="bg-gradient-to-r from-amber-400 to-yellow-300 rounded-2xl px-6 py-5 flex items-center gap-4 shadow-md">
@@ -865,11 +869,9 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
 
 function PageHeader({
   config,
-  leagueId,
   badge,
 }: {
   config: { playoff_size: number; draft_style: string; status: string };
-  leagueId: string;
   badge: string;
 }) {
   const badgeColors: Record<string, string> = {

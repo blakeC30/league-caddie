@@ -31,9 +31,7 @@ class PickReminder(Base):
         UniqueConstraint("league_id", "season_id", "tournament_id", name="uq_pick_reminders"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     league_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False
     )
@@ -42,7 +40,9 @@ class PickReminder(Base):
         Integer, ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False
     )
     tournament_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tournaments.id", ondelete="CASCADE"), nullable=False
+        UUID(as_uuid=True),
+        ForeignKey("tournaments.id", ondelete="CASCADE"),
+        nullable=False,
     )
 
     # When the reminder was (or should have been) sent.

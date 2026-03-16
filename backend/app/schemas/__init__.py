@@ -9,7 +9,12 @@ Keeping them separate lets us control exactly what data is exposed through
 the API without leaking internal model details.
 """
 
-from app.schemas.auth import GoogleAuthRequest, LoginRequest, RegisterRequest, TokenResponse
+from app.schemas.auth import (
+    GoogleAuthRequest,
+    LoginRequest,
+    RegisterRequest,
+    TokenResponse,
+)
 from app.schemas.golfer import GolferOut
 from app.schemas.league import LeagueCreate, LeagueMemberOut, LeagueOut, RoleUpdate
 from app.schemas.pick import PickCreate, PickOut, PickUpdate

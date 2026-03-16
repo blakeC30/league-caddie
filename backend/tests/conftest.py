@@ -29,6 +29,7 @@ TEST_DB_URL = os.environ.get(
 
 from app.database import get_db  # noqa: E402
 from app.main import app  # noqa: E402
+
 # Importing Base from app.models (not app.models.base) triggers the __init__.py,
 # which imports every model class and registers them all with Base.metadata.
 from app.models import Base  # noqa: E402
@@ -79,6 +80,7 @@ def client(db):
     `client` uses `league_caddie_test` instead of the dev database.
     Each request still gets its own session (matches prod behavior).
     """
+
     def _override_get_db():
         s = TestingSessionLocal()
         try:
@@ -96,14 +98,18 @@ def client(db):
 # Shared auth fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def registered_user(client):
     """Register a test user and return the access token."""
-    resp = client.post("/api/v1/auth/register", json={
-        "email": "test@example.com",
-        "password": "password123",
-        "display_name": "Test User",
-    })
+    resp = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "test@example.com",
+            "password": "password123",
+            "display_name": "Test User",
+        },
+    )
     assert resp.status_code == 201, resp.json()
     return resp.json()["access_token"]
 

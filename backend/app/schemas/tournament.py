@@ -66,6 +66,7 @@ class LeagueTournamentOut(TournamentOut):
 # Leaderboard schemas
 # ---------------------------------------------------------------------------
 
+
 class RoundSummaryOut(BaseModel):
     round_number: int
     score: int | None

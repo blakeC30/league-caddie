@@ -94,7 +94,8 @@ For live_score_sync, "should we run now?" is computed as follows:
 """
 
 import logging
-from datetime import date, datetime, time as dt_time, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
+from datetime import time as dt_time
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -108,6 +109,7 @@ _scheduler = BackgroundScheduler(timezone="UTC")
 # ---------------------------------------------------------------------------
 # Play window helper
 # ---------------------------------------------------------------------------
+
 
 def _is_within_play_window(db, tournament) -> bool:
     """
@@ -126,12 +128,15 @@ def _is_within_play_window(db, tournament) -> bool:
     # Lazy imports to avoid circular imports at module load time.
     from app.models import TournamentEntry, TournamentEntryRound
 
-    now_utc = datetime.now(tz=timezone.utc)
+    now_utc = datetime.now(tz=UTC)
     lookback_start = now_utc - timedelta(hours=36)
 
     tee_time_rows = (
         db.query(TournamentEntryRound.tee_time)
-        .join(TournamentEntry, TournamentEntryRound.tournament_entry_id == TournamentEntry.id)
+        .join(
+            TournamentEntry,
+            TournamentEntryRound.tournament_entry_id == TournamentEntry.id,
+        )
         .filter(
             TournamentEntry.tournament_id == tournament.id,
             TournamentEntryRound.tee_time.isnot(None),
@@ -145,10 +150,7 @@ def _is_within_play_window(db, tournament) -> bool:
         raw_times = [row.tee_time for row in tee_time_rows if row.tee_time is not None]
         if raw_times:
             # Normalise to UTC-aware datetimes (SQLAlchemy may return naive or aware).
-            aware_times = [
-                t if t.tzinfo is not None else t.replace(tzinfo=timezone.utc)
-                for t in raw_times
-            ]
+            aware_times = [t if t.tzinfo is not None else t.replace(tzinfo=UTC) for t in raw_times]
             play_start = min(aware_times) - timedelta(minutes=30)
             play_end = max(aware_times) + timedelta(hours=8)
             in_window = play_start <= now_utc <= play_end
@@ -168,8 +170,8 @@ def _is_within_play_window(db, tournament) -> bool:
     #   - Hawaii (UTC-10):        first tee ~16:30 UTC, last finish ~06:00 UTC
     # So [10:00 UTC, 07:00 UTC next day] covers the full range worldwide.
     today_utc = now_utc.date()
-    wide_start = datetime.combine(today_utc, dt_time(10, 0), tzinfo=timezone.utc)
-    wide_end = datetime.combine(today_utc + timedelta(days=1), dt_time(7, 0), tzinfo=timezone.utc)
+    wide_start = datetime.combine(today_utc, dt_time(10, 0), tzinfo=UTC)
+    wide_end = datetime.combine(today_utc + timedelta(days=1), dt_time(7, 0), tzinfo=UTC)
     in_window = wide_start <= now_utc <= wide_end
     log.debug(
         "No tee times in DB — wide fallback window [10:00–07:00 UTC], in_window=%s",
@@ -181,6 +183,7 @@ def _is_within_play_window(db, tournament) -> bool:
 # ---------------------------------------------------------------------------
 # Job functions
 # ---------------------------------------------------------------------------
+
 
 def _run_schedule_sync() -> None:
     """Daily at 06:00 UTC: fetch and upsert the full PGA Tour season schedule."""
@@ -223,7 +226,11 @@ def _run_field_sync(days_before_start: int) -> None:
             .all()
         )
         if not tournaments:
-            log.debug("Field sync (d%d): no tournament starting on %s", days_before_start, target_date)
+            log.debug(
+                "Field sync (d%d): no tournament starting on %s",
+                days_before_start,
+                target_date,
+            )
             return
         for tournament in tournaments:
             log.info(
@@ -261,14 +268,12 @@ def _run_live_score_sync() -> None:
     db = SessionLocal()
     try:
         active_tournaments = (
-            db.query(Tournament)
-            .filter_by(status=TournamentStatus.IN_PROGRESS.value)
-            .all()
+            db.query(Tournament).filter_by(status=TournamentStatus.IN_PROGRESS.value).all()
         )
         if not active_tournaments:
             return  # Nothing to do — skip silently (fires every 10 min)
 
-        today_utc = datetime.now(tz=timezone.utc).date()
+        today_utc = datetime.now(tz=UTC).date()
 
         for tournament in active_tournaments:
             # Safety guard: skip tournaments whose end_date is stale.
@@ -385,6 +390,7 @@ def _run_results_finalization() -> None:
 # Scheduler lifecycle
 # ---------------------------------------------------------------------------
 
+
 def start_scheduler() -> None:
     """
     Register all sync jobs and start the scheduler.
@@ -450,7 +456,7 @@ def start_scheduler() -> None:
         id="live_score_sync",
         replace_existing=True,
         misfire_grace_time=300,  # 5-minute grace (shorter — freshness matters)
-        max_instances=1,         # prevent overlapping runs if ESPN is slow
+        max_instances=1,  # prevent overlapping runs if ESPN is slow
     )
 
     # ── 4. Results finalization ───────────────────────────────────────────

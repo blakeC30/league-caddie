@@ -32,7 +32,10 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
   const { data: rawField } = useTournamentField(tournamentId);
   const { data: allGolfers } = useAllGolfers();
   const fieldNotReleased = Array.isArray(rawField) && rawField.length === 0;
-  const field = fieldNotReleased ? (allGolfers ?? []) : (rawField ?? []);
+  const field = useMemo(
+    () => fieldNotReleased ? (allGolfers ?? []) : (rawField ?? []),
+    [fieldNotReleased, allGolfers, rawField],
+  );
   const submit = useSubmitPreferences(leagueId, podId);
 
   const [ranked, setRanked] = useState<string[]>(() =>
@@ -44,9 +47,9 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
 
   useEffect(() => {
     setRanked(currentPreferences.map((p) => p.golfer_id));
-  }, [currentPreferences.length]);
+  }, [currentPreferences]);
 
-  const rankedSet = new Set(ranked);
+  const rankedSet = useMemo(() => new Set(ranked), [ranked]);
 
   const golferMap = useMemo(() => {
     const m: Record<string, Golfer> = {};

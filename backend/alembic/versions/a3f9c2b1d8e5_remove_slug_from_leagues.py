@@ -11,6 +11,7 @@ UUID primary key in all API routes and frontend navigation.
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "a3f9c2b1d8e5"

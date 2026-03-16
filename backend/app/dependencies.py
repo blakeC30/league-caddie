@@ -22,7 +22,14 @@ from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import League, LeagueMember, LeagueMemberRole, LeagueMemberStatus, Season, User
+from app.models import (
+    League,
+    LeagueMember,
+    LeagueMemberRole,
+    LeagueMemberStatus,
+    Season,
+    User,
+)
 from app.services.auth import decode_access_token
 
 # HTTPBearer extracts "Bearer <token>" from the Authorization header.
@@ -97,9 +104,9 @@ def require_league_member(
     )
     if not membership:
         # Check if there's a pending request so we can give a clearer error.
-        pending = db.query(LeagueMember).filter_by(
-            league_id=league.id, user_id=current_user.id
-        ).first()
+        pending = (
+            db.query(LeagueMember).filter_by(league_id=league.id, user_id=current_user.id).first()
+        )
         if pending:
             raise HTTPException(
                 status_code=403,

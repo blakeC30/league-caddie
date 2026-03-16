@@ -51,7 +51,7 @@ if TYPE_CHECKING:
     from app.models.pick_reminder import PickReminder
 
 
-class TournamentStatus(str, enum.Enum):
+class TournamentStatus(enum.StrEnum):
     """
     Lifecycle of a PGA Tour event.
 
@@ -60,9 +60,9 @@ class TournamentStatus(str, enum.Enum):
     type, which requires a migration to add new values).
     """
 
-    SCHEDULED = "scheduled"      # Future event; field not yet announced
+    SCHEDULED = "scheduled"  # Future event; field not yet announced
     IN_PROGRESS = "in_progress"  # Currently being played
-    COMPLETED = "completed"      # Final results are official
+    COMPLETED = "completed"  # Final results are official
 
 
 class Tournament(Base):
@@ -128,14 +128,10 @@ class Tournament(Base):
     # Set by the scraper at the very end of each sync_tournament call, after all
     # upserts and pick scoring are committed. The frontend polls this value to
     # detect when a sync has fully completed before refreshing the leaderboard.
-    last_synced_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # --- Relationships ---
-    entries: Mapped[list["TournamentEntry"]] = relationship(
-        back_populates="tournament"
-    )
+    entries: Mapped[list["TournamentEntry"]] = relationship(back_populates="tournament")
     picks: Mapped[list["Pick"]] = relationship(back_populates="tournament")
     league_tournaments: Mapped[list["LeagueTournament"]] = relationship(back_populates="tournament")
     pick_reminders: Mapped[list["PickReminder"]] = relationship(
@@ -175,16 +171,16 @@ class TournamentEntry(Base):
     # Once set, this value is never overwritten by later rounds' tee times.
     # Pick-locking logic: if now() >= tee_time, the pick is locked for the
     # entire tournament (not just Round 1 — picking closes when Thursday starts).
-    tee_time: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    tee_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Display leaderboard position computed from score_to_par totals (not ESPN's
     # sequential order). Tied golfers share the same number (T6 → finish_position=6).
     # Set during sync; null until the golfer has played at least one hole.
     finish_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # True when two or more golfers share this finish_position.
-    is_tied: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", default=False)
+    is_tied: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false", default=False
+    )
 
     # Prize money in whole USD dollars. Null until tournament completes.
     earnings_usd: Mapped[int | None] = mapped_column(
@@ -242,9 +238,7 @@ class TournamentEntryRound(Base):
 
     __tablename__ = "tournament_entry_rounds"
     __table_args__ = (
-        UniqueConstraint(
-            "tournament_entry_id", "round_number", name="uq_entry_round_number"
-        ),
+        UniqueConstraint("tournament_entry_id", "round_number", name="uq_entry_round_number"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
@@ -257,9 +251,7 @@ class TournamentEntryRound(Base):
 
     # ESPN "teeTime": golfer's scheduled start time for this round (UTC).
     # Null until the tee sheet is released (usually Tuesday/Wednesday).
-    tee_time: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    tee_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # ESPN "value": total strokes taken in this round (e.g. 68).
     # Null for rounds not yet played.

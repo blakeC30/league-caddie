@@ -14,20 +14,15 @@ The high-level sync_* functions (which make real HTTP calls) are integration
 tests and run only when the ESPN API is reachable. They are not included here.
 """
 
-from datetime import date, datetime, timedelta, timezone
-from unittest.mock import MagicMock, patch
-
-import pytest
+from datetime import date, timedelta
 
 from app.services.scraper import (
     _map_espn_status,
     _parse_date,
     parse_schedule_response,
     score_picks,
-    upsert_field,
     upsert_tournaments,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures — sample ESPN API payloads
@@ -100,6 +95,7 @@ SCOREBOARD_PAYLOAD_NESTED = {
 # ---------------------------------------------------------------------------
 # parse_schedule_response
 # ---------------------------------------------------------------------------
+
 
 class TestParseScheduleResponse:
     def test_extracts_both_events(self):
@@ -189,6 +185,7 @@ class TestParseScheduleResponse:
 # _map_espn_status and _parse_date (pure helpers)
 # ---------------------------------------------------------------------------
 
+
 class TestHelpers:
     def test_status_mapping_scheduled(self):
         assert _map_espn_status("STATUS_SCHEDULED") == "scheduled"
@@ -219,6 +216,7 @@ class TestHelpers:
 # upsert_tournaments (DB tests — require the test database)
 # ---------------------------------------------------------------------------
 
+
 class TestUpsertTournaments:
     def test_creates_new_tournaments(self, db):
         parsed = [
@@ -237,20 +235,24 @@ class TestUpsertTournaments:
         assert transitions == []
 
         from app.models import Tournament
+
         t = db.query(Tournament).filter_by(pga_tour_id="ESPN_001").first()
         assert t is not None
         assert t.name == "Test Open"
 
     def test_updates_existing_tournament(self, db):
         from app.models import Tournament
-        db.add(Tournament(
-            pga_tour_id="ESPN_002",
-            name="Old Name",
-            start_date=date(2025, 7, 1),
-            end_date=date(2025, 7, 4),
-            status="scheduled",
-            multiplier=1.0,
-        ))
+
+        db.add(
+            Tournament(
+                pga_tour_id="ESPN_002",
+                name="Old Name",
+                start_date=date(2025, 7, 1),
+                end_date=date(2025, 7, 4),
+                status="scheduled",
+                multiplier=1.0,
+            )
+        )
         db.commit()
 
         parsed = [
@@ -277,14 +279,17 @@ class TestUpsertTournaments:
     def test_does_not_overwrite_multiplier(self, db):
         """Admin-set multiplier (e.g. 2.0 for majors) must survive a sync."""
         from app.models import Tournament
-        db.add(Tournament(
-            pga_tour_id="ESPN_003",
-            name="The Masters",
-            start_date=date(2025, 4, 10),
-            end_date=date(2025, 4, 13),
-            status="scheduled",
-            multiplier=2.0,  # admin set this manually
-        ))
+
+        db.add(
+            Tournament(
+                pga_tour_id="ESPN_003",
+                name="The Masters",
+                start_date=date(2025, 4, 10),
+                end_date=date(2025, 4, 13),
+                status="scheduled",
+                multiplier=2.0,  # admin set this manually
+            )
+        )
         db.commit()
 
         parsed = [
@@ -307,17 +312,31 @@ class TestUpsertTournaments:
 # score_picks (DB tests)
 # ---------------------------------------------------------------------------
 
+
 class TestScorePicks:
     def test_scores_completed_picks(self, db):
-        from datetime import date, timedelta
+        from datetime import date
+
         from app.models import (
-            Golfer, League, LeagueMember, LeagueMemberRole,
-            Pick, Season, Tournament, TournamentEntry, TournamentStatus, User,
+            Golfer,
+            League,
+            LeagueMember,
+            LeagueMemberRole,
+            Pick,
+            Season,
+            Tournament,
+            TournamentEntry,
+            TournamentStatus,
+            User,
         )
         from app.services.auth import hash_password
 
         # Set up minimal data.
-        user = User(email="scorer@example.com", password_hash=hash_password("x"), display_name="S")
+        user = User(
+            email="scorer@example.com",
+            password_hash=hash_password("x"),
+            display_name="S",
+        )
         db.add(user)
         db.flush()
 
@@ -325,7 +344,13 @@ class TestScorePicks:
         db.add(league)
         db.flush()
 
-        db.add(LeagueMember(league_id=league.id, user_id=user.id, role=LeagueMemberRole.MANAGER.value))
+        db.add(
+            LeagueMember(
+                league_id=league.id,
+                user_id=user.id,
+                role=LeagueMemberRole.MANAGER.value,
+            )
+        )
         season = Season(league_id=league.id, year=2025, is_active=True)
         db.add(season)
         db.flush()
@@ -372,10 +397,19 @@ class TestScorePicks:
         assert pick.points_earned == 7_200_000.0  # 3_600_000 × 2.0
 
     def test_missed_cut_scores_zero(self, db):
-        from datetime import date, timedelta
+        from datetime import date
+
         from app.models import (
-            Golfer, League, LeagueMember, LeagueMemberRole,
-            Pick, Season, Tournament, TournamentEntry, TournamentStatus, User,
+            Golfer,
+            League,
+            LeagueMember,
+            LeagueMemberRole,
+            Pick,
+            Season,
+            Tournament,
+            TournamentEntry,
+            TournamentStatus,
+            User,
         )
         from app.services.auth import hash_password
 
@@ -387,7 +421,13 @@ class TestScorePicks:
         db.add(league)
         db.flush()
 
-        db.add(LeagueMember(league_id=league.id, user_id=user.id, role=LeagueMemberRole.MANAGER.value))
+        db.add(
+            LeagueMember(
+                league_id=league.id,
+                user_id=user.id,
+                role=LeagueMemberRole.MANAGER.value,
+            )
+        )
         season = Season(league_id=league.id, year=2025, is_active=True)
         db.add(season)
         db.flush()
@@ -435,7 +475,8 @@ class TestScorePicks:
         assert pick.points_earned == 0.0
 
     def test_skips_non_completed_tournament(self, db):
-        from datetime import date, timedelta
+        from datetime import date
+
         from app.models import Tournament, TournamentStatus
 
         t_start = date.today() + timedelta(days=7)

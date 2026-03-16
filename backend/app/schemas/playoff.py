@@ -5,10 +5,10 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
-
 # ---------------------------------------------------------------------------
 # Playoff Config
 # ---------------------------------------------------------------------------
+
 
 class PlayoffConfigCreate(BaseModel):
     playoff_size: int = 16
@@ -83,8 +83,10 @@ class PlayoffConfigOut(BaseModel):
 # Playoff Round
 # ---------------------------------------------------------------------------
 
+
 class PlayoffRoundAssign(BaseModel):
     """Admin assigns a tournament and draft window to a round."""
+
     tournament_id: uuid.UUID
     draft_opens_at: datetime | None = None
 
@@ -103,6 +105,7 @@ class PlayoffRoundOut(BaseModel):
 # ---------------------------------------------------------------------------
 # Playoff Pod
 # ---------------------------------------------------------------------------
+
 
 class PlayoffPodMemberOut(BaseModel):
     id: int
@@ -145,6 +148,7 @@ class PlayoffPodOut(BaseModel):
 # Bracket View
 # ---------------------------------------------------------------------------
 
+
 class BracketRoundOut(BaseModel):
     round_number: int
     status: str
@@ -168,8 +172,10 @@ class BracketOut(BaseModel):
 # Draft Preferences
 # ---------------------------------------------------------------------------
 
+
 class PlayoffPreferenceSubmit(BaseModel):
     """Player submits their full ranked preference list (replaces any existing list)."""
+
     golfer_ids: list[uuid.UUID]  # Ordered list: index 0 = rank 1 (most preferred)
 
 
@@ -194,6 +200,7 @@ class PlayoffPodMemberDraftOut(BaseModel):
 
 class PlayoffDraftStatusOut(BaseModel):
     """Full draft state for a pod — what each player has submitted."""
+
     pod_id: int
     round_status: str  # drafting | locked
     deadline: datetime | None  # = tournament.start_date; None if no tournament assigned yet
@@ -208,6 +215,7 @@ class PlayoffDraftStatusOut(BaseModel):
 # Admin Override
 # ---------------------------------------------------------------------------
 
+
 class PlayoffResultOverride(BaseModel):
     pod_id: int
     winner_user_id: uuid.UUID
@@ -218,15 +226,18 @@ class PlayoffPickRevise(BaseModel):
 
 
 class MyPlayoffPodOut(BaseModel):
-    """Lightweight context for the current user's active playoff pod — used by Dashboard/MakePick."""
-    is_playoff_week: bool        # nearest scheduled/in_progress league tournament is a playoff round
-    is_in_playoffs: bool         # current user has an active pod in that round
+    """Lightweight context for the current user's active playoff pod.
+
+    Used by Dashboard/MakePick."""
+
+    is_playoff_week: bool  # nearest scheduled/in_progress league tournament is a playoff round
+    is_in_playoffs: bool  # current user has an active pod in that round
     active_pod_id: int | None
     active_round_number: int | None
     tournament_id: uuid.UUID | None
-    round_status: str | None     # "drafting" | "locked" | None
+    round_status: str | None  # "drafting" | "locked" | None
     has_submitted: bool
-    submitted_count: int         # how many golfers ranked so far
+    submitted_count: int  # how many golfers ranked so far
     picks_per_round: int | None
     required_preference_count: int | None  # pod_size * picks_per_round
     deadline: datetime | None
@@ -239,8 +250,9 @@ class PlayoffPickSummary(BaseModel):
 
 class PlayoffTournamentPickOut(BaseModel):
     """One playoff round's picks for a user — used by the MyPicks history page."""
+
     tournament_id: uuid.UUID
     round_number: int
-    status: str                  # round status (drafting/locked/scoring/completed)
+    status: str  # round status (drafting/locked/scoring/completed)
     picks: list[PlayoffPickSummary]  # empty if draft not yet resolved
     total_points: float | None

@@ -75,12 +75,20 @@ The core API endpoints above are the reliable replacement.
 import concurrent.futures
 import logging
 from collections import Counter
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 from sqlalchemy.orm import Session
 
-from app.models import Golfer, LeagueTournament, Pick, Tournament, TournamentEntry, TournamentEntryRound, TournamentStatus
+from app.models import (
+    Golfer,
+    LeagueTournament,
+    Pick,
+    Tournament,
+    TournamentEntry,
+    TournamentEntryRound,
+    TournamentStatus,
+)
 
 log = logging.getLogger(__name__)
 
@@ -100,6 +108,7 @@ _ESPN_HEADERS = {"Accept-Encoding": "gzip"}
 # ---------------------------------------------------------------------------
 # HTTP helpers
 # ---------------------------------------------------------------------------
+
 
 def _get_json(url: str, params: dict | None = None) -> dict:
     """
@@ -224,7 +233,8 @@ def _fetch_competitor_rounds(
         except (ValueError, TypeError):
             log.warning(
                 "Unexpected period value for athlete %s: %r — skipping round",
-                athlete_id, raw_period,
+                athlete_id,
+                raw_period,
             )
             continue
 
@@ -237,7 +247,8 @@ def _fetch_competitor_rounds(
         if round_number > 10 and not is_playoff:
             log.debug(
                 "Skipping non-playoff period %d for athlete %s (likely ESPN internal row)",
-                round_number, athlete_id,
+                round_number,
+                athlete_id,
             )
             continue
 
@@ -247,11 +258,13 @@ def _fetch_competitor_rounds(
         if raw_tee_time:
             try:
                 dt = datetime.fromisoformat(raw_tee_time.replace("Z", "+00:00"))
-                tee_time_utc = dt.astimezone(timezone.utc)
+                tee_time_utc = dt.astimezone(UTC)
             except (ValueError, TypeError):
                 log.warning(
                     "Could not parse teeTime %r for athlete %s round %d",
-                    raw_tee_time, athlete_id, round_number,
+                    raw_tee_time,
+                    athlete_id,
+                    round_number,
                 )
 
         # ESPN "value" is strokes as a float (e.g. 70.0); cast to int.
@@ -330,17 +343,19 @@ def _fetch_competitor_rounds(
             except (TypeError, ValueError):
                 pass
 
-        rounds.append({
-            "round_number": round_number,
-            "tee_time": tee_time_utc,
-            "score": score,
-            "score_to_par": score_to_par,
-            "position": position,
-            "is_playoff": is_playoff,
-            "thru": thru,
-            "started_on_back": started_on_back,
-            "_has_back_nine_linescore": _has_back_nine_linescore,
-        })
+        rounds.append(
+            {
+                "round_number": round_number,
+                "tee_time": tee_time_utc,
+                "score": score,
+                "score_to_par": score_to_par,
+                "position": position,
+                "is_playoff": is_playoff,
+                "thru": thru,
+                "started_on_back": started_on_back,
+                "_has_back_nine_linescore": _has_back_nine_linescore,
+            }
+        )
 
     return athlete_id, rounds
 
@@ -429,8 +444,7 @@ def _fetch_tournament_data(
     """
     # Step 1: one request for the full competitor list (IDs + finish order).
     competitors_url = (
-        f"{_CORE_API_BASE}/events/{pga_tour_id}"
-        f"/competitions/{pga_tour_id}/competitors"
+        f"{_CORE_API_BASE}/events/{pga_tour_id}/competitions/{pga_tour_id}/competitors"
     )
     data = _get_json(competitors_url, params={"limit": 200})
     competitors = data.get("items", [])
@@ -474,7 +488,9 @@ def _fetch_tournament_data(
         non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
         log.info(
             "Tournament %s: fetched round data for %d competitors (%d with rounds)",
-            pga_tour_id, len(rounds_by_athlete), non_empty,
+            pga_tour_id,
+            len(rounds_by_athlete),
+            non_empty,
         )
 
     # Step 4 (optional): fetch per-competitor status (WD / CUT / DQ / MDF / F)
@@ -494,7 +510,9 @@ def _fetch_tournament_data(
                 try:
                     aid, short_detail, current_round, start_hole = future.result()
                     # Only store notable non-active statuses; active/finished = None.
-                    status_by_athlete[aid] = short_detail if short_detail in _NOTABLE_STATUSES else None
+                    status_by_athlete[aid] = (
+                        short_detail if short_detail in _NOTABLE_STATUSES else None
+                    )
                     if current_round is not None and start_hole is not None:
                         start_hole_by_athlete[aid] = (current_round, start_hole)
                 except Exception as exc:
@@ -502,7 +520,9 @@ def _fetch_tournament_data(
 
     log.info(
         "Tournament %s: %d competitors, %d new athlete fetches",
-        pga_tour_id, len(competitors), len(ids_to_fetch),
+        pga_tour_id,
+        len(competitors),
+        len(ids_to_fetch),
     )
 
     golfers: list[dict] = []
@@ -515,11 +535,13 @@ def _fetch_tournament_data(
         # Use freshly fetched info, or pass name=None for known golfers
         # (upsert_field will skip updating them).
         info = athlete_info.get(athlete_id)
-        golfers.append({
-            "pga_tour_id": athlete_id,
-            "name": info["name"] if info else None,
-            "country": info["country"] if info else None,
-        })
+        golfers.append(
+            {
+                "pga_tour_id": athlete_id,
+                "name": info["name"] if info else None,
+                "country": info["country"] if info else None,
+            }
+        )
 
         rounds = rounds_by_athlete.get(athlete_id, []) if fetch_round_data else []
 
@@ -552,19 +574,25 @@ def _fetch_tournament_data(
         # Once Thursday starts, the pick is locked for the whole tournament —
         # we never overwrite this with a later round's tee time.
         current_tee_time: datetime | None = next(
-            (rd["tee_time"] for rd in rounds if rd["round_number"] == 1 and rd["tee_time"] is not None),
+            (
+                rd["tee_time"]
+                for rd in rounds
+                if rd["round_number"] == 1 and rd["tee_time"] is not None
+            ),
             None,
         )
 
-        results.append({
-            "pga_tour_id": athlete_id,
-            "finish_position": c.get("order"),
-            "earnings_usd": None,
-            "status": status_by_athlete.get(athlete_id),
-            "tee_time": current_tee_time,
-            "rounds": rounds,
-            "team_competitor_id": None,
-        })
+        results.append(
+            {
+                "pga_tour_id": athlete_id,
+                "finish_position": c.get("order"),
+                "earnings_usd": None,
+                "status": status_by_athlete.get(athlete_id),
+                "tee_time": current_tee_time,
+                "rounds": rounds,
+                "team_competitor_id": None,
+            }
+        )
 
     return golfers, results
 
@@ -579,17 +607,16 @@ def _fetch_team_roster(competition_id: str, team_competitor_id: str) -> list[str
 
     Returns a list of pga_tour_id strings (individual athlete IDs).
     """
-    url = (
-        f"{_CORE_API_BASE}/competitions/{competition_id}"
-        f"/competitors/{team_competitor_id}/roster"
-    )
+    url = f"{_CORE_API_BASE}/competitions/{competition_id}/competitors/{team_competitor_id}/roster"
     try:
         data = _get_json(url)
         return [str(e["playerId"]) for e in data.get("entries", []) if e.get("playerId")]
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.warning(
             "Could not fetch roster for team %s in competition %s: %s",
-            team_competitor_id, competition_id, exc,
+            team_competitor_id,
+            competition_id,
+            exc,
         )
         return []
 
@@ -635,14 +662,17 @@ def _fetch_team_field(
                  and a "rounds" key with a list of per-round dicts)
     """
     competitors_url = (
-        f"{_CORE_API_BASE}/events/{pga_tour_id}"
-        f"/competitions/{competition_id}/competitors"
+        f"{_CORE_API_BASE}/events/{pga_tour_id}/competitions/{competition_id}/competitors"
     )
     data = _get_json(competitors_url, params={"limit": 200})
     team_competitors = data.get("items", [])
 
     if not team_competitors:
-        log.warning("No team competitors found for tournament %s (competition %s)", pga_tour_id, competition_id)
+        log.warning(
+            "No team competitors found for tournament %s (competition %s)",
+            pga_tour_id,
+            competition_id,
+        )
         return [], []
 
     known = known_golfer_ids or set()
@@ -693,7 +723,9 @@ def _fetch_team_field(
         non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
         log.info(
             "Team tournament %s: fetched round data for %d golfers (%d with rounds)",
-            pga_tour_id, len(rounds_by_athlete), non_empty,
+            pga_tour_id,
+            len(rounds_by_athlete),
+            non_empty,
         )
 
         _NOTABLE_STATUSES_TEAM = {"WD", "CUT", "MDF", "DQ"}
@@ -706,7 +738,9 @@ def _fetch_team_field(
             for future in concurrent.futures.as_completed(futures_st):
                 try:
                     aid, short_detail, current_round, start_hole = future.result()
-                    status_by_athlete_team[aid] = short_detail if short_detail in _NOTABLE_STATUSES_TEAM else None
+                    status_by_athlete_team[aid] = (
+                        short_detail if short_detail in _NOTABLE_STATUSES_TEAM else None
+                    )
                     if current_round is not None and start_hole is not None:
                         start_hole_by_athlete_team[aid] = (current_round, start_hole)
                 except Exception as exc:
@@ -714,18 +748,23 @@ def _fetch_team_field(
 
     log.info(
         "Team tournament %s: %d teams → %d individual golfers, %d new athlete fetches",
-        pga_tour_id, len(team_competitors), len(team_entries), len(ids_to_fetch),
+        pga_tour_id,
+        len(team_competitors),
+        len(team_entries),
+        len(ids_to_fetch),
     )
 
     golfers: list[dict] = []
     results: list[dict] = []
     for athlete_id, team_id, finish_order in team_entries:
         info = athlete_info.get(athlete_id)
-        golfers.append({
-            "pga_tour_id": athlete_id,
-            "name": info["name"] if info else None,
-            "country": info["country"] if info else None,
-        })
+        golfers.append(
+            {
+                "pga_tour_id": athlete_id,
+                "name": info["name"] if info else None,
+                "country": info["country"] if info else None,
+            }
+        )
 
         rounds = rounds_by_athlete.get(athlete_id, []) if fetch_round_data else []
 
@@ -751,19 +790,25 @@ def _fetch_team_field(
         # Once Thursday starts, the pick is locked for the whole tournament —
         # we never overwrite this with a later round's tee time.
         current_tee_time: datetime | None = next(
-            (rd["tee_time"] for rd in rounds if rd["round_number"] == 1 and rd["tee_time"] is not None),
+            (
+                rd["tee_time"]
+                for rd in rounds
+                if rd["round_number"] == 1 and rd["tee_time"] is not None
+            ),
             None,
         )
 
-        results.append({
-            "pga_tour_id": athlete_id,
-            "finish_position": finish_order,
-            "earnings_usd": None,
-            "status": status_by_athlete_team.get(athlete_id),
-            "tee_time": current_tee_time,
-            "rounds": rounds,
-            "team_competitor_id": team_id,
-        })
+        results.append(
+            {
+                "pga_tour_id": athlete_id,
+                "finish_position": finish_order,
+                "earnings_usd": None,
+                "status": status_by_athlete_team.get(athlete_id),
+                "tee_time": current_tee_time,
+                "rounds": rounds,
+                "team_competitor_id": team_id,
+            }
+        )
 
     return golfers, results
 
@@ -828,6 +873,7 @@ def _fetch_golfer_earnings(
 # Parsing helpers  (pure — no DB access, easy to unit test)
 # ---------------------------------------------------------------------------
 
+
 def _map_espn_status(espn_status_name: str) -> str:
     """Convert ESPN status string to our TournamentStatus enum value."""
     return {
@@ -881,9 +927,7 @@ def parse_schedule_response(data: dict) -> list[dict]:
         competitions = event.get("competitions") or [{}]
         comp = competitions[0]
 
-        status_name = (
-            event.get("status", {}).get("type", {}).get("name", "STATUS_SCHEDULED")
-        )
+        status_name = event.get("status", {}).get("type", {}).get("name", "STATUS_SCHEDULED")
 
         start_date = _parse_date(comp.get("startDate") or event.get("date"))
         end_date = _parse_date(comp.get("endDate"))
@@ -897,22 +941,22 @@ def parse_schedule_response(data: dict) -> list[dict]:
 
         # Detect team format: ESPN marks team-event competitors with type="team".
         competitors_sample = comp.get("competitors") or []
-        is_team_event = bool(
-            competitors_sample and competitors_sample[0].get("type") == "team"
-        )
+        is_team_event = bool(competitors_sample and competitors_sample[0].get("type") == "team")
 
-        results.append({
-            "pga_tour_id": str(event_id),
-            "competition_id": competition_id,
-            "is_team_event": is_team_event,
-            "name": event.get("name") or event.get("shortName", "Unknown Tournament"),
-            "start_date": start_date,
-            "end_date": end_date,
-            "status": _map_espn_status(status_name),
-            # multiplier defaults to 1.0; platform admin sets 2.0 for majors manually
-            # (ESPN doesn't label which events are majors in a machine-readable way)
-            "multiplier": 1.0,
-        })
+        results.append(
+            {
+                "pga_tour_id": str(event_id),
+                "competition_id": competition_id,
+                "is_team_event": is_team_event,
+                "name": event.get("name") or event.get("shortName", "Unknown Tournament"),
+                "start_date": start_date,
+                "end_date": end_date,
+                "status": _map_espn_status(status_name),
+                # multiplier defaults to 1.0; platform admin sets 2.0 for majors manually
+                # (ESPN doesn't label which events are majors in a machine-readable way)
+                "multiplier": 1.0,
+            }
+        )
 
     # The Tour Championship (final FedEx Cup Playoffs event) is the last valid
     # fantasy-season event. Drop any tournaments that start after it ends.
@@ -927,11 +971,10 @@ def parse_schedule_response(data: dict) -> list[dict]:
     return results
 
 
-
-
 # ---------------------------------------------------------------------------
 # Database upsert helpers
 # ---------------------------------------------------------------------------
+
 
 def upsert_tournaments(
     db: Session, parsed: list[dict]
@@ -973,16 +1016,18 @@ def upsert_tournaments(
                 db.flush()
                 transitions.append((str(existing.id), old_status, new_status))
         else:
-            db.add(Tournament(
-                pga_tour_id=item["pga_tour_id"],
-                competition_id=item.get("competition_id"),
-                is_team_event=item.get("is_team_event", False),
-                name=item["name"],
-                start_date=item["start_date"],
-                end_date=item["end_date"],
-                status=item["status"],
-                multiplier=item.get("multiplier", 1.0),
-            ))
+            db.add(
+                Tournament(
+                    pga_tour_id=item["pga_tour_id"],
+                    competition_id=item.get("competition_id"),
+                    is_team_event=item.get("is_team_event", False),
+                    name=item["name"],
+                    start_date=item["start_date"],
+                    end_date=item["end_date"],
+                    status=item["status"],
+                    multiplier=item.get("multiplier", 1.0),
+                )
+            )
             created += 1
     db.commit()
     return created, updated, transitions
@@ -1028,9 +1073,11 @@ def upsert_field(
         db.flush()  # ensure golfer.id is populated
 
         # Upsert tournament entry.
-        entry = db.query(TournamentEntry).filter_by(
-            tournament_id=tournament.id, golfer_id=golfer.id
-        ).first()
+        entry = (
+            db.query(TournamentEntry)
+            .filter_by(tournament_id=tournament.id, golfer_id=golfer.id)
+            .first()
+        )
 
         result = results_by_id.get(g["pga_tour_id"], {})
 
@@ -1066,10 +1113,14 @@ def upsert_field(
         if rounds:
             db.flush()  # populate entry.id if this is a new entry
             for rd in rounds:
-                round_row = db.query(TournamentEntryRound).filter_by(
-                    tournament_entry_id=entry.id,
-                    round_number=rd["round_number"],
-                ).first()
+                round_row = (
+                    db.query(TournamentEntryRound)
+                    .filter_by(
+                        tournament_entry_id=entry.id,
+                        round_number=rd["round_number"],
+                    )
+                    .first()
+                )
                 if round_row:
                     # Update all mutable fields — data may change while a tournament
                     # is in progress (scores finalize, position updates, etc.).
@@ -1087,17 +1138,19 @@ def upsert_field(
                     if rd.get("started_on_back") is not None:
                         round_row.started_on_back = rd["started_on_back"]
                 else:
-                    db.add(TournamentEntryRound(
-                        tournament_entry_id=entry.id,
-                        round_number=rd["round_number"],
-                        tee_time=rd.get("tee_time"),
-                        score=rd.get("score"),
-                        score_to_par=rd.get("score_to_par"),
-                        position=rd.get("position"),
-                        is_playoff=rd.get("is_playoff", False),
-                        thru=rd.get("thru"),
-                        started_on_back=rd.get("started_on_back"),
-                    ))
+                    db.add(
+                        TournamentEntryRound(
+                            tournament_entry_id=entry.id,
+                            round_number=rd["round_number"],
+                            tee_time=rd.get("tee_time"),
+                            score=rd.get("score"),
+                            score_to_par=rd.get("score_to_par"),
+                            position=rd.get("position"),
+                            is_playoff=rd.get("is_playoff", False),
+                            thru=rd.get("thru"),
+                            started_on_back=rd.get("started_on_back"),
+                        )
+                    )
 
         entry_by_pga_id[g["pga_tour_id"]] = entry
         golfers_synced += 1
@@ -1113,12 +1166,13 @@ def upsert_field(
         valid_stps = [r["score_to_par"] for r in rounds if r.get("score_to_par") is not None]
         stp_by_pga_id[pid] = sum(valid_stps) if valid_stps else None
 
-    stp_counts: Counter[int] = Counter(
-        stp for stp in stp_by_pga_id.values() if stp is not None
-    )
+    stp_counts: Counter[int] = Counter(stp for stp in stp_by_pga_id.values() if stp is not None)
     sorted_pga_ids = sorted(
         stp_by_pga_id.keys(),
-        key=lambda pid: (stp_by_pga_id[pid] is None, stp_by_pga_id[pid] if stp_by_pga_id[pid] is not None else 0),
+        key=lambda pid: (
+            stp_by_pga_id[pid] is None,
+            stp_by_pga_id[pid] if stp_by_pga_id[pid] is not None else 0,
+        ),
     )
     rank = 1
     for i, pid in enumerate(sorted_pga_ids):
@@ -1148,8 +1202,7 @@ def upsert_field(
         r["pga_tour_id"]: r.get("finish_position") for r in results
     }
     has_playoff_by_pga_id: dict[str, bool] = {
-        r["pga_tour_id"]: any(rd.get("is_playoff") for rd in r.get("rounds", []))
-        for r in results
+        r["pga_tour_id"]: any(rd.get("is_playoff") for rd in r.get("rounds", [])) for r in results
     }
     # Collect tied groups that contain at least one playoff participant.
     playoff_tie_groups: dict[int, list[str]] = {}
@@ -1160,9 +1213,7 @@ def upsert_field(
                 playoff_tie_groups.setdefault(stp, []).append(pid)
     # Within each such group, reassign unique positions using ESPN's final order.
     for stp, pids in playoff_tie_groups.items():
-        sorted_pids = sorted(
-            pids, key=lambda p: espn_order_by_pga_id.get(p) or 9999
-        )
+        sorted_pids = sorted(pids, key=lambda p: espn_order_by_pga_id.get(p) or 9999)
         base_rank = entry_by_pga_id[sorted_pids[0]].finish_position
         for offset, pid in enumerate(sorted_pids):
             entry = entry_by_pga_id.get(pid)
@@ -1203,9 +1254,11 @@ def score_picks(db: Session, tournament: Tournament) -> int:
     count = 0
 
     for pick in picks:
-        entry = db.query(TournamentEntry).filter_by(
-            tournament_id=tournament.id, golfer_id=pick.golfer_id
-        ).first()
+        entry = (
+            db.query(TournamentEntry)
+            .filter_by(tournament_id=tournament.id, golfer_id=pick.golfer_id)
+            .first()
+        )
 
         earnings: float | None = None
 
@@ -1237,9 +1290,11 @@ def score_picks(db: Session, tournament: Tournament) -> int:
 
         # Use the league's per-tournament multiplier override if set; otherwise
         # fall back to the tournament's global multiplier.
-        lt = db.query(LeagueTournament).filter_by(
-            league_id=pick.league_id, tournament_id=tournament.id
-        ).first()
+        lt = (
+            db.query(LeagueTournament)
+            .filter_by(league_id=pick.league_id, tournament_id=tournament.id)
+            .first()
+        )
         effective_multiplier = (
             lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
         )
@@ -1284,7 +1339,8 @@ def _backfill_field_earnings(db: Session, tournament: Tournament) -> None:
 
     log.info(
         "Back-filling earnings for %d field entries in '%s'",
-        len(entries), tournament.name,
+        len(entries),
+        tournament.name,
     )
 
     for row in entries:
@@ -1313,6 +1369,7 @@ def _backfill_field_earnings(db: Session, tournament: Tournament) -> None:
 # High-level sync functions (HTTP + DB)
 # ---------------------------------------------------------------------------
 
+
 def _trim_post_championship_tournaments(db: Session) -> int:
     """
     Delete any Tournament rows that start after the Tour Championship ends.
@@ -1330,11 +1387,7 @@ def _trim_post_championship_tournaments(db: Session) -> int:
     if not tour_champ:
         return 0
 
-    after_cutoff = (
-        db.query(Tournament)
-        .filter(Tournament.start_date > tour_champ.end_date)
-        .all()
-    )
+    after_cutoff = db.query(Tournament).filter(Tournament.start_date > tour_champ.end_date).all()
     deleted = 0
     for t in after_cutoff:
         has_deps = (
@@ -1391,7 +1444,12 @@ def sync_schedule(db: Session, year: int) -> dict:
     # first tee time rather than waiting for the next daily schedule sync.
     _publish_schedule_transitions(transitions)
 
-    return {"year": year, "tournaments_created": created, "tournaments_updated": updated, "tournaments_trimmed": trimmed}
+    return {
+        "year": year,
+        "tournaments_created": created,
+        "tournaments_updated": updated,
+        "tournaments_trimmed": trimmed,
+    }
 
 
 def _publish_schedule_transitions(transitions: list[tuple[str, str, str]]) -> None:
@@ -1402,6 +1460,7 @@ def _publish_schedule_transitions(transitions: list[tuple[str, str, str]]) -> No
     var is treated as a graceful no-op (early dev, local without LocalStack).
     """
     import os
+
     if not os.environ.get("SQS_QUEUE_URL"):
         return
 
@@ -1411,7 +1470,9 @@ def _publish_schedule_transitions(transitions: list[tuple[str, str, str]]) -> No
         if new_status == "completed":
             log.info(
                 "Schedule sync: publishing TOURNAMENT_COMPLETED for %s (%s → %s)",
-                tournament_id, old_status, new_status,
+                tournament_id,
+                old_status,
+                new_status,
             )
             try:
                 publish("TOURNAMENT_COMPLETED", tournament_id=tournament_id)
@@ -1419,7 +1480,9 @@ def _publish_schedule_transitions(transitions: list[tuple[str, str, str]]) -> No
                 # SQS failure must not abort the sync — log and continue.
                 log.error(
                     "Failed to publish TOURNAMENT_COMPLETED for %s: %s",
-                    tournament_id, exc, exc_info=True,
+                    tournament_id,
+                    exc,
+                    exc_info=True,
                 )
 
 
@@ -1434,10 +1497,12 @@ def _maybe_publish_in_progress(db: Session, tournament) -> None:
     locally or worker not yet deployed) this is a silent no-op.
     """
     import os
+
     if not os.environ.get("SQS_QUEUE_URL"):
         return
 
     from app.models import PlayoffRound
+
     unresolved = (
         db.query(PlayoffRound.id)
         .filter(
@@ -1451,12 +1516,15 @@ def _maybe_publish_in_progress(db: Session, tournament) -> None:
         return  # Nothing to resolve — skip publish
 
     from app.services.sqs import publish
+
     try:
         publish("TOURNAMENT_IN_PROGRESS", tournament_id=str(tournament.id))
     except Exception as exc:
         log.error(
             "Failed to publish TOURNAMENT_IN_PROGRESS for %s: %s",
-            tournament.id, exc, exc_info=True,
+            tournament.id,
+            exc,
+            exc_info=True,
         )
 
 
@@ -1481,10 +1549,17 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
     """
     tournament = db.query(Tournament).filter_by(pga_tour_id=pga_tour_id).first()
     if not tournament:
-        raise ValueError(f"Tournament with pga_tour_id '{pga_tour_id}' not found in DB. "
-                         "Run sync_schedule first.")
+        raise ValueError(
+            f"Tournament with pga_tour_id '{pga_tour_id}' not found in DB. Run sync_schedule first."
+        )
 
-    log.info("Syncing tournament '%s' (id=%s, team=%s, force=%s)", tournament.name, pga_tour_id, tournament.is_team_event, force)
+    log.info(
+        "Syncing tournament '%s' (id=%s, team=%s, force=%s)",
+        tournament.name,
+        pga_tour_id,
+        tournament.is_team_event,
+        force,
+    )
 
     if force:
         # Delete all round rows for this tournament so stale ESPN data is fully replaced.
@@ -1497,7 +1572,11 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
             entry.finish_position = None
             entry.earnings_usd = None
         db.commit()
-        log.info("Force sync: cleared %d entries' round data for '%s'", len(entries), tournament.name)
+        log.info(
+            "Force sync: cleared %d entries' round data for '%s'",
+            len(entries),
+            tournament.name,
+        )
 
     # Fetch purse and tournament status from the core event endpoint.
     # The site API scoreboard (used by sync_schedule) is the canonical status source,
@@ -1528,7 +1607,9 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
             db.commit()
             log.info(
                 "sync_tournament: status transition for '%s': %s → %s",
-                tournament.name, old_status, new_status,
+                tournament.name,
+                old_status,
+                new_status,
             )
             _publish_schedule_transitions([(str(tournament.id), old_status, new_status)])
 
@@ -1574,7 +1655,7 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
     # Stamp the tournament with the current time as a sync-completion marker.
     # This is the LAST write — after all upserts and pick scoring — so the frontend
     # can poll this value and only refresh the leaderboard when a full sync is done.
-    tournament.last_synced_at = datetime.now(tz=timezone.utc)
+    tournament.last_synced_at = datetime.now(tz=UTC)
     db.commit()
 
     # If the tournament is in_progress and has unresolved playoff draft rounds,
@@ -1588,7 +1669,10 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
 
     log.info(
         "Tournament sync '%s': %d golfers, %d new entries, %d picks scored",
-        tournament.name, golfers_synced, entries_synced, picks_scored,
+        tournament.name,
+        golfers_synced,
+        entries_synced,
+        picks_scored,
     )
     return {
         "pga_tour_id": pga_tour_id,
@@ -1615,12 +1699,11 @@ def full_sync(db: Session, year: int, *, force: bool = False) -> dict:
     schedule_result = sync_schedule(db, year)
 
     # Sync field + results for active or finished tournaments.
-    active_statuses = {TournamentStatus.IN_PROGRESS.value, TournamentStatus.COMPLETED.value}
-    tournaments_to_sync = (
-        db.query(Tournament)
-        .filter(Tournament.status.in_(active_statuses))
-        .all()
-    )
+    active_statuses = {
+        TournamentStatus.IN_PROGRESS.value,
+        TournamentStatus.COMPLETED.value,
+    }
+    tournaments_to_sync = db.query(Tournament).filter(Tournament.status.in_(active_statuses)).all()
 
     # Also sync the soonest upcoming scheduled tournament so the pick form works.
     next_scheduled = (
@@ -1664,6 +1747,7 @@ def full_sync(db: Session, year: int, *, force: bool = False) -> dict:
 # On-demand scorecard fetch (hole-by-hole via ESPN linescores)
 # ---------------------------------------------------------------------------
 
+
 def fetch_golfer_scorecard(
     tournament: Tournament,
     golfer: Golfer,
@@ -1687,7 +1771,12 @@ def fetch_golfer_scorecard(
     try:
         data = _get_json(url)
     except Exception as exc:
-        log.warning("Scorecard fetch failed for golfer %s round %d: %s", athlete_id, round_number, exc)
+        log.warning(
+            "Scorecard fetch failed for golfer %s round %d: %s",
+            athlete_id,
+            round_number,
+            exc,
+        )
         return {
             "golfer_id": str(golfer.id),
             "round_number": round_number,
@@ -1750,13 +1839,15 @@ def fetch_golfer_scorecard(
                     result = "double_bogey"
                 else:
                     result = "triple_plus"
-            holes.append({
-                "hole": hole_num,
-                "par": par,
-                "score": score,
-                "score_to_par": stp,
-                "result": result,
-            })
+            holes.append(
+                {
+                    "hole": hole_num,
+                    "par": par,
+                    "score": score,
+                    "score_to_par": stp,
+                    "result": result,
+                }
+            )
 
         # Post-process: for standard rounds (1–4), add any holes that ESPN omitted
         # (i.e. not yet played) using the par data collected in the first pass.
@@ -1769,8 +1860,16 @@ def fetch_golfer_scorecard(
                     pass
             for h in range(1, 19):
                 if h not in played_nums and h in hole_pars:
-                    holes.append({"hole": h, "par": hole_pars[h], "score": None, "score_to_par": None, "result": None})
-            holes.sort(key=lambda x: (int(x["hole"]) if x["hole"] is not None else 99))
+                    holes.append(
+                        {
+                            "hole": h,
+                            "par": hole_pars[h],
+                            "score": None,
+                            "score_to_par": None,
+                            "result": None,
+                        }
+                    )
+            holes.sort(key=lambda x: int(x["hole"]) if x["hole"] is not None else 99)
 
         break  # found the requested round; stop iterating
 

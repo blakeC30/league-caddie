@@ -24,7 +24,9 @@ router = APIRouter(prefix="/golfers", tags=["golfers"])
 
 @router.get("", response_model=list[GolferOut])
 def list_golfers(
-    search: str | None = Query(default=None, description="Filter by name (case-insensitive substring)"),
+    search: str | None = Query(
+        default=None, description="Filter by name (case-insensitive substring)"
+    ),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):

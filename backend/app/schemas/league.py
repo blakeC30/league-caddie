@@ -25,6 +25,7 @@ class LeagueCreate(BaseModel):
 
 class LeagueUpdate(BaseModel):
     """Partial update for league settings. Only provided fields are changed."""
+
     name: str | None = Field(default=None, min_length=1, max_length=60)
     no_pick_penalty: int | None = None
 
@@ -51,6 +52,7 @@ class LeagueOut(BaseModel):
 
 class LeagueMemberOut(BaseModel):
     """A league member with their user details nested."""
+
     user_id: uuid.UUID
     league_id: uuid.UUID
     role: str
@@ -63,11 +65,13 @@ class LeagueMemberOut(BaseModel):
 
 class RoleUpdate(BaseModel):
     """Used by league managers to change a member's role."""
+
     role: str  # "manager" or "member"
 
 
 class LeagueJoinPreview(BaseModel):
     """League info shown to a user before they confirm a join request."""
+
     league_id: uuid.UUID
     name: str
     member_count: int
@@ -77,6 +81,7 @@ class LeagueJoinPreview(BaseModel):
 
 class LeagueRequestOut(BaseModel):
     """A pending join request from the requesting user's perspective."""
+
     league_id: uuid.UUID
     league_name: str
     requested_at: datetime

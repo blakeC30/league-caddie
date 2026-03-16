@@ -19,14 +19,24 @@ logging.basicConfig(
     format="%(levelname)-8s %(name)s: %(message)s",
 )
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
+from fastapi import FastAPI  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from slowapi import _rate_limit_exceeded_handler  # noqa: E402
+from slowapi.errors import RateLimitExceeded  # noqa: E402
 
-from app.config import settings
-from app.limiter import limiter
-from app.routers import admin, auth, golfers, leagues, picks, playoff, standings, tournaments, users
+from app.config import settings  # noqa: E402
+from app.limiter import limiter  # noqa: E402
+from app.routers import (  # noqa: E402
+    admin,
+    auth,
+    golfers,
+    leagues,
+    picks,
+    playoff,
+    standings,
+    tournaments,
+    users,
+)
 
 log = logging.getLogger(__name__)
 
@@ -55,7 +65,8 @@ async def lifespan(_app: FastAPI):
     else:
         if not settings.FRONTEND_URL.startswith("https://"):
             raise RuntimeError(
-                f"FRONTEND_URL must start with 'https://' in production, got {settings.FRONTEND_URL!r}. "
+                f"FRONTEND_URL must start with 'https://' in production, "
+                f"got {settings.FRONTEND_URL!r}. "
                 "Set the correct origin in your environment variables."
             )
     yield

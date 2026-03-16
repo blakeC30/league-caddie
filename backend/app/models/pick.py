@@ -16,8 +16,7 @@ Business rules enforced here (via UniqueConstraint) and in the API layer:
 """
 
 import uuid
-from datetime import datetime, timezone
-
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Float, ForeignKey, UniqueConstraint, func
@@ -27,11 +26,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.golfer import Golfer
     from app.models.league import League
     from app.models.season import Season
-    from app.models.user import User
     from app.models.tournament import Tournament, TournamentEntry
-    from app.models.golfer import Golfer
+    from app.models.user import User
 
 
 class Pick(Base):
@@ -56,9 +55,7 @@ class Pick(Base):
     league_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("leagues.id"), nullable=False
     )
-    season_id: Mapped[int] = mapped_column(
-        ForeignKey("seasons.id"), nullable=False
-    )
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), nullable=False)
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
@@ -113,7 +110,8 @@ class Pick(Base):
 
     @property
     def golfer_status(self) -> str | None:
-        """Golfer's status in the tournament (e.g. 'CUT', 'WD', 'MDF', 'DQ'); None if active/finished normally."""
+        """Golfer's status in the tournament (e.g. 'CUT', 'WD', 'MDF', 'DQ');
+        None if active/finished normally."""
         return self.entry.status if self.entry is not None else None
 
     @property
@@ -157,7 +155,7 @@ class Pick(Base):
                 return False  # never teed off — member may swap
             if self.entry.tee_time is None:
                 return True  # belt-and-suspenders: no tee_time when in_progress = locked
-            return self.entry.tee_time <= datetime.now(timezone.utc)
+            return self.entry.tee_time <= datetime.now(UTC)
         return False
 
     def __repr__(self) -> str:

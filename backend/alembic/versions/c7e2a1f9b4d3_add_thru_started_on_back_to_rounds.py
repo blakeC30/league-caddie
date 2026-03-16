@@ -17,6 +17,7 @@ hole array and enable the live leaderboard to:
 from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "c7e2a1f9b4d3"
@@ -27,7 +28,10 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.add_column("tournament_entry_rounds", sa.Column("thru", sa.Integer(), nullable=True))
-    op.add_column("tournament_entry_rounds", sa.Column("started_on_back", sa.Boolean(), nullable=True))
+    op.add_column(
+        "tournament_entry_rounds",
+        sa.Column("started_on_back", sa.Boolean(), nullable=True),
+    )
 
 
 def downgrade() -> None:

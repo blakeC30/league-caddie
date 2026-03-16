@@ -6,13 +6,13 @@ Endpoints:
 """
 
 from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.dependencies import get_active_season, require_league_member
 from app.models import League, LeagueMember, Season
 from app.schemas.standings import StandingsResponse, StandingsRow
 from app.services.scoring import calculate_standings
-from app.database import get_db
-from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/leagues/{league_id}/standings", tags=["standings"])
 

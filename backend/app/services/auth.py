@@ -12,7 +12,7 @@ Keeping this in a service makes it easy to unit-test without starting a web serv
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from jose import JWTError, jwt
@@ -42,14 +42,14 @@ def create_access_token(user_id: str) -> str:
     The 'type' claim distinguishes access tokens from refresh tokens so that a
     refresh token cannot be used as an access token and vice versa.
     """
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {"sub": user_id, "exp": expire, "type": "access"}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
 
 def create_refresh_token(user_id: str) -> str:
     """Create a long-lived JWT refresh token (7 days), stored in an httpOnly cookie."""
-    expire = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expire = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     payload = {"sub": user_id, "exp": expire, "type": "refresh"}
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=ALGORITHM)
 
@@ -95,7 +95,7 @@ def generate_reset_token(db: Session, user) -> str:
         PasswordResetToken(
             user_id=user.id,
             token_hash=_hash_token(raw),
-            expires_at=datetime.now(tz=timezone.utc) + timedelta(hours=settings.RESET_TOKEN_EXPIRE_HOURS),
+            expires_at=datetime.now(tz=UTC) + timedelta(hours=settings.RESET_TOKEN_EXPIRE_HOURS),
         )
     )
     db.commit()
@@ -112,7 +112,7 @@ def validate_reset_token(db: Session, raw_token: str):
     from app.models.user import User
 
     record = db.query(PasswordResetToken).filter_by(token_hash=_hash_token(raw_token)).first()
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     if not record or record.used_at is not None or record.expires_at <= now:
         return None
     return db.get(User, record.user_id)
@@ -124,7 +124,7 @@ def consume_reset_token(db: Session, raw_token: str) -> None:
 
     record = db.query(PasswordResetToken).filter_by(token_hash=_hash_token(raw_token)).first()
     if record:
-        record.used_at = datetime.now(tz=timezone.utc)
+        record.used_at = datetime.now(tz=UTC)
         db.commit()
 
 

@@ -28,7 +28,10 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def trigger_full_sync(
     request: Request,
     year: int | None = None,
-    force: bool = Query(False, description="When true, delete all existing round data before re-syncing each tournament"),
+    force: bool = Query(
+        False,
+        description="When true, delete all existing round data before re-syncing each tournament",
+    ),
     _: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
@@ -61,7 +64,9 @@ def trigger_full_sync(
 def trigger_tournament_sync(
     request: Request,
     pga_tour_id: str,
-    force: bool = Query(False, description="When true, delete all existing round data before re-syncing"),
+    force: bool = Query(
+        False, description="When true, delete all existing round data before re-syncing"
+    ),
     _: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
@@ -76,7 +81,10 @@ def trigger_tournament_sync(
     if not tournament:
         raise HTTPException(
             status_code=404,
-            detail=f"Tournament '{pga_tour_id}' not found. Run /admin/sync first to populate the schedule.",
+            detail=(
+                f"Tournament '{pga_tour_id}' not found. "
+                "Run /admin/sync first to populate the schedule."
+            ),
         )
 
     try:

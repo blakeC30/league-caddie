@@ -10,8 +10,9 @@ league managers to set different point weights per tournament, e.g.
 keeping The Players at 1.5× while a different league uses 1.0×.
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "d2e5f8a3c1b7"

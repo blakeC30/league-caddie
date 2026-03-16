@@ -6,18 +6,18 @@ Endpoints:
   GET    /leagues/{league_id}/playoff/config                         Get playoff config
   PATCH  /leagues/{league_id}/playoff/config                         Update playoff config (manager)
   GET    /leagues/{league_id}/playoff/bracket                        Full bracket view
-  PATCH  /leagues/{league_id}/playoff/rounds/{round_id}              Assign tournament & draft window (manager)
-  POST   /leagues/{league_id}/playoff/seed                           Trigger bracket seeding on demand (manager)
-  POST   /leagues/{league_id}/playoff/rounds/{round_id}/open         Open draft window for a round (manager)
-  POST   /leagues/{league_id}/playoff/rounds/{round_id}/resolve      Resolve draft → picks (manager)
-  POST   /leagues/{league_id}/playoff/rounds/{round_id}/score        Score completed round (manager)
-  POST   /leagues/{league_id}/playoff/rounds/{round_id}/advance      Advance bracket (manager)
-  GET    /leagues/{league_id}/playoff/pods/{pod_id}                  Pod detail (members only)
-  GET    /leagues/{league_id}/playoff/pods/{pod_id}/draft            Draft status for pod (members only)
-  GET    /leagues/{league_id}/playoff/pods/{pod_id}/preferences      My preference list (member)
-  PUT    /leagues/{league_id}/playoff/pods/{pod_id}/preferences      Submit/replace preferences (member)
-  POST   /leagues/{league_id}/playoff/override                       Manual result override (manager)
-  PATCH  /leagues/{league_id}/playoff/picks/{pick_id}               Revise golfer on a pick (manager)
+  PATCH  /leagues/{league_id}/playoff/rounds/{round_id}  Set tournament & draft window (manager)
+  POST   /leagues/{league_id}/playoff/seed               Seed bracket on demand (manager)
+  POST   /leagues/{league_id}/playoff/rounds/{round_id}/open  Open draft (manager)
+  POST   /leagues/{league_id}/playoff/rounds/{round_id}/resolve  Resolve draft → picks (manager)
+  POST   /leagues/{league_id}/playoff/rounds/{round_id}/score    Score completed round (manager)
+  POST   /leagues/{league_id}/playoff/rounds/{round_id}/advance  Advance bracket (manager)
+  GET    /leagues/{league_id}/playoff/pods/{pod_id}              Pod detail (members only)
+  GET    /leagues/{league_id}/playoff/pods/{pod_id}/draft        Draft status for pod (members only)
+  GET    /leagues/{league_id}/playoff/pods/{pod_id}/preferences  My preference list (member)
+  PUT    /leagues/{league_id}/playoff/pods/{pod_id}/preferences  Submit/replace preferences (member)
+  POST   /leagues/{league_id}/playoff/override                   Manual result override (manager)
+  PATCH  /leagues/{league_id}/playoff/picks/{pick_id}           Revise golfer on a pick (manager)
 """
 
 import math
@@ -27,14 +27,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.limiter import limiter
 from app.dependencies import (
     get_active_season,
     get_current_user,
-    get_league_or_404,
     require_league_manager,
     require_league_member,
 )
+from app.limiter import limiter
 from app.models import (
     League,
     LeagueMember,
@@ -61,13 +60,13 @@ from app.schemas.playoff import (
     PlayoffConfigUpdate,
     PlayoffDraftStatusOut,
     PlayoffPickOut,
+    PlayoffPickRevise,
     PlayoffPickSummary,
     PlayoffPodMemberDraftOut,
     PlayoffPodMemberOut,
     PlayoffPodOut,
     PlayoffPreferenceOut,
     PlayoffPreferenceSubmit,
-    PlayoffPickRevise,
     PlayoffResultOverride,
     PlayoffRoundAssign,
     PlayoffRoundOut,
@@ -92,10 +91,13 @@ router = APIRouter(prefix="/leagues", tags=["playoff"])
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_config_or_404(league_id: uuid.UUID, season_id: int, db: Session) -> PlayoffConfig:
     config = db.query(PlayoffConfig).filter_by(league_id=league_id, season_id=season_id).first()
     if not config:
-        raise HTTPException(status_code=404, detail="Playoff config not found for this league/season")
+        raise HTTPException(
+            status_code=404, detail="Playoff config not found for this league/season"
+        )
     return config
 
 
@@ -119,8 +121,12 @@ def _get_round_or_404(round_id: int, db: Session) -> PlayoffRound:
     round_obj = (
         db.query(PlayoffRound)
         .options(
-            joinedload(PlayoffRound.pods).joinedload(PlayoffPod.members).joinedload(PlayoffPodMember.user),
-            joinedload(PlayoffRound.pods).joinedload(PlayoffPod.picks).joinedload(PlayoffPick.golfer),
+            joinedload(PlayoffRound.pods)
+            .joinedload(PlayoffPod.members)
+            .joinedload(PlayoffPodMember.user),
+            joinedload(PlayoffRound.pods)
+            .joinedload(PlayoffPod.picks)
+            .joinedload(PlayoffPick.golfer),
             joinedload(PlayoffRound.playoff_config),
             joinedload(PlayoffRound.tournament),
         )
@@ -164,7 +170,11 @@ def _build_pod_out(
     viewer_user_id: uuid.UUID | None = None,
 ) -> PlayoffPodOut:
     idx = round_number - 1
-    picks_per_player = config.picks_per_round[idx] if idx < len(config.picks_per_round) else config.picks_per_round[-1]
+    picks_per_player = (
+        config.picks_per_round[idx]
+        if idx < len(config.picks_per_round)
+        else config.picks_per_round[-1]
+    )
     total_slots = len(pod.members) * picks_per_player
     filled_slots = {p.draft_slot for p in pod.picks}
     active_slot: int | None = None
@@ -180,9 +190,17 @@ def _build_pod_out(
     else:
         # Own picks are always visible; hide every other member's picks until
         # the first Round 1 tee time passes (the playoff visibility threshold).
-        viewer_member = next((m for m in pod.members if m.user_id == viewer_user_id), None) if viewer_user_id else None
+        viewer_member = (
+            next((m for m in pod.members if m.user_id == viewer_user_id), None)
+            if viewer_user_id
+            else None
+        )
         viewer_pod_member_id = viewer_member.id if viewer_member else None
-        visible_picks = [p for p in all_picks if p.pod_member_id == viewer_pod_member_id] if viewer_pod_member_id else []
+        visible_picks = (
+            [p for p in all_picks if p.pod_member_id == viewer_pod_member_id]
+            if viewer_pod_member_id
+            else []
+        )
 
     return PlayoffPodOut(
         id=pod.id,
@@ -214,7 +232,13 @@ def _build_bracket_round_out(
         draft_opens_at=round_obj.draft_opens_at,
         draft_resolved_at=round_obj.draft_resolved_at,
         pods=[
-            _build_pod_out(pod, config, round_obj.round_number, is_picks_visible=is_picks_visible, viewer_user_id=viewer_user_id)
+            _build_pod_out(
+                pod,
+                config,
+                round_obj.round_number,
+                is_picks_visible=is_picks_visible,
+                viewer_user_id=viewer_user_id,
+            )
             for pod in sorted(round_obj.pods, key=lambda p: p.bracket_position)
         ],
     )
@@ -274,11 +298,7 @@ def _required_rounds(playoff_size: int) -> int:
 
 def _approved_member_count(league_id: uuid.UUID, db: Session) -> int:
     """Return the number of approved (active) members in the league."""
-    return (
-        db.query(LeagueMember)
-        .filter_by(league_id=league_id, status="approved")
-        .count()
-    )
+    return db.query(LeagueMember).filter_by(league_id=league_id, status="approved").count()
 
 
 def _validate_playoff_size_vs_members(playoff_size: int, league_id: uuid.UUID, db: Session) -> None:
@@ -287,7 +307,10 @@ def _validate_playoff_size_vs_members(playoff_size: int, league_id: uuid.UUID, d
     if playoff_size > member_count:
         raise HTTPException(
             status_code=422,
-            detail=f"Playoff size ({playoff_size}) cannot exceed the number of approved members ({member_count})",
+            detail=(
+                f"Playoff size ({playoff_size}) cannot exceed "
+                f"the number of approved members ({member_count})"
+            ),
         )
 
 
@@ -318,7 +341,10 @@ def create_playoff_config(
         if eligible < required:
             raise HTTPException(
                 status_code=422,
-                detail=f"Schedule needs {required} future tournament(s) for a {body.playoff_size}-player bracket; {eligible} available",
+                detail=(
+                    f"Schedule needs {required} future tournament(s) for a "
+                    f"{body.playoff_size}-player bracket; {eligible} available"
+                ),
             )
 
     config = PlayoffConfig(
@@ -358,7 +384,10 @@ def update_playoff_config(
     config = _get_config_or_404(league.id, season.id, db)
 
     if config.status != "pending":
-        raise HTTPException(status_code=422, detail="Cannot modify config after the playoff bracket is active")
+        raise HTTPException(
+            status_code=422,
+            detail="Cannot modify config after the playoff bracket is active",
+        )
 
     if body.playoff_size is not None:
         if body.playoff_size > 0:
@@ -368,7 +397,10 @@ def update_playoff_config(
             if eligible < required:
                 raise HTTPException(
                     status_code=422,
-                    detail=f"Schedule needs {required} future tournament(s) for a {body.playoff_size}-player bracket; {eligible} available",
+                    detail=(
+                        f"Schedule needs {required} future tournament(s) for a "
+                        f"{body.playoff_size}-player bracket; {eligible} available"
+                    ),
                 )
         config.playoff_size = body.playoff_size
     if body.draft_style is not None:
@@ -421,8 +453,7 @@ def get_bracket(
                 .joinedload(PlayoffRound.pods)
                 .joinedload(PlayoffPod.picks)
                 .joinedload(PlayoffPick.golfer),
-                joinedload(PlayoffConfig.rounds)
-                .joinedload(PlayoffRound.tournament),
+                joinedload(PlayoffConfig.rounds).joinedload(PlayoffRound.tournament),
             )
             .filter(PlayoffConfig.id == config.id)
             .first()
@@ -472,12 +503,9 @@ def get_bracket(
                     .first()
                 )
                 if last_reg:
-                    pick_golfer_ids_sq = (
-                        db.query(Pick.golfer_id)
-                        .filter(
-                            Pick.league_id == league.id,
-                            Pick.tournament_id == last_reg.tournament_id,
-                        )
+                    pick_golfer_ids_sq = db.query(Pick.golfer_id).filter(
+                        Pick.league_id == league.id,
+                        Pick.tournament_id == last_reg.tournament_id,
                     )
                     unfinalized = (
                         db.query(TournamentEntry)
@@ -504,7 +532,14 @@ def get_bracket(
         is_picks_visible = True
         if r.status == "locked" and r.tournament and r.tournament.status != "completed":
             is_picks_visible = any_r1_teed_off(db, r.tournament_id)
-        rounds_out.append(_build_bracket_round_out(r, config_loaded, is_picks_visible=is_picks_visible, viewer_user_id=current_user.id))
+        rounds_out.append(
+            _build_bracket_round_out(
+                r,
+                config_loaded,
+                is_picks_visible=is_picks_visible,
+                viewer_user_id=current_user.id,
+            )
+        )
 
     return BracketOut(playoff_config=config_loaded, rounds=rounds_out)
 
@@ -527,13 +562,11 @@ def seed_bracket(
     Raises 422 if the bracket is already seeded or seeding conditions are not met.
     """
     league, _ = league_and_member
-    config = (
-        db.query(PlayoffConfig)
-        .filter_by(league_id=league.id, season_id=season.id)
-        .first()
-    )
+    config = db.query(PlayoffConfig).filter_by(league_id=league.id, season_id=season.id).first()
     if not config:
-        raise HTTPException(status_code=404, detail="No playoff configuration found for this league")
+        raise HTTPException(
+            status_code=404, detail="No playoff configuration found for this league"
+        )
 
     seed_playoff(db, config)
 
@@ -541,8 +574,14 @@ def seed_bracket(
     config_loaded = (
         db.query(PlayoffConfig)
         .options(
-            joinedload(PlayoffConfig.rounds).joinedload(PlayoffRound.pods).joinedload(PlayoffPod.members).joinedload(PlayoffPodMember.user),
-            joinedload(PlayoffConfig.rounds).joinedload(PlayoffRound.pods).joinedload(PlayoffPod.picks).joinedload(PlayoffPick.golfer),
+            joinedload(PlayoffConfig.rounds)
+            .joinedload(PlayoffRound.pods)
+            .joinedload(PlayoffPod.members)
+            .joinedload(PlayoffPodMember.user),
+            joinedload(PlayoffConfig.rounds)
+            .joinedload(PlayoffRound.pods)
+            .joinedload(PlayoffPod.picks)
+            .joinedload(PlayoffPick.golfer),
             joinedload(PlayoffConfig.rounds).joinedload(PlayoffRound.tournament),
         )
         .filter_by(id=config.id)
@@ -694,7 +733,13 @@ def get_pod_detail(
         is_picks_visible = any_r1_teed_off(db, tournament.id)
 
     config = playoff_round.playoff_config
-    return _build_pod_out(pod, config, playoff_round.round_number, is_picks_visible=is_picks_visible, viewer_user_id=current_user.id)
+    return _build_pod_out(
+        pod,
+        config,
+        playoff_round.round_number,
+        is_picks_visible=is_picks_visible,
+        viewer_user_id=current_user.id,
+    )
 
 
 @router.get("/{league_id}/playoff/pods/{pod_id}/draft", response_model=PlayoffDraftStatusOut)
@@ -720,25 +765,27 @@ def get_draft_status(
     # required_preference_count = pod_size * picks_per_round for this round
     config = playoff_round.playoff_config
     idx = playoff_round.round_number - 1
-    ppr = config.picks_per_round[idx] if idx < len(config.picks_per_round) else config.picks_per_round[-1]
+    ppr = (
+        config.picks_per_round[idx]
+        if idx < len(config.picks_per_round)
+        else config.picks_per_round[-1]
+    )
     pod_size = len(pod.members)
     required_preference_count: int | None = (pod_size * ppr) if pod_size > 0 else None
 
     members_out: list[PlayoffPodMemberDraftOut] = []
     for member in sorted(pod.members, key=lambda m: m.seed):
-        pref_count = (
-            db.query(PlayoffDraftPreference)
-            .filter_by(pod_member_id=member.id)
-            .count()
+        pref_count = db.query(PlayoffDraftPreference).filter_by(pod_member_id=member.id).count()
+        members_out.append(
+            PlayoffPodMemberDraftOut(
+                user_id=member.user_id,
+                display_name=member.user.display_name,
+                seed=member.seed,
+                draft_position=member.draft_position,
+                has_submitted=pref_count > 0,
+                preference_count=pref_count,
+            )
         )
-        members_out.append(PlayoffPodMemberDraftOut(
-            user_id=member.user_id,
-            display_name=member.user.display_name,
-            seed=member.seed,
-            draft_position=member.draft_position,
-            has_submitted=pref_count > 0,
-            preference_count=pref_count,
-        ))
 
     picks_out = [_build_pick_out(p) for p in sorted(pod.picks, key=lambda p: p.draft_slot)]
 
@@ -750,13 +797,18 @@ def get_draft_status(
         if not any_r1_teed_off(db, tournament.id):
             viewer_member = next((m for m in pod.members if m.user_id == current_user.id), None)
             viewer_pod_member_id = viewer_member.id if viewer_member else None
-            picks_out = [p for p in picks_out if p.pod_member_id == viewer_pod_member_id] if viewer_pod_member_id else []
+            picks_out = (
+                [p for p in picks_out if p.pod_member_id == viewer_pod_member_id]
+                if viewer_pod_member_id
+                else []
+            )
 
     # Deadline = first R1 tee time (the moment preferences lock).
     # When tee times are not yet in the DB, return None — the backend blocks
     # submission via tournament.status instead. Do not fall back to start_date
     # midnight UTC; that fires a day early for US-timezone users.
-    from datetime import datetime, timezone
+    from datetime import datetime
+
     deadline_dt: datetime | None = None
     if tournament:
         deadline_dt = first_r1_tee_time(db, tournament.id)
@@ -771,7 +823,10 @@ def get_draft_status(
     )
 
 
-@router.get("/{league_id}/playoff/pods/{pod_id}/preferences", response_model=list[PlayoffPreferenceOut])
+@router.get(
+    "/{league_id}/playoff/pods/{pod_id}/preferences",
+    response_model=list[PlayoffPreferenceOut],
+)
 def get_my_preferences(
     pod_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
@@ -797,6 +852,7 @@ def get_my_preferences(
     )
 
     from app.models import Golfer
+
     return [
         PlayoffPreferenceOut(
             golfer_id=p.golfer_id,
@@ -807,7 +863,10 @@ def get_my_preferences(
     ]
 
 
-@router.put("/{league_id}/playoff/pods/{pod_id}/preferences", response_model=list[PlayoffPreferenceOut])
+@router.put(
+    "/{league_id}/playoff/pods/{pod_id}/preferences",
+    response_model=list[PlayoffPreferenceOut],
+)
 @limiter.limit("30/hour")
 def submit_draft_preferences(
     request: Request,
@@ -838,6 +897,7 @@ def submit_draft_preferences(
     new_prefs = submit_preferences(db, pod_member, body.golfer_ids, tournament_id)
 
     from app.models import Golfer
+
     return [
         PlayoffPreferenceOut(
             golfer_id=p.golfer_id,
@@ -887,7 +947,6 @@ def get_my_playoff_pod(
     Used by Dashboard and MakePick to detect playoff weeks.
     Returns 200 in all cases (never 404 — absent config returns is_playoff_week=False).
     """
-    from datetime import datetime, timezone
 
     _false = MyPlayoffPodOut(
         is_playoff_week=False,
@@ -963,11 +1022,7 @@ def get_my_playoff_pod(
         )
 
     # User is in the playoffs
-    pref_count = (
-        db.query(PlayoffDraftPreference)
-        .filter_by(pod_member_id=pod_member.id)
-        .count()
-    )
+    pref_count = db.query(PlayoffDraftPreference).filter_by(pod_member_id=pod_member.id).count()
 
     idx = active_round.round_number - 1
     ppr = (
@@ -976,11 +1031,7 @@ def get_my_playoff_pod(
         else config.picks_per_round[-1]
     )
 
-    pod_size = (
-        db.query(PlayoffPodMember)
-        .filter_by(pod_id=pod_member.pod_id)
-        .count()
-    )
+    pod_size = db.query(PlayoffPodMember).filter_by(pod_id=pod_member.pod_id).count()
     required_preference_count = pod_size * ppr
 
     # Deadline = first R1 tee time. When tee times are not yet in the DB,
@@ -1050,19 +1101,21 @@ def get_my_playoff_picks(
             .all()
         )
 
-        result.append(PlayoffTournamentPickOut(
-            tournament_id=round_obj.tournament_id,
-            round_number=round_obj.round_number,
-            status=round_obj.status,
-            picks=[
-                PlayoffPickSummary(
-                    golfer_name=p.golfer.name,
-                    points_earned=p.points_earned,
-                )
-                for p in picks
-            ],
-            total_points=pm.total_points,
-        ))
+        result.append(
+            PlayoffTournamentPickOut(
+                tournament_id=round_obj.tournament_id,
+                round_number=round_obj.round_number,
+                status=round_obj.status,
+                picks=[
+                    PlayoffPickSummary(
+                        golfer_name=p.golfer.name,
+                        points_earned=p.points_earned,
+                    )
+                    for p in picks
+                ],
+                total_points=pm.total_points,
+            )
+        )
 
     result.sort(key=lambda x: x.round_number)
     return result

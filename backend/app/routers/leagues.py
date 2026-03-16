@@ -2,20 +2,20 @@
 Leagues router — /leagues/*
 
 Endpoints:
-  POST   /leagues                                          Create a new league
-  POST   /leagues/join/{invite_code}                       Submit a join request via invite link
-  GET    /leagues/{league_id}                              Get league details (members only)
-  PATCH  /leagues/{league_id}                              Update league name/penalty (manager only)
-  DELETE /leagues/{league_id}                              Delete a league and all its data (manager only)
-  GET    /leagues/{league_id}/members                      List approved members
-  PATCH  /leagues/{league_id}/members/{user_id}/role       Change a member's role (manager only)
-  DELETE /leagues/{league_id}/members/me                   Leave a league (any approved member)
-  DELETE /leagues/{league_id}/members/{user_id}            Remove a member (manager only)
-  GET    /leagues/{league_id}/requests                     List pending join requests (manager only)
-  POST   /leagues/{league_id}/requests/{user_id}/approve   Approve a join request (manager only)
-  DELETE /leagues/{league_id}/requests/{user_id}           Deny/delete a join request (manager only)
-  GET    /leagues/{league_id}/tournaments                  List league's selected tournaments
-  PUT    /leagues/{league_id}/tournaments                  Replace league's tournament schedule (manager only)
+  POST   /leagues                                     Create a new league
+  POST   /leagues/join/{invite_code}                  Submit a join request via invite link
+  GET    /leagues/{league_id}                         Get league details (members only)
+  PATCH  /leagues/{league_id}                         Update league name/penalty (manager only)
+  DELETE /leagues/{league_id}                         Delete a league and all its data (manager)
+  GET    /leagues/{league_id}/members                 List approved members
+  PATCH  /leagues/{league_id}/members/{user_id}/role  Change a member's role (manager only)
+  DELETE /leagues/{league_id}/members/me              Leave a league (any approved member)
+  DELETE /leagues/{league_id}/members/{user_id}       Remove a member (manager only)
+  GET    /leagues/{league_id}/requests                List pending join requests (manager only)
+  POST   /leagues/{league_id}/requests/{user_id}/approve  Approve a join request (manager only)
+  DELETE /leagues/{league_id}/requests/{user_id}      Deny/delete a join request (manager only)
+  GET    /leagues/{league_id}/tournaments             List league's selected tournaments
+  PUT    /leagues/{league_id}/tournaments             Replace league's tournament schedule (manager)
 """
 
 import datetime
@@ -23,21 +23,19 @@ import logging
 import math
 import uuid
 
-log = logging.getLogger(__name__)
-
-LEAGUE_MEMBER_CAP = 500
-LEAGUE_PENDING_CAP = LEAGUE_MEMBER_CAP // 5  # 100
-USER_LEAGUE_CAP = 5  # Max approved leagues a single user may belong to (created + joined combined)
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
 from sqlalchemy.orm import Session, joinedload
 
-from app.limiter import limiter
 from app.config import settings
-
 from app.database import get_db
-from app.dependencies import get_current_user, get_league_or_404, require_league_manager, require_league_member
+from app.dependencies import (
+    get_current_user,
+    get_league_or_404,
+    require_league_manager,
+    require_league_member,
+)
+from app.limiter import limiter
 from app.models import (
     League,
     LeagueMember,
@@ -47,19 +45,33 @@ from app.models import (
     Pick,
     PlayoffConfig,
     PlayoffDraftPreference,
+    PlayoffPick,
     PlayoffPod,
     PlayoffPodMember,
-    PlayoffPick,
     PlayoffRound,
     Season,
     Tournament,
     User,
 )
-from app.schemas.league import LeagueCreate, LeagueMemberOut, LeagueOut, LeagueUpdate, LeagueJoinPreview, LeagueRequestOut, RoleUpdate
-from app.schemas.tournament import LeagueTournamentOut, TournamentOut
 from app.models.tournament import TournamentStatus
+from app.schemas.league import (
+    LeagueCreate,
+    LeagueJoinPreview,
+    LeagueMemberOut,
+    LeagueOut,
+    LeagueRequestOut,
+    LeagueUpdate,
+    RoleUpdate,
+)
+from app.schemas.tournament import LeagueTournamentOut
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
 from app.services.scraper import score_picks
+
+log = logging.getLogger(__name__)
+
+LEAGUE_MEMBER_CAP = 500
+LEAGUE_PENDING_CAP = LEAGUE_MEMBER_CAP // 5  # 100
+USER_LEAGUE_CAP = 5  # Max approved leagues a single user may belong to (created + joined combined)
 
 router = APIRouter(prefix="/leagues", tags=["leagues"])
 
@@ -89,14 +101,21 @@ def create_league(
         )
 
     # Guard: per-user league cap — checked before any DB write so nothing is rolled back.
-    user_league_count = db.query(LeagueMember).filter_by(
-        user_id=current_user.id,
-        status=LeagueMemberStatus.APPROVED.value,
-    ).count()
+    user_league_count = (
+        db.query(LeagueMember)
+        .filter_by(
+            user_id=current_user.id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
+        .count()
+    )
     if user_league_count >= USER_LEAGUE_CAP:
         raise HTTPException(
             status_code=400,
-            detail=f"You have reached the maximum of {USER_LEAGUE_CAP} leagues. Leave a league before creating another.",
+            detail=(
+                f"You have reached the maximum of {USER_LEAGUE_CAP} leagues. "
+                "Leave a league before creating another."
+            ),
         )
 
     league = League(
@@ -148,13 +167,15 @@ def preview_join(
     if not league:
         raise HTTPException(status_code=404, detail="Invalid invite link — league not found")
 
-    member_count = db.query(LeagueMember).filter_by(
-        league_id=league.id, status=LeagueMemberStatus.APPROVED.value
-    ).count()
+    member_count = (
+        db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+        .count()
+    )
 
-    existing = db.query(LeagueMember).filter_by(
-        league_id=league.id, user_id=current_user.id
-    ).first()
+    existing = (
+        db.query(LeagueMember).filter_by(league_id=league.id, user_id=current_user.id).first()
+    )
 
     return LeagueJoinPreview(
         league_id=league.id,
@@ -215,41 +236,58 @@ def request_to_join(
     if not league:
         raise HTTPException(status_code=404, detail="Invalid invite link — league not found")
 
-    existing = db.query(LeagueMember).filter_by(
-        league_id=league.id, user_id=current_user.id
-    ).first()
+    existing = (
+        db.query(LeagueMember).filter_by(league_id=league.id, user_id=current_user.id).first()
+    )
     if existing:
         if existing.status == LeagueMemberStatus.APPROVED.value:
             raise HTTPException(status_code=409, detail="You are already a member of this league")
-        raise HTTPException(status_code=409, detail="You already have a pending join request for this league")
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a pending join request for this league",
+        )
 
     # Guard: per-user league cap — block the request now so the user isn't waiting for
     # an approval that can never succeed.
-    user_league_count = db.query(LeagueMember).filter_by(
-        user_id=current_user.id,
-        status=LeagueMemberStatus.APPROVED.value,
-    ).count()
+    user_league_count = (
+        db.query(LeagueMember)
+        .filter_by(
+            user_id=current_user.id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
+        .count()
+    )
     if user_league_count >= USER_LEAGUE_CAP:
         raise HTTPException(
             status_code=400,
-            detail=f"You have reached the maximum of {USER_LEAGUE_CAP} leagues. Leave a league before joining another.",
+            detail=(
+                f"You have reached the maximum of {USER_LEAGUE_CAP} leagues. "
+                "Leave a league before joining another."
+            ),
         )
 
     # Guard: too many pending requests already in the queue for this league.
-    pending_count = db.query(LeagueMember).filter_by(
-        league_id=league.id, status=LeagueMemberStatus.PENDING.value
-    ).count()
+    pending_count = (
+        db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.PENDING.value)
+        .count()
+    )
     if pending_count >= LEAGUE_PENDING_CAP:
         raise HTTPException(
             status_code=400,
-            detail="This league has too many pending join requests. Please try again later or contact the league manager.",
+            detail=(
+                "This league has too many pending join requests. "
+                "Please try again later or contact the league manager."
+            ),
         )
 
     # Public leagues skip the approval step — check member cap before auto-approving.
     if league.is_public:
-        approved_count = db.query(LeagueMember).filter_by(
-            league_id=league.id, status=LeagueMemberStatus.APPROVED.value
-        ).count()
+        approved_count = (
+            db.query(LeagueMember)
+            .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+            .count()
+        )
         if approved_count >= LEAGUE_MEMBER_CAP:
             raise HTTPException(
                 status_code=400,
@@ -257,9 +295,7 @@ def request_to_join(
             )
 
     initial_status = (
-        LeagueMemberStatus.APPROVED.value
-        if league.is_public
-        else LeagueMemberStatus.PENDING.value
+        LeagueMemberStatus.APPROVED.value if league.is_public else LeagueMemberStatus.PENDING.value
     )
 
     membership = LeagueMember(
@@ -326,31 +362,49 @@ def delete_league(
     league, manager = league_and_manager
     log.warning(
         "League deleted: league_id=%s name=%r by user_id=%s",
-        league.id, league.name, manager.user_id,
+        league.id,
+        league.name,
+        manager.user_id,
     )
 
     # Build subquery chains for playoff tables (no direct league_id FK below playoff_configs).
     config_ids = db.query(PlayoffConfig.id).filter(PlayoffConfig.league_id == league.id).subquery()
-    round_ids  = db.query(PlayoffRound.id).filter(PlayoffRound.playoff_config_id.in_(config_ids)).subquery()
-    pod_ids    = db.query(PlayoffPod.id).filter(PlayoffPod.playoff_round_id.in_(round_ids)).subquery()
+    round_ids = (
+        db.query(PlayoffRound.id).filter(PlayoffRound.playoff_config_id.in_(config_ids)).subquery()
+    )
+    pod_ids = db.query(PlayoffPod.id).filter(PlayoffPod.playoff_round_id.in_(round_ids)).subquery()
 
     # Leaf playoff tables first (both FKs point at pods/pod_members — delete before those).
-    db.query(PlayoffDraftPreference).filter(PlayoffDraftPreference.pod_id.in_(pod_ids)).delete(synchronize_session=False)
+    db.query(PlayoffDraftPreference).filter(PlayoffDraftPreference.pod_id.in_(pod_ids)).delete(
+        synchronize_session=False
+    )
     db.query(PlayoffPick).filter(PlayoffPick.pod_id.in_(pod_ids)).delete(synchronize_session=False)
     # Pod members reference pods.
-    db.query(PlayoffPodMember).filter(PlayoffPodMember.pod_id.in_(pod_ids)).delete(synchronize_session=False)
+    db.query(PlayoffPodMember).filter(PlayoffPodMember.pod_id.in_(pod_ids)).delete(
+        synchronize_session=False
+    )
     # Pods reference rounds; rounds reference configs.
-    db.query(PlayoffPod).filter(PlayoffPod.playoff_round_id.in_(round_ids)).delete(synchronize_session=False)
-    db.query(PlayoffRound).filter(PlayoffRound.playoff_config_id.in_(config_ids)).delete(synchronize_session=False)
-    db.query(PlayoffConfig).filter(PlayoffConfig.league_id == league.id).delete(synchronize_session=False)
+    db.query(PlayoffPod).filter(PlayoffPod.playoff_round_id.in_(round_ids)).delete(
+        synchronize_session=False
+    )
+    db.query(PlayoffRound).filter(PlayoffRound.playoff_config_id.in_(config_ids)).delete(
+        synchronize_session=False
+    )
+    db.query(PlayoffConfig).filter(PlayoffConfig.league_id == league.id).delete(
+        synchronize_session=False
+    )
 
     # Regular-season picks reference league + season.
     db.query(Pick).filter(Pick.league_id == league.id).delete(synchronize_session=False)
     # Seasons reference league.
     db.query(Season).filter(Season.league_id == league.id).delete(synchronize_session=False)
     # Join/membership tables reference league.
-    db.query(LeagueMember).filter(LeagueMember.league_id == league.id).delete(synchronize_session=False)
-    db.query(LeagueTournament).filter(LeagueTournament.league_id == league.id).delete(synchronize_session=False)
+    db.query(LeagueMember).filter(LeagueMember.league_id == league.id).delete(
+        synchronize_session=False
+    )
+    db.query(LeagueTournament).filter(LeagueTournament.league_id == league.id).delete(
+        synchronize_session=False
+    )
 
     db.delete(league)
     db.commit()
@@ -386,7 +440,11 @@ def update_member_role(
 
     membership = (
         db.query(LeagueMember)
-        .filter_by(league_id=league.id, user_id=user_id, status=LeagueMemberStatus.APPROVED.value)
+        .filter_by(
+            league_id=league.id,
+            user_id=user_id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
         .options(joinedload(LeagueMember.user))
         .first()
     )
@@ -404,9 +462,7 @@ def update_member_role(
 # ---------------------------------------------------------------------------
 
 
-def _remove_member_picks_and_playoff(
-    db: Session, league: League, user_id: uuid.UUID
-) -> None:
+def _remove_member_picks_and_playoff(db: Session, league: League, user_id: uuid.UUID) -> None:
     """
     Clean up season data for a member leaving or being removed from a league.
 
@@ -445,9 +501,7 @@ def _remove_member_picks_and_playoff(
     #    Only non-completed rounds are touched. Completed rounds (already scored
     #    and advanced) are left entirely intact — picks, scores, and winner
     #    records from prior rounds are permanent history.
-    config = db.query(PlayoffConfig).filter_by(
-        league_id=league.id, season_id=season.id
-    ).first()
+    config = db.query(PlayoffConfig).filter_by(league_id=league.id, season_id=season.id).first()
     if config:
         pod_members = (
             db.query(PlayoffPodMember)
@@ -530,15 +584,23 @@ def remove_member(
     league, manager_membership = league_and_manager
     log.info(
         "Member removed: league_id=%s target_user_id=%s by manager_user_id=%s",
-        league.id, user_id, manager_membership.user_id,
+        league.id,
+        user_id,
+        manager_membership.user_id,
     )
 
     if user_id == manager_membership.user_id:
         raise HTTPException(status_code=400, detail="You cannot remove yourself from the league")
 
-    membership = db.query(LeagueMember).filter_by(
-        league_id=league.id, user_id=user_id, status=LeagueMemberStatus.APPROVED.value
-    ).first()
+    membership = (
+        db.query(LeagueMember)
+        .filter_by(
+            league_id=league.id,
+            user_id=user_id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
+        .first()
+    )
     if not membership:
         raise HTTPException(status_code=404, detail="Member not found")
 
@@ -578,7 +640,11 @@ def approve_join_request(
 
     membership = (
         db.query(LeagueMember)
-        .filter_by(league_id=league.id, user_id=user_id, status=LeagueMemberStatus.PENDING.value)
+        .filter_by(
+            league_id=league.id,
+            user_id=user_id,
+            status=LeagueMemberStatus.PENDING.value,
+        )
         .options(joinedload(LeagueMember.user))
         .first()
     )
@@ -587,26 +653,38 @@ def approve_join_request(
 
     # Guard: league member cap — checked here so admins can't accidentally exceed it
     # by approving multiple pending requests when the league is nearly full.
-    approved_count = db.query(LeagueMember).filter_by(
-        league_id=league.id, status=LeagueMemberStatus.APPROVED.value
-    ).count()
+    approved_count = (
+        db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+        .count()
+    )
     if approved_count >= LEAGUE_MEMBER_CAP:
         raise HTTPException(
             status_code=400,
-            detail=f"This league has reached its maximum member limit of {LEAGUE_MEMBER_CAP}. Remove a member before approving new ones.",
+            detail=(
+                f"This league has reached its maximum member limit of {LEAGUE_MEMBER_CAP}. "
+                "Remove a member before approving new ones."
+            ),
         )
 
     # Guard: per-user league cap — the requestor may have joined other leagues since
     # this request was submitted. Prevents a race condition where a user submits multiple
     # pending requests and gets approved into more than USER_LEAGUE_CAP leagues.
-    user_league_count = db.query(LeagueMember).filter_by(
-        user_id=user_id,
-        status=LeagueMemberStatus.APPROVED.value,
-    ).count()
+    user_league_count = (
+        db.query(LeagueMember)
+        .filter_by(
+            user_id=user_id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
+        .count()
+    )
     if user_league_count >= USER_LEAGUE_CAP:
         raise HTTPException(
             status_code=400,
-            detail=f"Cannot approve: this member is already in {USER_LEAGUE_CAP} leagues (the maximum). They must leave a league first.",
+            detail=(
+                f"Cannot approve: this member is already in {USER_LEAGUE_CAP} leagues "
+                "(the maximum). They must leave a league first."
+            ),
         )
 
     membership.status = LeagueMemberStatus.APPROVED.value
@@ -622,11 +700,15 @@ def cancel_my_join_request(
     db: Session = Depends(get_db),
 ):
     """Cancel the current user's own pending join request."""
-    membership = db.query(LeagueMember).filter_by(
-        league_id=league.id,
-        user_id=current_user.id,
-        status=LeagueMemberStatus.PENDING.value,
-    ).first()
+    membership = (
+        db.query(LeagueMember)
+        .filter_by(
+            league_id=league.id,
+            user_id=current_user.id,
+            status=LeagueMemberStatus.PENDING.value,
+        )
+        .first()
+    )
     if not membership:
         raise HTTPException(status_code=404, detail="No pending request found")
 
@@ -647,9 +729,15 @@ def deny_join_request(
     """
     league, _ = league_and_manager
 
-    membership = db.query(LeagueMember).filter_by(
-        league_id=league.id, user_id=user_id, status=LeagueMemberStatus.PENDING.value
-    ).first()
+    membership = (
+        db.query(LeagueMember)
+        .filter_by(
+            league_id=league.id,
+            user_id=user_id,
+            status=LeagueMemberStatus.PENDING.value,
+        )
+        .first()
+    )
     if not membership:
         raise HTTPException(status_code=404, detail="Pending request not found")
 
@@ -695,11 +783,7 @@ def _playoff_tournament_ids_for_league(league_id: uuid.UUID, db: Session) -> fro
     ids.update(row.tournament_id for row in explicit)
 
     # ── Source 2: computed from playoff config ───────────────────────────────
-    config = (
-        db.query(PlayoffConfig)
-        .filter(PlayoffConfig.league_id == league_id)
-        .first()
-    )
+    config = db.query(PlayoffConfig).filter(PlayoffConfig.league_id == league_id).first()
     if config and config.playoff_size >= 2:
         # Mirror _required_rounds() from playoff.py — log2 of bracket size.
         required = 4 if config.playoff_size == 32 else int(math.log2(config.playoff_size))
@@ -933,10 +1017,14 @@ def update_league_tournaments(
             next_upcoming_id = next_upcoming.id if next_upcoming else None
 
         eligible = sum(
-            1 for item in body.tournaments
+            1
+            for item in body.tournaments
             if tournament_map.get(item.tournament_id)
             and tournament_map[item.tournament_id].status == TournamentStatus.SCHEDULED.value
-            and (next_upcoming_id is None or tournament_map[item.tournament_id].id != next_upcoming_id)
+            and (
+                next_upcoming_id is None
+                or tournament_map[item.tournament_id].id != next_upcoming_id
+            )
         )
         if eligible < required:
             raise HTTPException(
@@ -950,11 +1038,13 @@ def update_league_tournaments(
     # Atomic replace: delete all existing selections, insert new ones.
     db.query(LeagueTournament).filter_by(league_id=league.id).delete()
     for item in body.tournaments:
-        db.add(LeagueTournament(
-            league_id=league.id,
-            tournament_id=item.tournament_id,
-            multiplier=item.multiplier,
-        ))
+        db.add(
+            LeagueTournament(
+                league_id=league.id,
+                tournament_id=item.tournament_id,
+                multiplier=item.multiplier,
+            )
+        )
     db.commit()
 
     # Re-score all completed tournament picks.

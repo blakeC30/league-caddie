@@ -7,26 +7,27 @@ Endpoints:
   GET   /leagues/{league_id}/picks                          All picks (completed tournaments only)
   GET   /leagues/{league_id}/picks/tournament/{t_id}        Pick breakdown for one tournament
   PATCH /leagues/{league_id}/picks/{pick_id}                Change the golfer on an existing pick
-  PUT   /leagues/{league_id}/picks/admin-override           Manager: upsert or delete any member's pick
+  PUT   /leagues/{league_id}/picks/admin-override  Manager: upsert or delete any member's pick
 """
 
 import uuid
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
-from sqlalchemy import and_, func as sqlfunc, or_
+from sqlalchemy import and_, or_
+from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
-from app.limiter import limiter
 from app.dependencies import (
     get_active_season,
     get_current_user,
     require_league_manager,
     require_league_member,
 )
+from app.limiter import limiter
 from app.models import (
     Golfer,
     League,
@@ -43,13 +44,14 @@ from app.models import (
     User,
 )
 from app.schemas.pick import PickCreate, PickOut, PickUpdate
-from app.services.picks import all_r1_teed_off as _all_r1_teed_off, validate_new_pick, validate_pick_change
+from app.services.picks import all_r1_teed_off as _all_r1_teed_off
+from app.services.picks import validate_new_pick, validate_pick_change
 from app.services.scraper import score_picks
-
 
 # ---------------------------------------------------------------------------
 # Response schemas for the tournament picks summary endpoint
 # ---------------------------------------------------------------------------
+
 
 class PickerInfo(BaseModel):
     user_id: str
@@ -78,9 +80,10 @@ class WinnerInfo(BaseModel):
 class TournamentPicksSummary(BaseModel):
     tournament_status: str
     member_count: int
-    picks_by_golfer: list[GolferPickGroup]   # sorted by pick_count desc
+    picks_by_golfer: list[GolferPickGroup]  # sorted by pick_count desc
     no_pick_members: list[NoPicker]
     winner: WinnerInfo | None  # None for non-completed tournaments
+
 
 router = APIRouter(prefix="/leagues/{league_id}/picks", tags=["picks"])
 
@@ -134,11 +137,7 @@ def submit_pick(
     db.add(pick)
     db.commit()
 
-    return (
-        _picks_with_relations(db.query(Pick))
-        .filter_by(id=pick.id)
-        .first()
-    )
+    return _picks_with_relations(db.query(Pick)).filter_by(id=pick.id).first()
 
 
 @router.get("/mine", response_model=list[PickOut])
@@ -151,21 +150,16 @@ def get_my_picks(
     """Return the current user's picks for the active season, scoped to the league's schedule."""
     league, _ = league_and_member
     scheduled_tournament_ids = (
-        db.query(LeagueTournament.tournament_id)
-        .filter_by(league_id=league.id)
-        .scalar_subquery()
+        db.query(LeagueTournament.tournament_id).filter_by(league_id=league.id).scalar_subquery()
     )
-    return (
-        _picks_with_relations(
-            db.query(Pick).filter(
-                Pick.league_id == league.id,
-                Pick.season_id == season.id,
-                Pick.user_id == current_user.id,
-                Pick.tournament_id.in_(scheduled_tournament_ids),
-            )
+    return _picks_with_relations(
+        db.query(Pick).filter(
+            Pick.league_id == league.id,
+            Pick.season_id == season.id,
+            Pick.user_id == current_user.id,
+            Pick.tournament_id.in_(scheduled_tournament_ids),
         )
-        .all()
-    )
+    ).all()
 
 
 @router.get("", response_model=list[PickOut])
@@ -186,11 +180,9 @@ def get_all_picks(
     """
     league, _ = league_and_member
     scheduled_tournament_ids = (
-        db.query(LeagueTournament.tournament_id)
-        .filter_by(league_id=league.id)
-        .scalar_subquery()
+        db.query(LeagueTournament.tournament_id).filter_by(league_id=league.id).scalar_subquery()
     )
-    now_utc = datetime.now(tz=timezone.utc)
+    now_utc = datetime.now(tz=UTC)
 
     # Subquery: tournament IDs where the last tee time has already passed.
     # Uses TournamentEntry.tee_time — the same source as pick locking — for consistency.
@@ -204,24 +196,21 @@ def get_all_picks(
         .subquery()
     )
 
-    return (
-        _picks_with_relations(
-            db.query(Pick)
-            .filter_by(league_id=league.id, season_id=season.id)
-            .join(Pick.tournament)
-            .filter(
-                Tournament.id.in_(scheduled_tournament_ids),
-                or_(
-                    Tournament.status == TournamentStatus.COMPLETED.value,
-                    and_(
-                        Tournament.status == TournamentStatus.IN_PROGRESS.value,
-                        Tournament.id.in_(all_teed_off_sq),
-                    ),
+    return _picks_with_relations(
+        db.query(Pick)
+        .filter_by(league_id=league.id, season_id=season.id)
+        .join(Pick.tournament)
+        .filter(
+            Tournament.id.in_(scheduled_tournament_ids),
+            or_(
+                Tournament.status == TournamentStatus.COMPLETED.value,
+                and_(
+                    Tournament.status == TournamentStatus.IN_PROGRESS.value,
+                    Tournament.id.in_(all_teed_off_sq),
                 ),
-            )
+            ),
         )
-        .all()
-    )
+    ).all()
 
 
 @router.get("/tournament/{tournament_id}", response_model=TournamentPicksSummary)
@@ -251,7 +240,9 @@ def get_tournament_picks_summary(
     tournament = lt.tournament
     if tournament.status == TournamentStatus.SCHEDULED.value:
         raise HTTPException(403, "Picks are revealed once the tournament begins")
-    if tournament.status == TournamentStatus.IN_PROGRESS.value and not _all_r1_teed_off(db, tournament.id):
+    if tournament.status == TournamentStatus.IN_PROGRESS.value and not _all_r1_teed_off(
+        db, tournament.id
+    ):
         raise HTTPException(403, "Picks are revealed once all golfers have teed off")
 
     picks = (
@@ -269,7 +260,12 @@ def get_tournament_picks_summary(
     )
 
     golfer_map: dict[str, dict] = defaultdict(
-        lambda: {"golfer_id": None, "golfer_name": None, "pickers": [], "earnings_usd": None}
+        lambda: {
+            "golfer_id": None,
+            "golfer_name": None,
+            "pickers": [],
+            "earnings_usd": None,
+        }
     )
     picker_ids: set[uuid.UUID] = set()
 
@@ -317,10 +313,7 @@ def get_tournament_picks_summary(
             .first()
         )
         if top_entry:
-            pick_count = sum(
-                1 for g in picks_by_golfer
-                if g.golfer_id == str(top_entry.golfer_id)
-            )
+            pick_count = sum(1 for g in picks_by_golfer if g.golfer_id == str(top_entry.golfer_id))
             winner = WinnerInfo(
                 golfer_name=top_entry.golfer.name,
                 pick_count=pick_count,
@@ -376,11 +369,7 @@ def change_pick(
     pick.golfer_id = body.golfer_id
     db.commit()
 
-    return (
-        _picks_with_relations(db.query(Pick))
-        .filter_by(id=pick.id)
-        .first()
-    )
+    return _picks_with_relations(db.query(Pick)).filter_by(id=pick.id).first()
 
 
 class AdminPickOverride(BaseModel):
@@ -434,17 +423,16 @@ def admin_override_pick(
     if is_playoff_tournament:
         raise HTTPException(
             status_code=422,
-            detail="This is a playoff tournament — manage picks through the playoff bracket endpoints",
+            detail=(
+                "This is a playoff tournament — "
+                "manage picks through the playoff bracket endpoints"
+            ),
         )
 
     # Block once the regular season is over. The regular season is considered locked
     # when the last non-playoff tournament in the league's schedule has completed.
     playoff_tournament_ids: set = set()
-    config = (
-        db.query(PlayoffConfig)
-        .filter_by(league_id=league.id, season_id=season.id)
-        .first()
-    )
+    config = db.query(PlayoffConfig).filter_by(league_id=league.id, season_id=season.id).first()
     if config:
         playoff_tournament_ids = {
             row.tournament_id
@@ -474,7 +462,11 @@ def admin_override_pick(
     # Verify the target user is an approved member of this league
     membership = (
         db.query(LeagueMember)
-        .filter_by(league_id=league.id, user_id=body.user_id, status=LeagueMemberStatus.APPROVED.value)
+        .filter_by(
+            league_id=league.id,
+            user_id=body.user_id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
         .first()
     )
     if not membership:
@@ -521,7 +513,10 @@ def admin_override_pick(
     if no_repeat_conflict:
         raise HTTPException(
             status_code=422,
-            detail=f"{golfer.name} has already been used by this member in another tournament this season",
+            detail=(
+                f"{golfer.name} has already been used by this member "
+                "in another tournament this season"
+            ),
         )
 
     tournament = db.query(Tournament).filter_by(id=body.tournament_id).first()
@@ -548,8 +543,4 @@ def admin_override_pick(
     if tournament and tournament.status == TournamentStatus.COMPLETED.value:
         score_picks(db, tournament)
 
-    return (
-        _picks_with_relations(db.query(Pick))
-        .filter_by(id=pick_id)
-        .first()
-    )
+    return _picks_with_relations(db.query(Pick)).filter_by(id=pick_id).first()

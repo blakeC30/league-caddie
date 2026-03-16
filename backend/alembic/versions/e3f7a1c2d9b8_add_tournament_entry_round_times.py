@@ -14,8 +14,9 @@ The existing tournament_entries.tee_time column is unchanged — it continues
 to hold the current round's tee time used by pick-locking logic.
 """
 
-from alembic import op
 import sqlalchemy as sa
+
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e3f7a1c2d9b8"
@@ -37,9 +38,7 @@ def upgrade() -> None:
             name="fk_entry_round_times_entry_id",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "tournament_entry_id", "round_number", name="uq_entry_round"
-        ),
+        sa.UniqueConstraint("tournament_entry_id", "round_number", name="uq_entry_round"),
     )
 
 

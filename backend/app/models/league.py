@@ -25,7 +25,16 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueConstraint, func, text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,17 +50,18 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
-class LeagueMemberRole(str, enum.Enum):
+class LeagueMemberRole(enum.StrEnum):
     """
     A user's role within a specific league.
     Inheriting from str makes the enum JSON-serializable and lets SQLAlchemy
     store it as a plain string in the database.
     """
+
     MANAGER = "manager"  # Can manage members, settings, and tournament schedule
-    MEMBER = "member"    # Can view and submit picks
+    MEMBER = "member"  # Can view and submit picks
 
 
-class LeagueMemberStatus(str, enum.Enum):
+class LeagueMemberStatus(enum.StrEnum):
     """
     Membership lifecycle state.
 
@@ -61,6 +71,7 @@ class LeagueMemberStatus(str, enum.Enum):
     Denied requests are simply deleted (not stored with a "denied" status)
     to keep the table small and not confuse future join attempts.
     """
+
     PENDING = "pending"
     APPROVED = "approved"
 
@@ -68,9 +79,7 @@ class LeagueMemberStatus(str, enum.Enum):
 class League(Base):
     __tablename__ = "leagues"
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
 
     # Unique, unguessable token used in the invite URL (/join/{invite_code}).
@@ -170,4 +179,7 @@ class LeagueMember(Base):
     user: Mapped["User"] = relationship(back_populates="league_memberships")
 
     def __repr__(self) -> str:
-        return f"<LeagueMember league={self.league_id} user={self.user_id} role={self.role!r} status={self.status!r}>"
+        return (
+            f"<LeagueMember league={self.league_id} user={self.user_id} "
+            f"role={self.role!r} status={self.status!r}>"
+        )

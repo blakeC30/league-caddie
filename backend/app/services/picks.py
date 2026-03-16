@@ -24,13 +24,23 @@ Rules enforced:
 """
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session
 
-from app.models import Golfer, LeagueTournament, Pick, PlayoffConfig, PlayoffRound, Season, Tournament, TournamentEntry, TournamentStatus
+from app.models import (
+    Golfer,
+    LeagueTournament,
+    Pick,
+    PlayoffConfig,
+    PlayoffRound,
+    Season,
+    Tournament,
+    TournamentEntry,
+    TournamentStatus,
+)
 
 
 def validate_new_pick(
@@ -50,9 +60,11 @@ def validate_new_pick(
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     # League schedule check: the admin must have explicitly added this tournament.
-    in_schedule = db.query(LeagueTournament).filter_by(
-        league_id=league_id, tournament_id=tournament_id
-    ).first()
+    in_schedule = (
+        db.query(LeagueTournament)
+        .filter_by(league_id=league_id, tournament_id=tournament_id)
+        .first()
+    )
     if not in_schedule:
         raise HTTPException(
             status_code=422,
@@ -75,7 +87,10 @@ def validate_new_pick(
     if playoff_round:
         raise HTTPException(
             status_code=422,
-            detail="This is a playoff tournament — submit your ranked preferences via the playoff bracket instead",
+            detail=(
+                "This is a playoff tournament — submit your ranked preferences "
+                "via the playoff bracket instead"
+            ),
         )
 
     if tournament.status == TournamentStatus.COMPLETED.value:
@@ -96,7 +111,10 @@ def validate_new_pick(
         if active:
             raise HTTPException(
                 status_code=400,
-                detail=f"Picks for this tournament are not available until '{active.name}' completes",
+                detail=(
+                    f"Picks for this tournament are not available until "
+                    f"'{active.name}' completes"
+                ),
             )
 
         # Block if the pick target is not the globally-next scheduled PGA tournament.
@@ -167,15 +185,16 @@ def validate_new_pick(
     # The field is considered released as soon as any TournamentEntry rows exist.
     # Before release, any known golfer can be picked (they may or may not play).
     field_released = (
-        db.query(TournamentEntry).filter_by(tournament_id=tournament_id).first()
-        is not None
+        db.query(TournamentEntry).filter_by(tournament_id=tournament_id).first() is not None
     )
 
     entry: TournamentEntry | None = None
     if field_released:
-        entry = db.query(TournamentEntry).filter_by(
-            tournament_id=tournament_id, golfer_id=golfer_id
-        ).first()
+        entry = (
+            db.query(TournamentEntry)
+            .filter_by(tournament_id=tournament_id, golfer_id=golfer_id)
+            .first()
+        )
         if not entry:
             raise HTTPException(
                 status_code=400,
@@ -183,7 +202,7 @@ def validate_new_pick(
             )
 
     if tournament.status == TournamentStatus.SCHEDULED.value:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if entry is not None and entry.tee_time is not None:
             # Tee times are published — use the golfer's actual R1 tee time as the
             # deadline, matching the rule exactly: "the pick locks when the picked
@@ -207,11 +226,14 @@ def validate_new_pick(
                 )
     else:
         # IN_PROGRESS: field must be released and the golfer must not have teed off.
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if not field_released or entry is None or entry.tee_time is None or entry.tee_time <= now:
             raise HTTPException(
                 status_code=400,
-                detail="Pick deadline has passed — golfer has already teed off or tee time is unavailable",
+                detail=(
+                    "Pick deadline has passed — golfer has already teed off "
+                    "or tee time is unavailable"
+                ),
             )
 
     # No-repeat: has this golfer already been picked this season?
@@ -243,7 +265,10 @@ def validate_new_pick(
         .first()
     )
     if duplicate:
-        raise HTTPException(status_code=400, detail="You have already submitted a pick for this tournament")
+        raise HTTPException(
+            status_code=400,
+            detail="You have already submitted a pick for this tournament",
+        )
 
 
 def validate_pick_change(
@@ -261,12 +286,14 @@ def validate_pick_change(
     tournament = pick.tournament
 
     if tournament.status == TournamentStatus.COMPLETED.value:
-        raise HTTPException(status_code=400, detail="Tournament is already completed — pick cannot be changed")
+        raise HTTPException(
+            status_code=400,
+            detail="Tournament is already completed — pick cannot be changed",
+        )
 
     # Determine whether the official field has been released for this tournament.
     field_released = (
-        db.query(TournamentEntry).filter_by(tournament_id=tournament.id).first()
-        is not None
+        db.query(TournamentEntry).filter_by(tournament_id=tournament.id).first() is not None
     )
 
     if tournament.status == TournamentStatus.IN_PROGRESS.value:
@@ -280,13 +307,15 @@ def validate_pick_change(
             )
 
         # Validate the new golfer: must be in the field and not yet teed off.
-        entry = db.query(TournamentEntry).filter_by(
-            tournament_id=tournament.id, golfer_id=new_golfer_id
-        ).first()
+        entry = (
+            db.query(TournamentEntry)
+            .filter_by(tournament_id=tournament.id, golfer_id=new_golfer_id)
+            .first()
+        )
         if not entry:
             raise HTTPException(status_code=400, detail="Golfer is not entered in this tournament")
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         if entry.tee_time is None or entry.tee_time <= now:
             raise HTTPException(
                 status_code=400,
@@ -299,11 +328,15 @@ def validate_pick_change(
 
         # Only enforce the field check if entries have been released.
         if field_released:
-            entry = db.query(TournamentEntry).filter_by(
-                tournament_id=tournament.id, golfer_id=new_golfer_id
-            ).first()
+            entry = (
+                db.query(TournamentEntry)
+                .filter_by(tournament_id=tournament.id, golfer_id=new_golfer_id)
+                .first()
+            )
             if not entry:
-                raise HTTPException(status_code=400, detail="Golfer is not entered in this tournament")
+                raise HTTPException(
+                    status_code=400, detail="Golfer is not entered in this tournament"
+                )
 
     # No-repeat: new golfer can't already be used this season (excluding this pick's golfer).
     existing = (
@@ -333,7 +366,7 @@ def all_r1_teed_off(db: Session, tournament_id) -> bool:
     Returns False if no tee times are in the DB yet (field not synced), keeping
     picks hidden until data is available.
     """
-    now_utc = datetime.now(tz=timezone.utc)
+    now_utc = datetime.now(tz=UTC)
     last_tee_time = (
         db.query(sqlfunc.max(TournamentEntry.tee_time))
         .filter(
@@ -345,5 +378,5 @@ def all_r1_teed_off(db: Session, tournament_id) -> bool:
     if last_tee_time is None:
         return False
     if last_tee_time.tzinfo is None:
-        last_tee_time = last_tee_time.replace(tzinfo=timezone.utc)
+        last_tee_time = last_tee_time.replace(tzinfo=UTC)
     return last_tee_time <= now_utc

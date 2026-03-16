@@ -16,6 +16,7 @@ class PickCreate(BaseModel):
 
 class PickUpdate(BaseModel):
     """Change the golfer on an existing pick (before the pick locks)."""
+
     golfer_id: uuid.UUID
 
 

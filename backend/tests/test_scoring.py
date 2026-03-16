@@ -8,10 +8,6 @@ subtracted for each tournament a user missed.
 Full integration tests (standings across real DB records) live in test_picks.py.
 """
 
-import pytest
-
-from app.services.scoring import calculate_standings
-
 
 class TestCalculateStandings:
     def test_standings_sorted_highest_first(self):

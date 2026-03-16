@@ -6,7 +6,7 @@ Key functions:
   generate_draft_order(style, n, picks)     → Returns list of draft_position values per slot
   get_active_slot(db, pod_id, total_slots)  → Returns next unfilled slot number
   open_round_draft(db, round_obj)           → Transition round from pending → drafting
-  submit_preferences(db, pod_member, ids, tournament_id)  → Replace player's preference list (atomic)
+  submit_preferences(db, pod_member, ids, tournament_id)  → Replace preference list (atomic)
   resolve_draft(db, playoff_round)          → Admin-triggered: process preferences → picks
   score_round(db, playoff_round)            → Populate points_earned from TournamentEntry
   advance_bracket(db, playoff_round)        → Set winners, create next-round pods
@@ -15,7 +15,7 @@ Key functions:
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func as sqlfunc
@@ -35,10 +35,10 @@ from app.models import (
 )
 from app.services.scoring import calculate_standings
 
-
 # ---------------------------------------------------------------------------
 # Draft order generation
 # ---------------------------------------------------------------------------
+
 
 def generate_draft_order(style: str, n: int, picks: int) -> list[int]:
     """
@@ -76,15 +76,12 @@ def generate_draft_order(style: str, n: int, picks: int) -> list[int]:
 # Active slot computation
 # ---------------------------------------------------------------------------
 
+
 def get_active_slot(db: Session, pod_id: int, total_slots: int) -> int | None:
     """
     Returns the next unfilled slot number, or None if the draft is complete.
     """
-    filled_slots = (
-        db.query(PlayoffPick.draft_slot)
-        .filter(PlayoffPick.pod_id == pod_id)
-        .all()
-    )
+    filled_slots = db.query(PlayoffPick.draft_slot).filter(PlayoffPick.pod_id == pod_id).all()
     filled_set = {row.draft_slot for row in filled_slots}
     for slot in range(1, total_slots + 1):
         if slot not in filled_set:
@@ -95,6 +92,7 @@ def get_active_slot(db: Session, pod_id: int, total_slots: int) -> int | None:
 # ---------------------------------------------------------------------------
 # Pod seeding helpers
 # ---------------------------------------------------------------------------
+
 
 def assign_pod(seed: int, num_pods: int) -> int:
     """
@@ -154,6 +152,7 @@ def _normalize_draft_positions(db: Session, round_obj: PlayoffRound) -> None:
 # Seeding
 # ---------------------------------------------------------------------------
 
+
 def seed_playoff(db: Session, config: PlayoffConfig) -> None:
     """
     Seed the playoff bracket from current season standings.
@@ -173,7 +172,8 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
     if existing_rounds > 0:
         raise HTTPException(status_code=422, detail="Playoff bracket is already seeded")
 
-    from app.models import League, LeagueTournament, Season, Tournament as TournamentModel
+    from app.models import League, LeagueTournament, Season
+    from app.models import Tournament as TournamentModel
     from app.models.tournament import TournamentStatus
 
     league = db.query(League).filter_by(id=config.league_id).first()
@@ -189,7 +189,10 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
     if len(standings) < playoff_size:
         raise HTTPException(
             status_code=422,
-            detail=f"Not enough members to fill the bracket. Need {playoff_size}, have {len(standings)}",
+            detail=(
+                f"Not enough members to fill the bracket. "
+                f"Need {playoff_size}, have {len(standings)}"
+            ),
         )
 
     # New bracket structure:
@@ -260,12 +263,14 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
             pod = pod_map[assign_pod(seed, num_pods_round1)]
         else:
             pod = pod_map[assign_pod_2(seed, num_pods_round1)]
-        db.add(PlayoffPodMember(
-            pod_id=pod.id,
-            user_id=standing["user_id"],
-            seed=seed,
-            draft_position=0,  # temporary; set after sorting below
-        ))
+        db.add(
+            PlayoffPodMember(
+                pod_id=pod.id,
+                user_id=standing["user_id"],
+                seed=seed,
+                draft_position=0,  # temporary; set after sorting below
+            )
+        )
 
     db.flush()
 
@@ -276,7 +281,7 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
             member.draft_position = i + 1
 
     config.status = "active"
-    config.seeded_at = datetime.now(timezone.utc)
+    config.seeded_at = datetime.now(UTC)
     config.is_enabled = True
     db.commit()
 
@@ -284,6 +289,7 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
 # ---------------------------------------------------------------------------
 # Preference window helpers
 # ---------------------------------------------------------------------------
+
 
 def first_r1_tee_time(db: Session, tournament_id) -> datetime | None:
     """
@@ -304,7 +310,7 @@ def first_r1_tee_time(db: Session, tournament_id) -> datetime | None:
     if earliest is None:
         return None
     if earliest.tzinfo is None:
-        earliest = earliest.replace(tzinfo=timezone.utc)
+        earliest = earliest.replace(tzinfo=UTC)
     return earliest
 
 
@@ -324,12 +330,13 @@ def any_r1_teed_off(db: Session, tournament_id) -> bool:
     first_tee = first_r1_tee_time(db, tournament_id)
     if first_tee is None:
         return False
-    return first_tee <= datetime.now(timezone.utc)
+    return first_tee <= datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
 # Round draft management
 # ---------------------------------------------------------------------------
+
 
 def open_round_draft(db: Session, playoff_round: PlayoffRound) -> None:
     """
@@ -388,6 +395,7 @@ def open_round_draft(db: Session, playoff_round: PlayoffRound) -> None:
 # Preference submission
 # ---------------------------------------------------------------------------
 
+
 def submit_preferences(
     db: Session,
     pod_member: PlayoffPodMember,
@@ -426,6 +434,7 @@ def submit_preferences(
 
     # Validate tournament has not started
     from app.models import Tournament
+
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
@@ -436,7 +445,7 @@ def submit_preferences(
     # Do NOT use start_date for the fallback — start_date is a calendar date
     # with no time component, and comparing it to now_utc.date() fires a day
     # early for US-timezone users (Wednesday night UTC = Thursday date).
-    now_utc = datetime.now(timezone.utc)
+    now_utc = datetime.now(UTC)
     first_tee = first_r1_tee_time(db, tournament_id)
     if first_tee is not None:
         if first_tee <= now_utc:
@@ -454,13 +463,20 @@ def submit_preferences(
     # Validate exact required count: pod_size * picks_per_round
     config = playoff_round.playoff_config
     idx = playoff_round.round_number - 1
-    ppr = config.picks_per_round[idx] if idx < len(config.picks_per_round) else config.picks_per_round[-1]
+    ppr = (
+        config.picks_per_round[idx]
+        if idx < len(config.picks_per_round)
+        else config.picks_per_round[-1]
+    )
     pod_size = len(pod.members)
     required_count = pod_size * ppr
     if len(golfer_ids) != required_count:
         raise HTTPException(
             status_code=422,
-            detail=f"You must rank exactly {required_count} golfers ({pod_size} players × {ppr} picks each)",
+            detail=(
+                f"You must rank exactly {required_count} golfers "
+                f"({pod_size} players × {ppr} picks each)"
+            ),
         )
 
     # Validate no duplicates in the submitted list
@@ -495,6 +511,7 @@ def submit_preferences(
 # ---------------------------------------------------------------------------
 # Draft resolution
 # ---------------------------------------------------------------------------
+
 
 def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
     """
@@ -544,9 +561,11 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
 
     for pod in playoff_round.pods:
         idx = playoff_round.round_number - 1
-        picks_per_player = config.picks_per_round[idx] if idx < len(config.picks_per_round) else config.picks_per_round[-1]
-        total_slots = len(pod.members) * picks_per_player
-
+        picks_per_player = (
+            config.picks_per_round[idx]
+            if idx < len(config.picks_per_round)
+            else config.picks_per_round[-1]
+        )
         slot_order = generate_draft_order(
             style=config.draft_style,
             n=len(pod.members),
@@ -570,7 +589,8 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
             # not in the official tournament field (silently skipped per rule).
             picked_golfer_id = next(
                 (
-                    p.golfer_id for p in prefs
+                    p.golfer_id
+                    for p in prefs
                     if p.golfer_id not in claimed
                     and (not field_released or p.golfer_id in field_golfer_ids)
                 ),
@@ -582,18 +602,20 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
                 # were for golfers not in the tournament field — no pick for this slot.
                 continue
 
-            db.add(PlayoffPick(
-                pod_id=pod.id,
-                pod_member_id=member.id,
-                golfer_id=picked_golfer_id,
-                tournament_id=playoff_round.tournament_id,
-                draft_slot=slot_number,
-            ))
+            db.add(
+                PlayoffPick(
+                    pod_id=pod.id,
+                    pod_member_id=member.id,
+                    golfer_id=picked_golfer_id,
+                    tournament_id=playoff_round.tournament_id,
+                    draft_slot=slot_number,
+                )
+            )
             claimed.add(picked_golfer_id)
 
         db.commit()
 
-    playoff_round.draft_resolved_at = datetime.now(timezone.utc)
+    playoff_round.draft_resolved_at = datetime.now(UTC)
     playoff_round.status = "locked"
     db.commit()
 
@@ -601,6 +623,7 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
 # ---------------------------------------------------------------------------
 # Scoring
 # ---------------------------------------------------------------------------
+
 
 def score_round(db: Session, playoff_round: PlayoffRound) -> None:
     """
@@ -649,9 +672,11 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
     # Use the league's per-tournament multiplier override if set; otherwise fall
     # back to the tournament's global multiplier. Mirrors score_picks() in the
     # scraper so playoff and regular-season scoring are consistent.
-    lt = db.query(LeagueTournament).filter_by(
-        league_id=config.league_id, tournament_id=tournament.id
-    ).first()
+    lt = (
+        db.query(LeagueTournament)
+        .filter_by(league_id=config.league_id, tournament_id=tournament.id)
+        .first()
+    )
     multiplier = lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
 
     # Validate that earnings are published for every assigned pick before modifying
@@ -661,9 +686,7 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
     for pod in playoff_round.pods:
         for member in pod.members:
             member_picks = (
-                db.query(PlayoffPick)
-                .filter_by(pod_id=pod.id, pod_member_id=member.id)
-                .all()
+                db.query(PlayoffPick).filter_by(pod_id=pod.id, pod_member_id=member.id).all()
             )
             for pick in member_picks:
                 entry = (
@@ -684,9 +707,7 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
     for pod in playoff_round.pods:
         for member in pod.members:
             member_picks = (
-                db.query(PlayoffPick)
-                .filter_by(pod_id=pod.id, pod_member_id=member.id)
-                .all()
+                db.query(PlayoffPick).filter_by(pod_id=pod.id, pod_member_id=member.id).all()
             )
             total = 0.0
             for pick in member_picks:
@@ -695,7 +716,9 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
                     .filter_by(tournament_id=tournament.id, golfer_id=pick.golfer_id)
                     .first()
                 )
-                earnings = float(entry.earnings_usd) if entry and entry.earnings_usd is not None else 0.0
+                earnings = (
+                    float(entry.earnings_usd) if entry and entry.earnings_usd is not None else 0.0
+                )
                 pick.points_earned = earnings * multiplier
                 total += pick.points_earned
 
@@ -714,6 +737,7 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
 # ---------------------------------------------------------------------------
 # Winner determination
 # ---------------------------------------------------------------------------
+
 
 def _determine_pod_winner(pod: PlayoffPod) -> PlayoffPodMember:
     """
@@ -742,6 +766,7 @@ def _determine_pod_winner(pod: PlayoffPod) -> PlayoffPodMember:
 # Bracket advancement
 # ---------------------------------------------------------------------------
 
+
 def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
     """
     After scoring is complete for a round, determine winners and populate
@@ -768,7 +793,6 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
                 detail=f"Pod {pod.id} has unscored members — run score_round first",
             )
 
-    config = playoff_round.playoff_config
     next_round = (
         db.query(PlayoffRound)
         .filter_by(
@@ -826,11 +850,7 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
 
             # Assign winner to next pod with their seed
             existing_seed = next(m for m in pod.members if m.user_id == winner.user_id).seed
-            member_count_in_next = (
-                db.query(PlayoffPodMember)
-                .filter_by(pod_id=next_pod.id)
-                .count()
-            )
+            member_count_in_next = db.query(PlayoffPodMember).filter_by(pod_id=next_pod.id).count()
             next_member = PlayoffPodMember(
                 pod_id=next_pod.id,
                 user_id=winner.user_id,
@@ -854,6 +874,7 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
 # ---------------------------------------------------------------------------
 # Manager override
 # ---------------------------------------------------------------------------
+
 
 def override_result(db: Session, pod: PlayoffPod, winner_user_id: uuid.UUID) -> None:
     """

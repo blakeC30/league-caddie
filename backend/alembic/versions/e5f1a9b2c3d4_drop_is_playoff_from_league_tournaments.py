@@ -9,6 +9,7 @@ in the league's schedule are automatically used as playoff rounds.
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "e5f1a9b2c3d4"

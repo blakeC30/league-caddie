@@ -8,8 +8,6 @@ Create Date: 2026-03-10
 from collections.abc import Sequence
 
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision: str = "a1b2c3d4e5f6"

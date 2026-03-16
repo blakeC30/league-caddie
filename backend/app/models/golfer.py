@@ -22,8 +22,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
-    from app.models.tournament import TournamentEntry
     from app.models.pick import Pick
+    from app.models.tournament import TournamentEntry
 
 
 class Golfer(Base):
@@ -57,9 +57,7 @@ class Golfer(Base):
     )
 
     # --- Relationships ---
-    tournament_entries: Mapped[list["TournamentEntry"]] = relationship(
-        back_populates="golfer"
-    )
+    tournament_entries: Mapped[list["TournamentEntry"]] = relationship(back_populates="golfer")
     picks: Mapped[list["Pick"]] = relationship(back_populates="golfer")
 
     def __repr__(self) -> str:

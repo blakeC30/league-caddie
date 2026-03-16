@@ -21,7 +21,18 @@ import datetime
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import League, LeagueMember, LeagueMemberStatus, LeagueTournament, Pick, PlayoffConfig, PlayoffRound, Season, Tournament, TournamentStatus
+from app.models import (
+    League,
+    LeagueMember,
+    LeagueMemberStatus,
+    LeagueTournament,
+    Pick,
+    PlayoffConfig,
+    PlayoffRound,
+    Season,
+    Tournament,
+    TournamentStatus,
+)
 
 
 def calculate_standings(db: Session, league: League, season: Season) -> list[dict]:

@@ -30,11 +30,21 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# SQL strings in migration files routinely exceed the line limit and can't be wrapped.
+"alembic/versions/*.py" = ["E501"]
+# Forward references to League and Tournament use string annotations to avoid circular
+# imports; the type: ignore comments on those lines already suppress mypy's equivalent warning.
+"app/models/league_tournament.py" = ["F821"]
+# HTML email templates and seed scripts contain long string literals that cannot be wrapped.
+"app/services/email.py" = ["E501"]
+"scripts/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

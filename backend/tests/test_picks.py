@@ -8,7 +8,6 @@ Requires docker compose up postgres -d and a seeded database.
 import uuid
 from datetime import date, timedelta
 
-import pytest
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -17,7 +16,6 @@ from app.models import (
     LeagueMember,
     LeagueMemberRole,
     LeagueTournament,
-    Pick,
     Season,
     Tournament,
     TournamentEntry,
@@ -26,10 +24,10 @@ from app.models import (
 )
 from app.services.auth import hash_password
 
-
 # ---------------------------------------------------------------------------
 # Helpers to create test fixtures directly in the DB
 # ---------------------------------------------------------------------------
+
 
 def make_user(db: Session, email: str, display_name: str = "Test") -> User:
     user = User(email=email, password_hash=hash_password("pass"), display_name=display_name)
@@ -47,7 +45,9 @@ def make_league(db: Session, creator: User) -> tuple[League, Season]:
     db.add(league)
     db.flush()  # flush so league.id is populated before we reference it below
 
-    db.add(LeagueMember(league_id=league.id, user_id=creator.id, role=LeagueMemberRole.MANAGER.value))
+    db.add(
+        LeagueMember(league_id=league.id, user_id=creator.id, role=LeagueMemberRole.MANAGER.value)
+    )
     season = Season(league_id=league.id, year=date.today().year, is_active=True)
     db.add(season)
     db.commit()
@@ -85,7 +85,9 @@ def make_tournament(
     return t
 
 
-def add_golfer_to_tournament(db: Session, tournament: Tournament, golfer: Golfer) -> TournamentEntry:
+def add_golfer_to_tournament(
+    db: Session, tournament: Tournament, golfer: Golfer
+) -> TournamentEntry:
     entry = TournamentEntry(tournament_id=tournament.id, golfer_id=golfer.id)
     db.add(entry)
     db.commit()
@@ -96,6 +98,7 @@ def add_golfer_to_tournament(db: Session, tournament: Tournament, golfer: Golfer
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestSubmitPick:
     def test_submit_pick_success(self, client, auth_headers, db):
@@ -155,7 +158,10 @@ class TestSubmitPick:
         resp = client.post(
             f"/api/v1/leagues/{league.id}/picks",
             headers=auth_headers,
-            json={"tournament_id": str(past_tournament.id), "golfer_id": str(golfer.id)},
+            json={
+                "tournament_id": str(past_tournament.id),
+                "golfer_id": str(golfer.id),
+            },
         )
         assert resp.status_code == 400
         assert "deadline" in resp.json()["detail"].lower()
@@ -184,15 +190,21 @@ class TestSubmitPick:
         add_golfer_to_tournament(db, tournament, golfer)
 
         # Register and login as a different user.
-        client.post("/api/v1/auth/register", json={
-            "email": "outsider@example.com",
-            "password": "pass",
-            "display_name": "Outsider",
-        })
-        login = client.post("/api/v1/auth/login", json={
-            "email": "outsider@example.com",
-            "password": "pass",
-        })
+        client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "outsider@example.com",
+                "password": "pass",
+                "display_name": "Outsider",
+            },
+        )
+        login = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "outsider@example.com",
+                "password": "pass",
+            },
+        )
         headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
 
         resp = client.post(

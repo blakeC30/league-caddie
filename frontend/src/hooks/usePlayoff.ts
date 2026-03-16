@@ -14,7 +14,6 @@ import {
   PlayoffPreference,
   PlayoffRoundOut,
   PlayoffConfigOut,
-  PlayoffTournamentPickOut,
   playoffApi,
 } from "../api/endpoints";
 

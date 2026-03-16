@@ -17,12 +17,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from google.auth.exceptions import GoogleAuthError
 from sqlalchemy.orm import Session
 
-log = logging.getLogger(__name__)
-
 from app.config import settings
-from app.limiter import limiter
 from app.database import get_db
 from app.dependencies import get_current_user, get_refresh_token_user
+from app.limiter import limiter
 from app.models import User
 from app.schemas.auth import (
     ForgotPasswordRequest,
@@ -45,6 +43,8 @@ from app.services.auth import (
 )
 from app.services.email import send_password_reset_email
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 _REFRESH_COOKIE = "refresh_token"
@@ -56,9 +56,9 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=_REFRESH_COOKIE,
         value=token,
-        httponly=True,                                    # JS cannot read it
-        secure=settings.ENVIRONMENT == "production",     # HTTPS only in prod
-        samesite="lax",                                   # CSRF protection
+        httponly=True,  # JS cannot read it
+        secure=settings.ENVIRONMENT == "production",  # HTTPS only in prod
+        samesite="lax",  # CSRF protection
         max_age=_REFRESH_MAX_AGE,
     )
 
@@ -73,7 +73,12 @@ def _issue_tokens(user: User, response: Response) -> TokenResponse:
 
 @router.post("/register", response_model=TokenResponse, status_code=201)
 @limiter.limit("5/hour")
-def register(request: Request, body: RegisterRequest, response: Response, db: Session = Depends(get_db)):
+def register(
+    request: Request,
+    body: RegisterRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     """
     Create a new user account.
 
@@ -97,7 +102,12 @@ def register(request: Request, body: RegisterRequest, response: Response, db: Se
 
 @router.post("/login", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def login(request: Request, body: LoginRequest, response: Response, db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    body: LoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     """Exchange email + password for JWT tokens."""
     user = db.query(User).filter_by(email=body.email.lower()).first()
 
@@ -110,7 +120,12 @@ def login(request: Request, body: LoginRequest, response: Response, db: Session 
 
 @router.post("/google", response_model=TokenResponse)
 @limiter.limit("10/minute")
-def google_auth(request: Request, body: GoogleAuthRequest, response: Response, db: Session = Depends(get_db)):
+def google_auth(
+    request: Request,
+    body: GoogleAuthRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+):
     """
     Authenticate via Google Sign-In.
 

@@ -11,6 +11,7 @@ bug could silently create two active seasons for the same league.
 """
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "f2b3c4d5e6a7"

@@ -18,7 +18,7 @@ Usage (consuming, in worker_main.py):
 import json
 import logging
 import os
-from typing import Callable
+from collections.abc import Callable
 
 log = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ def _get_client():
     if endpoint:
         kwargs["endpoint_url"] = endpoint
     import boto3
+
     return boto3.client("sqs", **kwargs)
 
 
@@ -72,8 +73,8 @@ def consume(handler: Callable[[dict], None]) -> None:
         response = client.receive_message(
             QueueUrl=queue_url,
             MaxNumberOfMessages=10,
-            WaitTimeSeconds=20,      # long polling — wait up to 20s for messages
-            VisibilityTimeout=120,   # 2× max expected processing time
+            WaitTimeSeconds=20,  # long polling — wait up to 20s for messages
+            VisibilityTimeout=120,  # 2× max expected processing time
         )
         for msg in response.get("Messages", []):
             body = json.loads(msg["Body"])

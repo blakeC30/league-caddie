@@ -7,13 +7,12 @@ in all leagues. Data is populated by the scraper (Phase 3).
 Endpoints:
   GET /tournaments                                  List tournaments (filterable by status)
   GET /tournaments/{id}                             Get a single tournament
-  GET /tournaments/{id}/field                       Golfers entered in the tournament (for pick form)
-  GET /tournaments/{id}/leaderboard                 Full leaderboard with per-round summaries
-  GET /tournaments/{id}/golfers/{gid}/scorecard     Hole-by-hole scorecard (ESPN on-demand)
+  GET /tournaments/{id}/field                       Golfers entered in the tournament (pick form)
+  GET /tournaments/{id}/leaderboard              Full leaderboard with per-round summaries
+  GET /tournaments/{id}/golfers/{gid}/scorecard  Hole-by-hole scorecard (ESPN on-demand)
 """
 
 import uuid
-from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -21,15 +20,14 @@ from sqlalchemy.orm import Session, joinedload
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Golfer, Tournament, TournamentEntry, TournamentStatus, User
-from app.schemas.golfer import GolferOut
 from app.schemas.tournament import (
     GolferInFieldOut,
     LeaderboardEntryOut,
     LeaderboardOut,
     RoundSummaryOut,
     ScorecardOut,
-    TournamentSyncStatusOut,
     TournamentOut,
+    TournamentSyncStatusOut,
 )
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
@@ -37,7 +35,9 @@ router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
 @router.get("", response_model=list[TournamentOut])
 def list_tournaments(
-    status: str | None = Query(default=None, description="Filter by status: scheduled, in_progress, completed"),
+    status: str | None = Query(
+        default=None, description="Filter by status: scheduled, in_progress, completed"
+    ),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -272,8 +272,10 @@ def get_leaderboard(
         rounds_sorted = sorted(entry.rounds, key=lambda r: r.round_number)
         total_stp = stp_per_entry[entry.id]
         is_tied = (
-            _stp_counts_for(entry).get(total_stp, 0) > 1 and entry.id not in playoff_tie_broken
-        ) if total_stp is not None else False
+            (_stp_counts_for(entry).get(total_stp, 0) > 1 and entry.id not in playoff_tie_broken)
+            if total_stp is not None
+            else False
+        )
         # made_cut: true only for active/finished players (no special status).
         # This drives the single "Cut Line" divider in the UI — everyone with
         # a notable status (CUT, WD, MDF, DQ) appears below the divider.

@@ -20,6 +20,11 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config, pool
 
+# Import every model so SQLAlchemy registers them on Base.metadata.
+# Alembic's autogenerate compares Base.metadata (what your code says the
+# schema should look like) against the actual database (what it currently
+# is) and generates the difference as migration operations.
+import app.models  # noqa: F401  — side-effect import, registers all models
 from alembic import context
 
 # --- App imports ---
@@ -30,12 +35,6 @@ from app.config import settings
 # The models must be imported (below) before Base.metadata is passed to
 # context.configure — otherwise the tables won't be registered yet.
 from app.models.base import Base
-
-# Import every model so SQLAlchemy registers them on Base.metadata.
-# Alembic's autogenerate compares Base.metadata (what your code says the
-# schema should look like) against the actual database (what it currently
-# is) and generates the difference as migration operations.
-import app.models  # noqa: F401  — side-effect import, registers all models
 
 # ---------------------------------------------------------------------------
 

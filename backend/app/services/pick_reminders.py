@@ -21,7 +21,7 @@ The email CTA adjusts based on whether the pick window is currently open:
 
 import logging
 import uuid
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -43,9 +43,7 @@ def _is_pick_window_open(db: Session, tournament) -> bool:
         return True
 
     has_global_in_progress = (
-        db.query(Tournament)
-        .filter(Tournament.status == TournamentStatus.IN_PROGRESS.value)
-        .first()
+        db.query(Tournament).filter(Tournament.status == TournamentStatus.IN_PROGRESS.value).first()
     ) is not None
 
     if has_global_in_progress:
@@ -147,7 +145,7 @@ def create_and_send_pick_reminders(db: Session) -> dict:
         TournamentStatus,
     )
 
-    now_utc = datetime.now(tz=timezone.utc)
+    now_utc = datetime.now(tz=UTC)
     today = now_utc.date()
     window_end = today + timedelta(days=7)
 
@@ -187,9 +185,7 @@ def create_and_send_pick_reminders(db: Session) -> dict:
         for league_id in league_ids:
             # Only process leagues with an active season.
             season: Season | None = (
-                db.query(Season)
-                .filter_by(league_id=league_id, is_active=True)
-                .first()
+                db.query(Season).filter_by(league_id=league_id, is_active=True).first()
             )
             if season is None:
                 log.debug(
@@ -235,7 +231,8 @@ def create_and_send_pick_reminders(db: Session) -> dict:
             # Skip if permanently failed.
             if reminder.failed_at is not None:
                 log.warning(
-                    "Pick reminders: permanently failed reminder for league=%s tournament='%s' — skipping",
+                    "Pick reminders: permanently failed reminder "
+                    "for league=%s tournament='%s' — skipping",
                     league_id,
                     tournament.name,
                 )
@@ -272,7 +269,8 @@ def create_and_send_pick_reminders(db: Session) -> dict:
                     reminder.failed_at = now_utc
                     reminder.error_message = str(exc)
                     log.error(
-                        "Pick reminders: permanently failed for league=%s tournament='%s' after %d attempts: %s",
+                        "Pick reminders: permanently failed for league=%s "
+                        "tournament='%s' after %d attempts: %s",
                         league_id,
                         tournament.name,
                         reminder.attempt_count,
@@ -291,4 +289,9 @@ def create_and_send_pick_reminders(db: Session) -> dict:
                 total_failed += 1
                 errors.append(f"league={league_id} tournament={tournament.name}: {exc}")
 
-    return {"sent": total_sent, "failed": total_failed, "skipped": total_skipped, "errors": errors}
+    return {
+        "sent": total_sent,
+        "failed": total_failed,
+        "skipped": total_skipped,
+        "errors": errors,
+    }

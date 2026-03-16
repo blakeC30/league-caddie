@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
 from app.dependencies import get_current_user
-from app.models import League, LeagueMember, LeagueMemberStatus, User
+from app.models import LeagueMember, LeagueMemberStatus, User
 from app.schemas.league import LeagueOut
 from app.schemas.user import UserOut, UserUpdate
 

@@ -8,7 +8,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDropdownDirection } from "../hooks/useDropdownDirection";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   useApproveRequest,
   useDeleteLeague,
@@ -170,6 +170,9 @@ function SectionIcon({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+
+// Number of playoff tournament rounds required for each bracket size.
+const REQUIRED_ROUNDS: Record<number, number> = { 2: 1, 4: 2, 8: 3, 16: 4, 32: 4 };
 
 export function ManageLeague() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -396,8 +399,6 @@ export function ManageLeague() {
     }
   }, [playoffConfig]);
 
-  // Number of playoff tournament rounds required for the selected bracket size.
-  const REQUIRED_ROUNDS: Record<number, number> = { 2: 1, 4: 2, 8: 3, 16: 4, 32: 4 };
   const requiredPlayoffTournaments = REQUIRED_ROUNDS[playoffSize] ?? 0;
 
   // Count of approved members — playoff size cannot exceed this.
@@ -622,7 +623,6 @@ export function ManageLeague() {
     setPoRevisePickId(null);
     setPoReviseGolferId("none");
     setPoReviseSaved(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poReviseRoundId, poReviseUserId]);
 
   async function handleSavePoRevisePick() {

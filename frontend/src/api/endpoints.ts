@@ -450,7 +450,7 @@ export interface PlayoffConfigCreate {
   picks_per_round?: number[];
 }
 
-export interface PlayoffConfigUpdate extends Partial<PlayoffConfigCreate> {}
+export type PlayoffConfigUpdate = Partial<PlayoffConfigCreate>;
 
 export interface PlayoffPodMemberOut {
   id: number;

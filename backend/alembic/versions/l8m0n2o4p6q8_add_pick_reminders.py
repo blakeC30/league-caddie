@@ -12,14 +12,15 @@ users.pick_reminders_enabled is the opt-out preference. Default TRUE so
 all existing users receive reminders unless they explicitly disable them.
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
-from alembic import op
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 revision: str = "l8m0n2o4p6q8"
-down_revision: Union[str, Sequence[str], None] = "k7l9m1n3o5p7"
+down_revision: str | Sequence[str] | None = "k7l9m1n3o5p7"
 branch_labels = None
 depends_on = None
 
@@ -30,17 +31,42 @@ def upgrade() -> None:
     # ------------------------------------------------------------------
     op.create_table(
         "pick_reminders",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("league_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("leagues.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("season_id", sa.Integer(), sa.ForeignKey("seasons.id", ondelete="CASCADE"), nullable=False),
-        sa.Column("tournament_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("tournaments.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "id",
+            postgresql.UUID(as_uuid=True),
+            primary_key=True,
+            server_default=sa.text("gen_random_uuid()"),
+        ),
+        sa.Column(
+            "league_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("leagues.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "season_id",
+            sa.Integer(),
+            sa.ForeignKey("seasons.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
+        sa.Column(
+            "tournament_id",
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey("tournaments.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("scheduled_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("sent_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("failed_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("error_message", sa.Text(), nullable=True),
         sa.Column("attempt_count", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("max_attempts", sa.Integer(), nullable=False, server_default="3"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.UniqueConstraint("league_id", "season_id", "tournament_id", name="uq_pick_reminders"),
     )
 
