@@ -155,6 +155,19 @@ export function useRevisePlayoffPick(leagueId: string) {
   });
 }
 
+export function useAdminCreatePlayoffPick(leagueId: string) {
+  const qc = useQueryClient();
+  return useMutation<
+    PlayoffPickOut,
+    Error,
+    { podId: number; userId: string; draftSlot: number; golferId: string }
+  >({
+    mutationFn: ({ podId, userId, draftSlot, golferId }) =>
+      playoffApi.adminCreatePick(leagueId, podId, userId, draftSlot, golferId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["playoffBracket", leagueId] }),
+  });
+}
+
 export function useMyPlayoffPod(leagueId: string) {
   return useQuery({
     queryKey: ["myPlayoffPod", leagueId],

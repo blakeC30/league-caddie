@@ -150,10 +150,12 @@ class PlayoffPodOut(BaseModel):
 
 
 class BracketRoundOut(BaseModel):
+    id: int
     round_number: int
     status: str
     tournament_id: uuid.UUID | None
     tournament_name: str | None
+    tournament_status: str | None  # e.g. "scheduled" | "in_progress" | "completed"
     draft_opens_at: datetime | None
     draft_resolved_at: datetime | None
     pods: list[PlayoffPodOut]
@@ -222,6 +224,14 @@ class PlayoffResultOverride(BaseModel):
 
 
 class PlayoffPickRevise(BaseModel):
+    golfer_id: uuid.UUID
+
+
+class AdminPickCreate(BaseModel):
+    """Body for manager-direct pick creation (bypasses preference list)."""
+
+    user_id: uuid.UUID
+    draft_slot: int
     golfer_id: uuid.UUID
 
 

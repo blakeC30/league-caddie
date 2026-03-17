@@ -94,6 +94,37 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
     );
   }
 
+  // League is not accepting new requests and the user has no existing relationship.
+  // Users who already have a pending request can still see their status + withdraw.
+  if (!preview.accepting_requests && preview.user_status === null) {
+    return (
+      <GradientShell>
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
+          <div className="w-12 h-12 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-gray-400">
+              Not accepting requests
+            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{preview.name}</h1>
+          </div>
+          <p className="text-sm text-gray-500">
+            This league is not currently accepting new join requests. Contact the league manager for more information.
+          </p>
+          <button
+            onClick={() => navigate("/leagues")}
+            className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+          >
+            Back to my leagues
+          </button>
+        </div>
+      </GradientShell>
+    );
+  }
+
   // Already an approved member — show a message instead of silently redirecting.
   if (preview.user_status === "approved") {
     return (

@@ -52,6 +52,7 @@ from app.models import (
 )
 from app.models.tournament import TournamentStatus
 from app.schemas.playoff import (
+    AdminPickCreate,
     BracketOut,
     BracketRoundOut,
     MyPlayoffPodOut,
@@ -221,14 +222,18 @@ def _build_bracket_round_out(
     viewer_user_id: uuid.UUID | None = None,
 ) -> BracketRoundOut:
     tournament_name: str | None = None
+    tournament_status: str | None = None
     if round_obj.tournament:
         tournament_name = round_obj.tournament.name
+        tournament_status = round_obj.tournament.status
 
     return BracketRoundOut(
+        id=round_obj.id,
         round_number=round_obj.round_number,
         status=round_obj.status,
         tournament_id=round_obj.tournament_id,
         tournament_name=tournament_name,
+        tournament_status=tournament_status,
         draft_opens_at=round_obj.draft_opens_at,
         draft_resolved_at=round_obj.draft_resolved_at,
         pods=[
@@ -249,17 +254,22 @@ def _build_bracket_round_out(
 # ---------------------------------------------------------------------------
 
 
-def _count_eligible_playoff_tournaments(league_id: uuid.UUID, db: Session) -> int:
+def _count_eligible_playoff_tournaments(
+    league_id: uuid.UUID, db: Session, required: int = 0
+) -> int:
     """
     Count scheduled (future) league tournaments that are eligible as playoff rounds.
 
     Eligibility: tournament.status == 'scheduled' AND (when no tournament is currently
-    in progress) not the very next upcoming tournament.
+    in progress AND more scheduled slots exist than are needed) not the very next
+    upcoming tournament.
 
     When a tournament IS in progress, picks for the next tournament haven't opened yet,
     so that tournament is still eligible as a playoff round. When no tournament is in
-    progress, picks for the next tournament are open (current pick week), so it is
-    excluded.
+    progress but exactly `required` scheduled tournaments remain, the regular season is
+    over and every remaining scheduled slot IS a playoff round — excluding the next
+    upcoming would leave the bracket one tournament short. Pass `required` so the
+    function can distinguish these two cases.
     """
     has_in_progress = db.query(
         db.query(LeagueTournament)
@@ -276,7 +286,9 @@ def _count_eligible_playoff_tournaments(league_id: uuid.UUID, db: Session) -> in
         .filter(Tournament.status == TournamentStatus.SCHEDULED.value)
     )
 
-    if not has_in_progress:
+    total_scheduled = query.count()
+
+    if not has_in_progress and total_scheduled > required:
         next_upcoming = (
             db.query(Tournament)
             .filter(Tournament.status == TournamentStatus.SCHEDULED.value)
@@ -337,7 +349,7 @@ def create_playoff_config(
     if body.playoff_size > 0:
         _validate_playoff_size_vs_members(body.playoff_size, league.id, db)
         required = _required_rounds(body.playoff_size)
-        eligible = _count_eligible_playoff_tournaments(league.id, db)
+        eligible = _count_eligible_playoff_tournaments(league.id, db, required=required)
         if eligible < required:
             raise HTTPException(
                 status_code=422,
@@ -379,21 +391,61 @@ def update_playoff_config(
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):
-    """Update playoff config (manager only). Cannot change once the bracket is active."""
+    """Update playoff config (manager only).
+
+    When the bracket is pending: all fields may be changed freely.
+    When the bracket is active: playoff_size and draft_style are locked.
+      picks_per_round may still be updated, but only for rounds whose status
+      is still 'pending' (i.e. not yet opened for drafting).
+    """
     league, _ = league_and_member
     config = _get_config_or_404(league.id, season.id, db)
 
     if config.status != "pending":
-        raise HTTPException(
-            status_code=422,
-            detail="Cannot modify config after the playoff bracket is active",
-        )
+        # Structural fields are permanently locked once the bracket is seeded.
+        if body.playoff_size is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="Cannot change playoff_size after the bracket has been seeded",
+            )
+        if body.draft_style is not None:
+            raise HTTPException(
+                status_code=422,
+                detail="Cannot change draft_style after the bracket has been seeded",
+            )
 
+        if body.picks_per_round is not None:
+            new_ppr = body.picks_per_round
+            old_ppr = list(config.picks_per_round)
+            if len(new_ppr) != len(old_ppr):
+                raise HTTPException(
+                    status_code=422,
+                    detail="picks_per_round length cannot change after seeding",
+                )
+            rounds = sorted(config.rounds, key=lambda r: r.round_number)
+            for i, round_obj in enumerate(rounds):
+                if i >= len(new_ppr):
+                    break
+                if round_obj.status != "pending" and new_ppr[i] != old_ppr[i]:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"Round {round_obj.round_number} has already started "
+                            "and its picks-per-member cannot be changed"
+                        ),
+                    )
+            config.picks_per_round = new_ppr
+
+        db.commit()
+        db.refresh(config)
+        return config
+
+    # Config is still pending — all fields may be changed.
     if body.playoff_size is not None:
         if body.playoff_size > 0:
             _validate_playoff_size_vs_members(body.playoff_size, league.id, db)
             required = _required_rounds(body.playoff_size)
-            eligible = _count_eligible_playoff_tournaments(league.id, db)
+            eligible = _count_eligible_playoff_tournaments(league.id, db, required=required)
             if eligible < required:
                 raise HTTPException(
                     status_code=422,
@@ -1162,19 +1214,16 @@ def revise_playoff_pick(
             detail="Cannot revise a pick — this playoff round has already been advanced",
         )
 
-    # Block individual pick revision once the tournament has completed.
-    # After tournament completion, use the pod winner override endpoint instead.
+    # Pick revision is only permitted while the playoff tournament is in progress.
     tournament_id = pick.pod.playoff_round.tournament_id
-    if tournament_id:
-        tournament_obj = db.query(Tournament).filter_by(id=tournament_id).first()
-        if tournament_obj and tournament_obj.status == "completed":
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Cannot revise individual picks after the tournament has completed. "
-                    "Use the pod winner override endpoint (POST /playoff/override) instead."
-                ),
-            )
+    tournament_obj = (
+        db.query(Tournament).filter_by(id=tournament_id).first() if tournament_id else None
+    )
+    if not tournament_obj or tournament_obj.status != "in_progress":
+        raise HTTPException(
+            status_code=422,
+            detail="Picks can only be revised while the playoff tournament is in progress.",
+        )
 
     golfer = db.query(Golfer).filter_by(id=body.golfer_id).first()
     if not golfer:
@@ -1196,6 +1245,97 @@ def revise_playoff_pick(
     pick.golfer_id = body.golfer_id
     pick.golfer = golfer
     pick.points_earned = None  # Reset — re-score will recalculate
+    db.commit()
+    db.refresh(pick)
+    return _build_pick_out(pick)
+
+
+@router.post(
+    "/{league_id}/playoff/pods/{pod_id}/admin-pick",
+    status_code=201,
+    response_model=PlayoffPickOut,
+)
+def admin_create_pod_pick(
+    pod_id: int,
+    body: AdminPickCreate,
+    league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    db: Session = Depends(get_db),
+):
+    """
+    Manager: directly create a playoff pick for a pod member, bypassing the
+    preference list / draft resolution flow.
+
+    Only available when round.status == 'drafting' (before the draft is resolved).
+    The slot must not already have a pick — use PATCH /playoff/picks/{id} to revise
+    an existing one.
+    """
+    from app.models import Golfer
+
+    league, _ = league_and_member
+    pod = _get_pod_or_404(pod_id, db)
+
+    if pod.playoff_round.playoff_config.league_id != league.id:
+        raise HTTPException(status_code=403, detail="Pod does not belong to this league")
+
+    if pod.playoff_round.status != "drafting":
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Picks can only be directly created when the round is in drafting status. "
+                "Use PATCH /playoff/picks/{pick_id} to revise a pick after the draft is resolved."
+            ),
+        )
+
+    # Confirm the user is actually in this pod.
+    member = next((m for m in pod.members if m.user_id == body.user_id), None)
+    if not member:
+        raise HTTPException(status_code=404, detail="User is not a member of this pod")
+
+    # Validate the draft slot is within the expected range for this round.
+    config = pod.playoff_round.playoff_config
+    picks_per_round = config.picks_per_round or []
+    round_idx = pod.playoff_round.round_number - 1
+    max_slot = picks_per_round[round_idx] if round_idx < len(picks_per_round) else 1
+    if body.draft_slot < 1 or body.draft_slot > max_slot:
+        raise HTTPException(
+            status_code=422,
+            detail=f"draft_slot must be between 1 and {max_slot} for round {pod.playoff_round.round_number}",  # noqa: E501
+        )
+
+    # Reject if the slot is already filled — revise, don't double-create.
+    existing = (
+        db.query(PlayoffPick).filter_by(pod_member_id=member.id, draft_slot=body.draft_slot).first()
+    )
+    if existing:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Pick slot {body.draft_slot} already has a pick — use the revision endpoint to change it",  # noqa: E501
+        )
+
+    golfer = db.query(Golfer).filter_by(id=body.golfer_id).first()
+    if not golfer:
+        raise HTTPException(status_code=404, detail="Golfer not found")
+
+    # No duplicate golfer within same pod (across all members and slots).
+    conflict = (
+        db.query(PlayoffPick)
+        .filter(
+            PlayoffPick.pod_id == pod_id,
+            PlayoffPick.golfer_id == body.golfer_id,
+        )
+        .first()
+    )
+    if conflict:
+        raise HTTPException(status_code=422, detail=f"{golfer.name} is already picked in this pod")
+
+    pick = PlayoffPick(
+        pod_id=pod_id,
+        pod_member_id=member.id,
+        golfer_id=body.golfer_id,
+        tournament_id=pod.playoff_round.tournament_id,
+        draft_slot=body.draft_slot,
+    )
+    db.add(pick)
     db.commit()
     db.refresh(pick)
     return _build_pick_out(pick)

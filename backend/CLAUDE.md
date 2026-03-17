@@ -64,11 +64,23 @@ app/
 alembic/
 └── versions/         # Migration files — see Migration section
 tests/
-├── conftest.py       # Test DB setup, fixtures (client, db, auth_headers, registered_user)
-├── test_auth.py
-├── test_picks.py
-├── test_scraper.py
-└── test_scoring.py
+├── conftest.py                       # Test DB setup, fixtures (client, db, auth_headers, registered_user)
+├── test_auth.py                      # Register, login, token refresh, /users/me
+├── test_users.py                     # /users/me PATCH, /users/me/leagues
+├── test_golfers.py                   # GET /golfers, GET /golfers/{id}
+├── test_leagues.py                   # League CRUD, join flow, member mgmt, schedule
+├── test_picks.py                     # Pick submission and validation
+├── test_picks_extended.py            # My picks, all picks reveal rules, changes
+├── test_scoring.py                   # Scoring arithmetic (pure unit tests)
+├── test_standings.py                 # Season standings, ranking logic, tie-breaking
+├── test_scraper.py                   # ESPN API parsing, upsert logic (unit, no HTTP)
+├── test_password_reset.py            # forgot-password + reset-password flow (SES mocked)
+├── test_accepting_requests.py        # leagues.accepting_requests flag enforcement
+├── test_tournaments.py               # GET /tournaments, /field, /leaderboard, /sync-status
+├── test_google_auth.py               # POST /auth/google (verify_google_id_token mocked)
+├── test_league_ordering_and_caps.py  # League ordering, caps, request cancel/approve/deny, leave
+├── test_playoff_service.py           # generate_draft_order, assign_pod_2, score_round, advance_bracket, resolve_draft, override_result (direct service calls)
+└── test_playoff_api.py               # Playoff config CRUD, bracket seeding, full lifecycle (preferences → resolve → score → advance), manual override
 ```
 
 ## API Endpoints
@@ -238,6 +250,8 @@ Existing migration files (in order):
 18. `i5j7k9l1m3n5` — add `password_reset_tokens` table (forgot-password flow)
 19. `j6k8l0m2n4o6` — add CHECK constraint `ck_users_has_auth_method` on `users` (password_hash IS NOT NULL OR google_id IS NOT NULL)
 20. `k7l9m1n3o5p7` — replace `ix_users_email` (case-sensitive btree) with `ix_users_email_lower` (UNIQUE on LOWER(email))
+21. `l8m0n2o4p6q8` — add `pick_reminders` table and `users.pick_reminders_enabled`
+22. `m9n1o3p5q7r9` — add `leagues.accepting_requests` (BOOLEAN NOT NULL DEFAULT TRUE); when False, new join requests are blocked at the API level
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)
@@ -316,6 +330,8 @@ docker compose exec backend python -m pytest tests/test_scoring.py -v
 ```
 
 Test DB: `league_caddie_test` (separate from dev). Fixtures in `conftest.py` truncate tables after every test. Key fixtures: `client` (FastAPI TestClient), `db` (SQLAlchemy session), `auth_headers` (Authorization header dict), `registered_user` (creates user + returns token).
+
+Coverage baseline: **62%** (enforced by `fail_under = 62` in pyproject.toml). Untested areas: scraper HTTP calls (19%), SQS worker (0%), email service (21%), APScheduler jobs (0%), pick_reminders service (0%).
 
 ## Error Handling
 

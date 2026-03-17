@@ -89,9 +89,6 @@ export function PlayoffBracketCard({
                 ].join(" ")}
               >
                 {member.display_name}
-                {isCurrentUser && (
-                  <span className="ml-1 text-xs text-green-700 font-normal">(you)</span>
-                )}
               </span>
 
               {/* Points or winner trophy */}

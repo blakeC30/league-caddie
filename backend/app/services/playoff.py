@@ -228,14 +228,15 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
     seeded_members = standings[:playoff_size]
 
     # Create ALL rounds with tournament IDs assigned in date order.
-    # Rounds start in "drafting" status — preferences open immediately upon seeding.
+    # Only Round 1 opens immediately for preferences; future rounds stay "pending"
+    # until advance_bracket promotes winners into them.
     round_objs: dict[int, PlayoffRound] = {}
     for i, row in enumerate(playoff_rows):
         r = PlayoffRound(
             playoff_config_id=config.id,
             round_number=i + 1,
             tournament_id=row.tournament_id,
-            status="drafting",
+            status="drafting" if i == 0 else "pending",
         )
         db.add(r)
         round_objs[i + 1] = r
@@ -257,28 +258,31 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
 
     db.flush()
 
+    # Build pod assignments first so draft_position is known before any INSERT.
+    # Inserting with draft_position=0 for all members then updating afterward
+    # violates the uq_playoff_pod_draft_position unique constraint when a pod
+    # has multiple members (they'd all share draft_position=0 on the bulk INSERT).
+    pod_assignments: dict[int, list[tuple[int, str]]] = {}  # bracket_pos → [(seed, user_id)]
     for i, standing in enumerate(seeded_members):
         seed = i + 1
         if pod_size == 4:
-            pod = pod_map[assign_pod(seed, num_pods_round1)]
+            bp = assign_pod(seed, num_pods_round1)
         else:
-            pod = pod_map[assign_pod_2(seed, num_pods_round1)]
-        db.add(
-            PlayoffPodMember(
-                pod_id=pod.id,
-                user_id=standing["user_id"],
-                seed=seed,
-                draft_position=0,  # temporary; set after sorting below
+            bp = assign_pod_2(seed, num_pods_round1)
+        pod_assignments.setdefault(bp, []).append((seed, standing["user_id"]))
+
+    # Insert members with their correct draft_position from the start.
+    for bp, members in pod_assignments.items():
+        pod = pod_map[bp]
+        for draft_pos, (seed, user_id) in enumerate(sorted(members, key=lambda x: x[0]), start=1):
+            db.add(
+                PlayoffPodMember(
+                    pod_id=pod.id,
+                    user_id=user_id,
+                    seed=seed,
+                    draft_position=draft_pos,
+                )
             )
-        )
-
-    db.flush()
-
-    # Set draft_position within each pod (1 = top seed, 2 = second seed, etc.)
-    for pod in pod_map.values():
-        db.refresh(pod)
-        for i, member in enumerate(sorted(pod.members, key=lambda m: m.seed)):
-            member.draft_position = i + 1
 
     config.status = "active"
     config.seeded_at = datetime.now(UTC)

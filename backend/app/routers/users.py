@@ -49,6 +49,7 @@ def get_my_leagues(
         db.query(LeagueMember)
         .filter_by(user_id=current_user.id, status=LeagueMemberStatus.APPROVED.value)
         .options(joinedload(LeagueMember.league))
+        .order_by(LeagueMember.joined_at)
         .all()
     )
     return [m.league for m in memberships]

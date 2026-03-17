@@ -21,6 +21,7 @@ export interface League {
   no_pick_penalty: number;
   invite_code: string;
   is_public: boolean;
+  accepting_requests: boolean;
   created_at: string;
 }
 
@@ -103,6 +104,8 @@ export interface LeagueJoinPreview {
   member_count: number;
   /** null = no relationship, "pending" = awaiting approval, "approved" = already a member */
   user_status: "pending" | "approved" | null;
+  /** false when the manager has paused new join requests */
+  accepting_requests: boolean;
 }
 
 export interface LeagueRequestOut {
@@ -306,7 +309,7 @@ export const leaguesApi = {
   get: (leagueId: string) =>
     api.get<League>(`/leagues/${leagueId}`).then((r) => r.data),
 
-  update: (leagueId: string, data: { name?: string; no_pick_penalty?: number }) =>
+  update: (leagueId: string, data: { name?: string; no_pick_penalty?: number; accepting_requests?: boolean }) =>
     api.patch<League>(`/leagues/${leagueId}`, data).then((r) => r.data),
 
   leave: (leagueId: string) =>
@@ -488,6 +491,7 @@ export interface PlayoffRoundOut {
   round_number: number;
   tournament_id: string | null;
   tournament_name: string | null;
+  tournament_status: string | null;
   draft_opens_at: string | null;
   draft_resolved_at: string | null;
   status: "pending" | "drafting" | "locked" | "scoring" | "completed";
@@ -591,6 +595,13 @@ export const playoffApi = {
 
   revisePick: (leagueId: string, pickId: string, golferId: string) =>
     api.patch<PlayoffPickOut>(`/leagues/${leagueId}/playoff/picks/${pickId}`, { golfer_id: golferId }).then((r) => r.data),
+
+  adminCreatePick: (leagueId: string, podId: number, userId: string, draftSlot: number, golferId: string) =>
+    api.post<PlayoffPickOut>(`/leagues/${leagueId}/playoff/pods/${podId}/admin-pick`, {
+      user_id: userId,
+      draft_slot: draftSlot,
+      golfer_id: golferId,
+    }).then((r) => r.data),
 
   getMyPod: (leagueId: string) =>
     api.get<MyPlayoffPodOut>(`/leagues/${leagueId}/playoff/my-pod`).then((r) => r.data),

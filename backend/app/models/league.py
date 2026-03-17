@@ -113,6 +113,16 @@ class League(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    # When True (default), users with the invite link can submit join requests.
+    # When False, the join form is disabled — existing pending requests are
+    # unaffected, but no new requests can be submitted until the manager re-enables.
+    accepting_requests: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+        server_default="true",
+    )
+
     # Points applied to a user's season total when they miss a week (no pick
     # submitted before the tournament starts). Negative by convention.
     # Stored as an integer because earnings are in whole dollars.

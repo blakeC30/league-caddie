@@ -17,6 +17,9 @@ test function a completely clean slate without needing rollback gymnastics.
 
 import os
 
+# Ensure league creation is unrestricted in tests regardless of local .env settings.
+os.environ.setdefault("LEAGUE_CREATION_RESTRICTED", "false")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text

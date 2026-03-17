@@ -59,7 +59,6 @@ export function StandingsTable({ rows, limit }: Props) {
                 </td>
                 <td className={`px-4 py-3 ${isMe ? "font-semibold" : ""}`}>
                   {row.display_name}
-                  {isMe && <span className="ml-1.5 text-green-700 text-xs font-normal">(you)</span>}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums font-medium">
                   {formatPoints(row.total_points)}

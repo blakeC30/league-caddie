@@ -1065,6 +1065,15 @@ No `invoice.*` or `customer.subscription.*` events — there are no recurring ch
 - `BillingSuccess.tsx` — `/billing/success?session_id=...` — Stripe redirects here after payment; shows confirmation + tier purchased, link back to league
 - `BillingCanceled.tsx` — `/billing/canceled` — Stripe redirects here if user closes checkout
 
+**Manage page (existing `ManageLeague.tsx`) — new "Billing & Plan" section:**
+- Visible to league managers only; rendered as a collapsible card in the manage page beneath member management
+- Displays the current tier name, member limit, amount paid, and payment date fetched from `leagueApi.getPurchase(leagueId)`
+- If the league has no active purchase for the current season, shows a "Purchase a season pass" CTA that links to `/pricing`
+- If the league is on a tier below Elite, shows an **"Upgrade Plan"** button that opens an inline tier selector — only tiers above the current tier are displayed (backend enforces this too)
+- Clicking a tier calls `stripeApi.createCheckoutSession(leagueId, tier, upgrade=true)` and redirects to the returned Stripe Checkout URL
+- After the manager returns from a successful upgrade (`/billing/success`), React Query invalidates `["league", leagueId, "purchase"]` so the manage page reflects the new tier immediately
+- No downgrade option — commissioners contact support; Stripe does not refund partial seasons
+
 **New endpoints in `endpoints.ts`:**
 ```ts
 stripeApi.createCheckoutSession(leagueId: string, tier: string) → { url: string }

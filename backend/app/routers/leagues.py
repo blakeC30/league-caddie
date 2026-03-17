@@ -182,6 +182,7 @@ def preview_join(
         name=league.name,
         member_count=member_count,
         user_status=existing.status if existing else None,
+        accepting_requests=league.accepting_requests,
     )
 
 
@@ -245,6 +246,13 @@ def request_to_join(
         raise HTTPException(
             status_code=409,
             detail="You already have a pending join request for this league",
+        )
+
+    # Guard: league not accepting new requests (existing pending/approved members unaffected).
+    if not league.accepting_requests:
+        raise HTTPException(
+            status_code=403,
+            detail="This league is not currently accepting new join requests.",
         )
 
     # Guard: per-user league cap — block the request now so the user isn't waiting for
@@ -337,6 +345,8 @@ def update_league(
         league.name = body.name
     if body.no_pick_penalty is not None:
         league.no_pick_penalty = body.no_pick_penalty
+    if body.accepting_requests is not None:
+        league.accepting_requests = body.accepting_requests
     db.commit()
     db.refresh(league)
     return league
@@ -788,10 +798,10 @@ def _playoff_tournament_ids_for_league(league_id: uuid.UUID, db: Session) -> fro
         # Mirror _required_rounds() from playoff.py — log2 of bracket size.
         required = 4 if config.playoff_size == 32 else int(math.log2(config.playoff_size))
 
-        # Exclude the globally-next upcoming tournament (reserved for the current
-        # pick week) only when no league tournament is currently in progress.
-        # While in progress, the next tournament's pick window hasn't opened yet,
-        # so it remains eligible as a playoff round.
+        # Exclude the globally-next upcoming tournament (the current pick week)
+        # unless a tournament is currently in-progress. When one is live, the
+        # next scheduled tournament's pick window hasn't opened yet, so it is
+        # still a valid playoff candidate.
         has_in_progress = db.query(
             db.query(LeagueTournament)
             .filter_by(league_id=league_id)
@@ -949,21 +959,24 @@ def update_league_tournaments(
                     ),
                 )
 
-    # Rule: schedule locks once the last regular season tournament is completed.
-    # Playoff tournaments are excluded — they can still be managed after the regular season ends.
-    playoff_ids = _playoff_tournament_ids_for_league(league.id, db)
-    q = (
-        db.query(Tournament)
-        .join(LeagueTournament, LeagueTournament.tournament_id == Tournament.id)
-        .filter(LeagueTournament.league_id == league.id)
+    # Rule: schedule locks when the first playoff round's pick window opens (Round 1
+    # moves to "drafting" the moment the bracket is seeded).
+    # If no playoff is configured, the schedule never locks.
+    first_draft_open = (
+        db.query(PlayoffRound)
+        .join(PlayoffConfig, PlayoffRound.playoff_config_id == PlayoffConfig.id)
+        .filter(
+            PlayoffConfig.league_id == league.id,
+            PlayoffConfig.season_id == active_season.id,
+            PlayoffRound.round_number == 1,
+            PlayoffRound.status != "pending",
+        )
+        .first()
     )
-    if playoff_ids:
-        q = q.filter(Tournament.id.notin_(playoff_ids))
-    last_regular_season = q.order_by(Tournament.start_date.desc()).first()
-    if last_regular_season and last_regular_season.status == TournamentStatus.COMPLETED.value:
+    if first_draft_open:
         raise HTTPException(
             status_code=422,
-            detail="Schedule is locked — the final regular season tournament has already completed",
+            detail="Schedule is locked — the preference window for the first playoff round is open",
         )
 
     # Rule: only one tournament per ISO calendar week.

@@ -403,6 +403,7 @@ export function LeagueRules() {
                 <Bullet>
                   Once a round is scored, the next round's preference window opens automatically for the advancing members.
                 </Bullet>
+
               </RuleSection>
 
               <RuleSection
