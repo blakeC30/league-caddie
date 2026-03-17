@@ -44,6 +44,9 @@ src/
 │   ├── PlayoffDraft.tsx    # Per-pod draft — submission status, preference editor, resolved picks
 │   ├── JoinLeague.tsx      # Invite-link landing page (auth gate + confirm form)
 │   ├── Settings.tsx        # User account settings — display name, league membership
+│   ├── Pricing.tsx         # Public pricing tiers — standalone page (no Layout), reads ?league_id=
+│   ├── BillingSuccess.tsx  # Post-Stripe success page — standalone (no Layout), reads ?session_id & ?league_id
+│   ├── BillingCanceled.tsx # Post-Stripe cancel page — standalone (no Layout), reads ?league_id
 │   └── PlatformAdmin.tsx   # Platform admin only — data sync trigger
 ├── components/
 │   ├── Layout.tsx          # Auth-guarded shell — top nav, mobile bottom tab bar, auth gate
@@ -79,6 +82,9 @@ src/
 /leagues/new                    → CreateLeague (auth required — create a new league with schedule)
 /settings                       → Settings (auth required — display name, leave leagues)
 /admin                          → PlatformAdmin (platform admin only)
+/pricing                        → Pricing (public — standalone, no Layout; ?league_id= optional to pre-select league for checkout)
+/billing/success                → BillingSuccess (public — standalone; ?session_id & ?league_id)
+/billing/canceled               → BillingCanceled (public — standalone; ?league_id)
 /*                              → redirect to /
 ```
 
@@ -109,11 +115,15 @@ Always use these exact key shapes — mismatches cause stale data:
 | `["playoffPreferences", leagueId, podId]` | `useMyPreferences(leagueId, podId)` |
 | `["tournamentLeaderboard", tournamentId]` | `useTournamentLeaderboard(tournamentId)` — invalidated by sync-status polling, no self-refetch |
 | `["tournamentSyncStatus", tournamentId]` | `useTournamentSyncStatus(tournamentId)` — polls every 30s when in_progress; on `last_synced_at` change, invalidates `tournamentLeaderboard` |
+| `["leaguePurchase", leagueId]` | `useLeaguePurchase(leagueId)` — season pass purchase status; invalidated on BillingSuccess |
+| `["stripePricing"]` | `stripeApi.getPricing()` — public pricing tiers; fetched directly in Pricing page |
 
 ## API Conventions
 
 - **Never import axios directly** — always use `src/api/client.ts`
-- All API functions live in `src/api/endpoints.ts`, grouped by domain (`authApi`, `leaguesApi`, `picksApi`, etc.)
+- All API functions live in `src/api/endpoints.ts`, grouped by domain (`authApi`, `leaguesApi`, `picksApi`, `stripeApi`, etc.)
+- `stripeApi.getPricing()` → `GET /stripe/pricing` (public — no auth)
+- `stripeApi.createCheckoutSession(leagueId, tier, upgrade?)` → `POST /stripe/create-checkout-session` → `{url}` (manager auth); redirect to `url`
 - `authApi.forgotPassword(email)` → `POST /auth/forgot-password` — always resolves 200; catch is for network errors only
 - `authApi.resetPassword(token, new_password)` → `POST /auth/reset-password` — returns `TokenResponse`; 400 = invalid/expired token
 - All functions return unwrapped data (not the Axios response object)

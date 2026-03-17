@@ -9,8 +9,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import get_active_season, require_league_member
-from app.models import League, LeagueMember, Season
+from app.dependencies import get_active_season, require_active_purchase, require_league_member
+from app.models import League, LeagueMember, LeaguePurchase, Season
 from app.schemas.standings import StandingsResponse, StandingsRow
 from app.services.scoring import calculate_standings
 
@@ -20,6 +20,7 @@ router = APIRouter(prefix="/leagues/{league_id}/standings", tags=["standings"])
 @router.get("", response_model=StandingsResponse)
 def get_standings(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):

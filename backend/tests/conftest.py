@@ -31,6 +31,7 @@ TEST_DB_URL = os.environ.get(
 )
 
 from app.database import get_db  # noqa: E402
+from app.dependencies import require_active_purchase  # noqa: E402
 from app.main import app  # noqa: E402
 
 # Importing Base from app.models (not app.models.base) triggers the __init__.py,
@@ -91,7 +92,14 @@ def client(db):
         finally:
             s.close()
 
+    # Bypass the payment gate for all tests — existing tests don't create
+    # purchase rows and shouldn't need to. Dedicated payment-gate tests can
+    # remove this override or use their own client fixture.
+    def _bypass_purchase():
+        return None
+
     app.dependency_overrides[get_db] = _override_get_db
+    app.dependency_overrides[require_active_purchase] = _bypass_purchase
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

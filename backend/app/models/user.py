@@ -23,6 +23,7 @@ from app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.league import League, LeagueMember
+    from app.models.league_purchase import StripeCustomer
     from app.models.password_reset_token import PasswordResetToken
     from app.models.pick import Pick
 
@@ -102,6 +103,7 @@ class User(Base):
         back_populates="created_by_user",
         foreign_keys="League.created_by",
     )
+    stripe_customer: Mapped["StripeCustomer | None"] = relationship(back_populates="user")
 
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r}>"

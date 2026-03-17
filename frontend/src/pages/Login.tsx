@@ -142,7 +142,7 @@ export function Login() {
           to={next ? `/register?next=${encodeURIComponent(next)}` : "/register"}
           className="text-white font-medium hover:underline"
         >
-          Create one free
+          Create one
         </Link>
       </p>
     </div>

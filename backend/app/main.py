@@ -34,6 +34,7 @@ from app.routers import (  # noqa: E402
     picks,
     playoff,
     standings,
+    stripe_router,
     tournaments,
     users,
 )
@@ -117,6 +118,7 @@ app.include_router(picks.router, prefix=_PREFIX)
 app.include_router(standings.router, prefix=_PREFIX)
 app.include_router(admin.router, prefix=_PREFIX)
 app.include_router(playoff.router, prefix=_PREFIX)
+app.include_router(stripe_router.router, prefix=_PREFIX)
 
 
 @app.get("/health")

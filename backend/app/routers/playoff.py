@@ -30,6 +30,7 @@ from app.database import get_db
 from app.dependencies import (
     get_active_season,
     get_current_user,
+    require_active_purchase,
     require_league_manager,
     require_league_member,
 )
@@ -37,6 +38,7 @@ from app.limiter import limiter
 from app.models import (
     League,
     LeagueMember,
+    LeaguePurchase,
     LeagueTournament,
     Pick,
     PlayoffConfig,
@@ -335,6 +337,7 @@ def _validate_playoff_size_vs_members(playoff_size: int, league_id: uuid.UUID, d
 def create_playoff_config(
     body: PlayoffConfigCreate,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):
@@ -376,6 +379,7 @@ def create_playoff_config(
 @router.get("/{league_id}/playoff/config", response_model=PlayoffConfigOut)
 def get_playoff_config(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):
@@ -388,6 +392,7 @@ def get_playoff_config(
 def update_playoff_config(
     body: PlayoffConfigUpdate,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):
@@ -473,6 +478,7 @@ def update_playoff_config(
 @router.get("/{league_id}/playoff/bracket", response_model=BracketOut)
 def get_bracket(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -601,6 +607,7 @@ def seed_bracket(
     league_id: uuid.UUID,
     season: Season = Depends(get_active_season),
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """
@@ -656,6 +663,7 @@ def assign_round_tournament(
     round_id: int,
     body: PlayoffRoundAssign,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Assign a tournament and draft window to a round (manager only)."""
@@ -677,6 +685,7 @@ def assign_round_tournament(
 def open_draft(
     round_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Open the draft window for a round (manager only)."""
@@ -695,6 +704,7 @@ def open_draft(
 def resolve_round_draft(
     round_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """
@@ -716,6 +726,7 @@ def resolve_round_draft(
 def score_playoff_round(
     round_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """
@@ -737,6 +748,7 @@ def score_playoff_round(
 def advance_playoff_bracket(
     round_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """
@@ -763,6 +775,7 @@ def advance_playoff_bracket(
 def get_pod_detail(
     pod_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -798,6 +811,7 @@ def get_pod_detail(
 def get_draft_status(
     pod_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -882,6 +896,7 @@ def get_draft_status(
 def get_my_preferences(
     pod_id: int,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -925,6 +940,7 @@ def submit_draft_preferences(
     pod_id: int,
     body: PlayoffPreferenceSubmit,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -969,6 +985,7 @@ def submit_draft_preferences(
 def override_pod_result(
     body: PlayoffResultOverride,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Manually set the winner of a pod, bypassing scoring (manager only)."""
@@ -990,6 +1007,7 @@ def override_pod_result(
 @router.get("/{league_id}/playoff/my-pod", response_model=MyPlayoffPodOut)
 def get_my_playoff_pod(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     current_user: User = Depends(get_current_user),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
@@ -1110,6 +1128,7 @@ def get_my_playoff_pod(
 @router.get("/{league_id}/playoff/my-picks", response_model=list[PlayoffTournamentPickOut])
 def get_my_playoff_picks(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     current_user: User = Depends(get_current_user),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
@@ -1183,6 +1202,7 @@ def revise_playoff_pick(
     pick_id: uuid.UUID,
     body: PlayoffPickRevise,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Change the golfer on an existing playoff pick (manager only)."""
@@ -1259,6 +1279,7 @@ def admin_create_pod_pick(
     pod_id: int,
     body: AdminPickCreate,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """

@@ -19,6 +19,7 @@ import {
   useMyPreferences,
   usePodDraftStatus,
 } from "../hooks/usePlayoff";
+import { useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import type { PlayoffDraftStatus, PlayoffPickOut } from "../hooks/usePlayoff";
 
 // ---------------------------------------------------------------------------
@@ -113,6 +114,9 @@ function ResolvedPicksCard({ picks }: { picks: PlayoffPickOut[] }) {
 export function PlayoffDraft() {
   const { leagueId, podId } = useParams<{ leagueId: string; podId: string }>();
   const currentUser = useAuthStore((s) => s.user);
+  const { data: members } = useLeagueMembers(leagueId ?? "");
+  const isManager = members?.some((m) => m.user_id === currentUser?.id && m.role === "manager") ?? false;
+  const { data: purchase, isLoading: purchaseLoading } = useLeaguePurchase(leagueId ?? "");
 
   const podIdNum = podId ? Number(podId) : null;
   const { data: draftStatus, isLoading, isError, refetch } = usePodDraftStatus(leagueId!, podIdNum);
@@ -123,6 +127,35 @@ export function PlayoffDraft() {
   const bracketTournamentId = bracket?.rounds
     .flatMap((r) => r.pods.map((p) => ({ podId: p.id, tId: r.tournament_id })))
     .find((x) => x.podId === podIdNum)?.tId ?? undefined;
+
+  // Purchase gate
+  if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
+        <div className="bg-amber-50 rounded-full p-4 mb-6">
+          <svg className="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
+          </svg>
+        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">Season Pass Required</h2>
+        <p className="text-gray-600 max-w-sm mb-8">
+          {isManager
+            ? "This league needs an active season pass to access features. Purchase one to get started."
+            : "Your league manager needs to purchase a season pass to unlock all features."}
+        </p>
+        {isManager ? (
+          <Link
+            to={`/leagues/${leagueId}/manage`}
+            className="bg-green-800 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+          >
+            Manage &amp; Purchase
+          </Link>
+        ) : (
+          <p className="text-sm text-gray-500">Contact your league manager to activate this league.</p>
+        )}
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

@@ -34,7 +34,7 @@ export function Welcome() {
               to="/register"
               className="text-sm font-semibold bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
             >
-              Get started free
+              Get started
             </Link>
           </nav>
         </div>
@@ -66,7 +66,7 @@ export function Welcome() {
               to="/register"
               className="inline-flex items-center justify-center gap-2 bg-white text-green-900 font-bold px-8 py-4 rounded-xl hover:bg-green-50 transition-colors text-base shadow-lg shadow-black/20"
             >
-              Create a league — it's free
+              Create a league
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
               </svg>
@@ -79,7 +79,7 @@ export function Welcome() {
             </Link>
           </div>
           <p className="mt-6 text-sm text-green-400">
-            No credit card required · Takes 2 minutes to set up
+            Takes 2 minutes to set up
           </p>
         </div>
       </section>
@@ -354,7 +354,7 @@ export function Welcome() {
             <div className="hidden sm:block absolute top-7 left-[calc(16.67%+1rem)] right-[calc(16.67%+1rem)] h-px bg-gray-200" />
             <div className="grid sm:grid-cols-3 gap-8">
               {[
-                { n: "1", label: "Create your account", sub: "Email or Google sign-in, free forever." },
+                { n: "1", label: "Create your account", sub: "Email or Google sign-in." },
                 { n: "2", label: "Start a league", sub: "Name it, set your rules, copy the invite link." },
                 { n: "3", label: "Invite your group", sub: "Share the link and start picking when week one begins." },
               ].map(({ n, label, sub }) => (
@@ -368,6 +368,64 @@ export function Welcome() {
               ))}
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* ── Pricing ── */}
+      <section className="py-24 px-6 bg-white border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <span className="inline-block text-xs font-bold uppercase tracking-[0.2em] text-green-700 mb-4">
+              Pricing
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">
+              One season, one price
+            </h2>
+            <p className="text-gray-500 text-lg max-w-xl mx-auto">
+              Every tier includes all features. The only difference is how many members your league can have.
+            </p>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              { tier: "Starter", price: "$50", members: "Up to 20 members" },
+              { tier: "Standard", price: "$90", members: "Up to 50 members", popular: true },
+              { tier: "Pro", price: "$150", members: "Up to 150 members" },
+              { tier: "Elite", price: "$250", members: "Up to 500 members" },
+            ].map(({ tier, price, members, popular }) => (
+              <div
+                key={tier}
+                className={`relative rounded-2xl p-6 flex flex-col ${
+                  popular
+                    ? "bg-green-800 text-white shadow-xl shadow-green-900/30 border-2 border-green-700"
+                    : "bg-white border border-gray-200"
+                }`}
+              >
+                {popular && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[11px] font-bold uppercase tracking-widest bg-amber-400 text-amber-900 px-3 py-1 rounded-full whitespace-nowrap">
+                    Most popular
+                  </span>
+                )}
+                <p className={`text-sm font-bold uppercase tracking-wider mb-3 ${popular ? "text-green-300" : "text-green-700"}`}>
+                  {tier}
+                </p>
+                <p className={`text-4xl font-extrabold mb-1 ${popular ? "text-white" : "text-gray-900"}`}>
+                  {price}
+                </p>
+                <p className={`text-xs mb-6 ${popular ? "text-green-300" : "text-gray-400"}`}>
+                  per season
+                </p>
+                <div className={`flex items-center gap-2 text-sm font-medium mt-auto ${popular ? "text-green-100" : "text-gray-700"}`}>
+                  <svg className={`w-4 h-4 flex-shrink-0 ${popular ? "text-green-300" : "text-green-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
+                  </svg>
+                  {members}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-sm text-gray-400 mt-8">
+            All tiers include live scoring, playoffs, custom schedules, and more.
+          </p>
         </div>
       </section>
 
@@ -389,7 +447,7 @@ export function Welcome() {
             to="/register"
             className="inline-flex items-center gap-3 bg-white text-green-900 font-bold px-10 py-4 rounded-xl hover:bg-green-50 transition-colors text-lg shadow-xl shadow-black/30"
           >
-            Create your league — free
+            Create your league
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>
@@ -410,7 +468,7 @@ export function Welcome() {
             <FlagIcon className="w-4 h-4 flex-shrink-0" />
             League Caddie
           </span>
-          <span>© {new Date().getFullYear()} · Free to play</span>
+          <span>© {new Date().getFullYear()} · League Caddie</span>
           <div className="flex gap-4">
             <Link to="/register" className="hover:text-green-400 transition-colors">
               Create account

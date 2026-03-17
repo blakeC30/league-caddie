@@ -64,7 +64,7 @@ export function Register() {
             League Caddie
           </Link>
           <p className="text-2xl font-bold text-gray-900 pt-1">Create your account</p>
-          <p className="text-sm text-gray-500">Free forever · No credit card required</p>
+          <p className="text-sm text-gray-500">Takes 2 minutes to set up</p>
         </div>
 
         {/* Form */}

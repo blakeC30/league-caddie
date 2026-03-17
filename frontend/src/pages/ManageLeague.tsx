@@ -8,13 +8,14 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDropdownDirection } from "../hooks/useDropdownDirection";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   useApproveRequest,
   useDeleteLeague,
   useDenyRequest,
   useLeague,
   useLeagueMembers,
+  useLeaguePurchase,
   useLeagueTournaments,
   usePendingRequests,
   useRemoveMember,
@@ -34,6 +35,7 @@ import {
 import { fmtTournamentName, isoWeekKey } from "../utils";
 import { useAuthStore } from "../store/authStore";
 import { Spinner } from "../components/Spinner";
+import { stripeApi } from "../api/endpoints";
 
 // ---------------------------------------------------------------------------
 // Custom dropdown — matches the Leaderboard tournament picker style
@@ -749,6 +751,22 @@ export function ManageLeague() {
   // Current user's role — redirect non-managers back to the league dashboard.
   const myMembership = members?.find((m) => m.user_id === currentUser?.id);
   const isManager = myMembership?.role === "manager";
+
+  // Billing
+  const { data: purchase } = useLeaguePurchase(leagueId!);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [upgradeSelectedTier, setUpgradeSelectedTier] = useState<string>("");
+
+  async function handleQuickPurchase(tier: string, upgrade = false) {
+    if (!leagueId) return;
+    setBillingLoading(true);
+    try {
+      const { url } = await stripeApi.createCheckoutSession(leagueId, tier, upgrade);
+      window.location.href = url;
+    } catch {
+      setBillingLoading(false);
+    }
+  }
 
   // Wait for members to load before redirecting — avoids a flash redirect
   // on initial render before the query resolves.
@@ -1796,6 +1814,135 @@ export function ManageLeague() {
               )}
             </div>
           </div>
+          )}
+        </section>
+      )}
+
+      {/* Billing & Plan — manager only */}
+      {isManager && (
+        <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <SectionIcon>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+              </svg>
+            </SectionIcon>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">Billing</p>
+              <h2 className="text-base font-bold text-gray-900">Billing &amp; Plan</h2>
+            </div>
+          </div>
+
+          {!purchase?.paid_at ? (
+            /* No active purchase */
+            <div className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
+                No active season pass for 2026. Purchase a season pass to unlock all league features.
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  to={`/pricing?league_id=${leagueId}`}
+                  className="text-sm font-semibold text-green-800 border border-green-300 hover:border-green-500 hover:bg-green-50 px-4 py-2 rounded-xl transition-colors"
+                >
+                  View Pricing
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => handleQuickPurchase("starter")}
+                  disabled={billingLoading}
+                  className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                >
+                  {billingLoading ? <Spinner /> : null}
+                  Purchase — Starter ($50)
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Has active purchase */
+            <div className="space-y-5">
+              {/* Plan summary */}
+              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+                      purchase.tier === "elite"
+                        ? "bg-amber-100 text-amber-800"
+                        : purchase.tier === "pro"
+                        ? "bg-blue-100 text-blue-800"
+                        : purchase.tier === "standard"
+                        ? "bg-green-100 text-green-800"
+                        : "bg-gray-200 text-gray-700"
+                    }`}
+                  >
+                    {purchase.tier ? purchase.tier.charAt(0).toUpperCase() + purchase.tier.slice(1) : "—"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Member limit</p>
+                    <p className="font-semibold text-gray-800">
+                      Up to {purchase.member_limit?.toLocaleString() ?? "—"} members
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Amount paid</p>
+                    <p className="font-semibold text-gray-800">
+                      {purchase.amount_cents !== null
+                        ? `$${(purchase.amount_cents / 100).toFixed(2)}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium">Paid on</p>
+                    <p className="font-semibold text-gray-800">
+                      {purchase.paid_at
+                        ? new Date(purchase.paid_at).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })
+                        : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upgrade plan — only if not already on elite */}
+              {purchase.tier !== "elite" && (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-700">Upgrade Plan</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(["standard", "pro", "elite"] as const)
+                      .filter((t) => {
+                        const tierOrder: Record<string, number> = { starter: 1, standard: 2, pro: 3, elite: 4 };
+                        return (tierOrder[t] ?? 0) > (tierOrder[purchase.tier ?? ""] ?? 0);
+                      })
+                      .map((t) => (
+                        <label key={t} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="upgradeTier"
+                            value={t}
+                            checked={upgradeSelectedTier === t}
+                            onChange={() => setUpgradeSelectedTier(t)}
+                            className="text-green-700 focus:ring-green-600"
+                          />
+                          <span className="text-sm text-gray-700 capitalize">{t}</span>
+                        </label>
+                      ))}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!upgradeSelectedTier || billingLoading}
+                    onClick={() => upgradeSelectedTier && handleQuickPurchase(upgradeSelectedTier, true)}
+                    className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-40 flex items-center gap-2"
+                  >
+                    {billingLoading ? <Spinner /> : null}
+                    Upgrade
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </section>
       )}

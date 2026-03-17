@@ -31,7 +31,8 @@ app/
 │   ├── tournament.py # Tournament, TournamentEntry, TournamentStatus
 │   ├── golfer.py     # Golfer
 │   ├── pick.py       # Pick
-│   └── league_tournament.py  # LeagueTournament (join table)
+│   ├── league_tournament.py  # LeagueTournament (join table)
+│   └── league_purchase.py    # StripeCustomer, LeaguePurchase, LeaguePurchaseEvent
 ├── schemas/          # Pydantic request/response schemas
 │   ├── auth.py       # RegisterRequest, LoginRequest, GoogleAuthRequest, TokenResponse
 │   ├── user.py       # UserOut, UserUpdate
@@ -40,7 +41,8 @@ app/
 │   ├── tournament.py # TournamentOut, LeagueTournamentOut (adds effective_multiplier + all_r1_teed_off), GolferInFieldOut (field endpoint — golfer + tee_time)
 │   ├── golfer.py     # GolferOut
 │   ├── pick.py       # PickCreate, PickUpdate, PickOut
-│   └── standings.py  # StandingsRow, StandingsResponse
+│   ├── standings.py  # StandingsRow, StandingsResponse
+│   └── stripe_schemas.py     # PricingTierOut, CheckoutSessionCreate/Out, LeaguePurchaseOut; PRICING_TIERS + TIER_ORDER constants
 ├── routers/
 │   ├── auth.py       # /auth/*
 │   ├── users.py      # /users/*
@@ -50,6 +52,7 @@ app/
 │   ├── picks.py      # /leagues/{league_id}/picks/*
 │   ├── standings.py  # /leagues/{league_id}/standings
 │   ├── playoff.py    # /leagues/{league_id}/playoff/* (config, bracket, draft, pods)
+│   ├── stripe_router.py  # /stripe/* (pricing, checkout, webhook) + /leagues/{id}/purchase
 │   └── admin.py      # /admin/* (platform admin only)
 └── services/
     ├── auth.py       # hash_password, verify_password, create/decode JWT tokens, verify_google_id_token, generate/validate/consume_reset_token
@@ -143,6 +146,12 @@ All routes are prefixed with `/api/v1`.
 | POST | `/leagues/{league_id}/playoff/override` | manager | Manually set pod winner |
 | GET | `/leagues/{league_id}/playoff/my-pod` | member | Lightweight playoff pod context for current user — always 200, returns `is_playoff_week=False` if no active playoff config; used by Dashboard/MakePick |
 | GET | `/leagues/{league_id}/playoff/my-picks` | member | Current user's playoff picks per tournament (all rounds in active season) — own picks never hidden by R1 tee time check |
+| GET | `/stripe/pricing` | — | List all four pricing tiers and their prices |
+| POST | `/stripe/create-checkout-session` | manager | Create Stripe Checkout session; body: `{league_id, tier, upgrade?}` → returns `{url}` |
+| POST | `/stripe/webhook` | — (Stripe sig) | Stripe webhook handler; handles `checkout.session.completed`; raw body required for signature verification |
+| GET | `/leagues/{league_id}/purchase` | member | Current season purchase status for the league — NOT gated by require_active_purchase |
+
+**Payment gating**: all operational endpoints (picks, standings, members, tournaments, playoff) require an active `LeaguePurchase.paid_at` for the current year. Returns HTTP 402 if unpurchased. Platform admin–created leagues are bypassed permanently; `require_active_purchase` returns `None` for them.
 
 **CRITICAL — FastAPI route ordering**: Literal path segments must be defined BEFORE parameterized ones. Example in `leagues.py`:
 ```python
@@ -160,6 +169,9 @@ get_current_user          ← validates JWT access token from Authorization head
   └─ get_league_or_404    ← looks up league by league_id
        └─ require_league_member   ← checks approved membership
             └─ require_league_manager   ← checks manager role
+            └─ require_active_purchase  ← 402 if no paid LeaguePurchase for current year;
+                                           bypassed (returns None) when league creator OR
+                                           current user is_platform_admin
   └─ get_active_season    ← gets active season for league
 ```
 
@@ -207,6 +219,9 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 | `playoff_pod_members` | id (int), pod_id, user_id, seed, draft_position, total_points (nullable), is_eliminated; UNIQUE(pod_id, user_id) |
 | `playoff_picks` | id (UUID), pod_id, pod_member_id, golfer_id, tournament_id, draft_slot, points_earned; UNIQUE(pod_id, golfer_id) |
 | `playoff_draft_preferences` | id (UUID), pod_id, pod_member_id, golfer_id, rank; UNIQUE(pod_member_id, golfer_id) |
+| `stripe_customers` | id (UUID), user_id (FK→users, unique, CASCADE), stripe_customer_id (VARCHAR 64, unique), created_at |
+| `league_purchases` | id (UUID), league_id (FK→leagues CASCADE), season_year (int), tier (VARCHAR 16), member_limit (int), stripe_customer_id, stripe_payment_intent_id, stripe_checkout_session_id, amount_cents, paid_at (nullable — null = unpaid/admin-exempt), created_at; UNIQUE(league_id, season_year) |
+| `league_purchase_events` | id (UUID), league_id (FK CASCADE), season_year (int), tier, member_limit, stripe IDs, amount_cents, event_type ("purchase"\|"upgrade"\|"initial"), paid_at, created_at; INDEX(league_id, season_year) |
 
 ### Points Formula
 ```
@@ -252,6 +267,7 @@ Existing migration files (in order):
 20. `k7l9m1n3o5p7` — replace `ix_users_email` (case-sensitive btree) with `ix_users_email_lower` (UNIQUE on LOWER(email))
 21. `l8m0n2o4p6q8` — add `pick_reminders` table and `users.pick_reminders_enabled`
 22. `m9n1o3p5q7r9` — add `leagues.accepting_requests` (BOOLEAN NOT NULL DEFAULT TRUE); when False, new join requests are blocked at the API level
+23. `n0o2p4q6r8s0` — add `stripe_customers`, `league_purchases`, `league_purchase_events` tables; data migration backfills all existing leagues as Elite tier for 2026 at no cost
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)

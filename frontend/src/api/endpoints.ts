@@ -245,6 +245,25 @@ export interface PlayoffTournamentPickOut {
 }
 
 // ---------------------------------------------------------------------------
+// Stripe / billing types
+// ---------------------------------------------------------------------------
+
+export interface PricingTier {
+  tier: string;          // "starter" | "standard" | "pro" | "elite"
+  member_limit: number;
+  amount_cents: number;
+}
+
+export interface LeaguePurchaseStatus {
+  league_id: string;
+  season_year: number;
+  tier: string | null;
+  member_limit: number | null;
+  amount_cents: number | null;
+  paid_at: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // Platform config
 // ---------------------------------------------------------------------------
 
@@ -353,6 +372,9 @@ export const leaguesApi = {
 
   updateTournaments: (leagueId: string, tournaments: { tournament_id: string; multiplier: number | null }[]) =>
     api.put<LeagueTournamentOut[]>(`/leagues/${leagueId}/tournaments`, { tournaments }).then((r) => r.data),
+
+  getPurchase: (leagueId: string) =>
+    api.get<LeaguePurchaseStatus | null>(`/leagues/${leagueId}/purchase`).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------
@@ -427,6 +449,25 @@ export const picksApi = {
 export const standingsApi = {
   get: (leagueId: string) =>
     api.get<StandingsResponse>(`/leagues/${leagueId}/standings`).then((r) => r.data),
+};
+
+// ---------------------------------------------------------------------------
+// Stripe
+// ---------------------------------------------------------------------------
+
+export const stripeApi = {
+  getPricing: () =>
+    api.get<PricingTier[]>("/stripe/pricing").then((r) => r.data),
+
+  createCheckoutSession: (league_id: string, tier: string, upgrade = false) =>
+    api
+      .post<{ url: string }>("/stripe/create-checkout-session", { league_id, tier, upgrade })
+      .then((r) => r.data),
+
+  createLeagueCheckout: (name: string, no_pick_penalty: number, tier: string) =>
+    api
+      .post<{ url: string }>("/stripe/create-league-checkout", { name, no_pick_penalty, tier })
+      .then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ Dependency chain for a protected league-manager route:
 """
 
 import uuid
+from datetime import UTC, datetime
 
 from fastapi import Cookie, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -27,6 +28,7 @@ from app.models import (
     LeagueMember,
     LeagueMemberRole,
     LeagueMemberStatus,
+    LeaguePurchase,
     Season,
     User,
 )
@@ -138,6 +140,47 @@ def get_active_season(
     if not season:
         raise HTTPException(status_code=404, detail="No active season for this league")
     return season
+
+
+def require_active_purchase(
+    league: League = Depends(get_league_or_404),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LeaguePurchase | None:
+    """
+    Gate league operational features behind an active season purchase.
+
+    Returns None (bypass) when:
+      - The league was created by a platform admin, OR
+      - The current user is a platform admin.
+
+    Callers that receive None should treat the league as having Elite-tier
+    limits (500 members, all features available).
+
+    Raises HTTP 402 when no paid purchase row exists for the current year.
+    """
+    creator = db.get(User, league.created_by)
+    if (creator and creator.is_platform_admin) or current_user.is_platform_admin:
+        return None
+
+    current_year = datetime.now(UTC).year
+    purchase = (
+        db.query(LeaguePurchase)
+        .filter(
+            LeaguePurchase.league_id == league.id,
+            LeaguePurchase.season_year == current_year,
+            LeaguePurchase.paid_at.isnot(None),
+        )
+        .first()
+    )
+    if not purchase:
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "This league requires an active season pass. Visit the Manage page to purchase."
+            ),
+        )
+    return purchase
 
 
 def get_refresh_token_user(

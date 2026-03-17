@@ -7,6 +7,7 @@ Import all models here so that:
 from app.models.base import Base
 from app.models.golfer import Golfer
 from app.models.league import League, LeagueMember, LeagueMemberRole, LeagueMemberStatus
+from app.models.league_purchase import LeaguePurchase, LeaguePurchaseEvent, StripeCustomer
 from app.models.league_tournament import LeagueTournament
 from app.models.password_reset_token import PasswordResetToken
 from app.models.pick import Pick
@@ -51,4 +52,7 @@ __all__ = [
     "PlayoffPick",
     "PlayoffDraftPreference",
     "PasswordResetToken",
+    "StripeCustomer",
+    "LeaguePurchase",
+    "LeaguePurchaseEvent",
 ]

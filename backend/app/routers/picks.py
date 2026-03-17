@@ -24,6 +24,7 @@ from app.database import get_db
 from app.dependencies import (
     get_active_season,
     get_current_user,
+    require_active_purchase,
     require_league_manager,
     require_league_member,
 )
@@ -33,6 +34,7 @@ from app.models import (
     League,
     LeagueMember,
     LeagueMemberStatus,
+    LeaguePurchase,
     LeagueTournament,
     Pick,
     PlayoffConfig,
@@ -103,6 +105,7 @@ def submit_pick(
     request: Request,
     body: PickCreate,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -143,6 +146,7 @@ def submit_pick(
 @router.get("/mine", response_model=list[PickOut])
 def get_my_picks(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -165,6 +169,7 @@ def get_my_picks(
 @router.get("", response_model=list[PickOut])
 def get_all_picks(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):
@@ -217,6 +222,7 @@ def get_all_picks(
 def get_tournament_picks_summary(
     tournament_id: uuid.UUID,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """
@@ -335,6 +341,7 @@ def change_pick(
     pick_id: uuid.UUID,
     body: PickUpdate,
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -382,6 +389,7 @@ class AdminPickOverride(BaseModel):
 def admin_override_pick(
     body: AdminPickOverride,
     league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
 ):

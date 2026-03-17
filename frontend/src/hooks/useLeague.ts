@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { leaguesApi, usersApi } from "../api/endpoints";
+import type { LeaguePurchaseStatus } from "../api/endpoints";
 
 export function useMyLeagues() {
   return useQuery({
@@ -172,5 +173,13 @@ export function useDenyRequest(leagueId: string) {
   return useMutation({
     mutationFn: (userId: string) => leaguesApi.denyRequest(leagueId, userId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["pendingRequests", leagueId] }),
+  });
+}
+
+export function useLeaguePurchase(leagueId: string) {
+  return useQuery<LeaguePurchaseStatus | null>({
+    queryKey: ["leaguePurchase", leagueId],
+    queryFn: () => leaguesApi.getPurchase(leagueId),
+    enabled: !!leagueId,
   });
 }

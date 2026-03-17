@@ -28,6 +28,9 @@ import { PlayoffDraft } from "./pages/PlayoffDraft";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { LeagueRules } from "./pages/LeagueRules";
+import { Pricing } from "./pages/Pricing";
+import { BillingSuccess } from "./pages/BillingSuccess";
+import { BillingCanceled } from "./pages/BillingCanceled";
 
 export default function App() {
   return (
@@ -40,6 +43,9 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/join/:inviteCode" element={<JoinLeague />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/billing/success" element={<BillingSuccess />} />
+      <Route path="/billing/canceled" element={<BillingCanceled />} />
 
       {/* Auth-guarded — all share the Layout shell */}
       <Route element={<Layout />}>

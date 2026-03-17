@@ -32,6 +32,7 @@ from app.database import get_db
 from app.dependencies import (
     get_current_user,
     get_league_or_404,
+    require_active_purchase,
     require_league_manager,
     require_league_member,
 )
@@ -41,6 +42,8 @@ from app.models import (
     LeagueMember,
     LeagueMemberRole,
     LeagueMemberStatus,
+    LeaguePurchase,
+    LeaguePurchaseEvent,
     LeagueTournament,
     Pick,
     PlayoffConfig,
@@ -142,6 +145,36 @@ def create_league(
 
     db.commit()
     db.refresh(league)
+
+    # Platform admin leagues are permanently exempt from payment gating.
+    # Insert an Elite purchase row so the member-limit check in approve_join_request
+    # works consistently without special-casing the admin bypass everywhere.
+    if current_user.is_platform_admin:
+        now = datetime.datetime.now(datetime.UTC)
+        current_year = datetime.date.today().year
+        db.add(
+            LeaguePurchase(
+                league_id=league.id,
+                season_year=current_year,
+                tier="elite",
+                member_limit=500,
+                amount_cents=0,
+                paid_at=now,
+            )
+        )
+        db.add(
+            LeaguePurchaseEvent(
+                league_id=league.id,
+                season_year=current_year,
+                tier="elite",
+                member_limit=500,
+                amount_cents=0,
+                event_type="initial",
+                paid_at=now,
+            )
+        )
+        db.commit()
+
     return league
 
 
@@ -423,6 +456,7 @@ def delete_league(
 @router.get("/{league_id}/members", response_model=list[LeagueMemberOut])
 def list_members(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """List approved members of a league. Requires membership."""
@@ -440,6 +474,7 @@ def update_member_role(
     user_id: uuid.UUID,
     body: RoleUpdate,
     league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Change an approved member's role. Requires league manager."""
@@ -588,6 +623,7 @@ def leave_league(
 def remove_member(
     user_id: uuid.UUID,
     league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Remove an approved member from a league. Requires league manager."""
@@ -643,6 +679,7 @@ def list_join_requests(
 def approve_join_request(
     user_id: uuid.UUID,
     league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """Approve a pending join request. Requires league manager."""
@@ -668,12 +705,13 @@ def approve_join_request(
         .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
         .count()
     )
-    if approved_count >= LEAGUE_MEMBER_CAP:
+    member_limit = purchase.member_limit if purchase else 500
+    if approved_count >= member_limit:
         raise HTTPException(
             status_code=400,
             detail=(
-                f"This league has reached its maximum member limit of {LEAGUE_MEMBER_CAP}. "
-                "Remove a member before approving new ones."
+                f"This league has reached its member limit of {member_limit}. "
+                "Upgrade your plan or remove a member before approving new ones."
             ),
         )
 
@@ -874,6 +912,7 @@ def _build_league_tournament_out(
 @router.get("/{league_id}/tournaments", response_model=list[LeagueTournamentOut])
 def get_league_tournaments(
     league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """
@@ -914,6 +953,7 @@ class TournamentScheduleUpdate(BaseModel):
 def update_league_tournaments(
     body: TournamentScheduleUpdate,
     league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
     db: Session = Depends(get_db),
 ):
     """

@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     # The verified sender address in SES. Must be verified in the AWS console before going to prod.
     SES_FROM_EMAIL: str = "noreply@league-caddie.com"
 
+    # --- Stripe ---
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 

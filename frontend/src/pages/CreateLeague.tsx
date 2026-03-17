@@ -9,18 +9,24 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
-import { leaguesApi, type Tournament } from "../api/endpoints";
+import { stripeApi, type Tournament } from "../api/endpoints";
 import { useTournaments } from "../hooks/usePick";
 import { fmtTournamentName, isoWeekKey } from "../utils";
 import { Spinner } from "../components/Spinner";
 
+const TIERS = [
+  { key: "starter", label: "Starter", price: "$50", members: "Up to 20 members" },
+  { key: "standard", label: "Standard", price: "$90", members: "Up to 50 members", badge: "Popular" },
+  { key: "pro", label: "Pro", price: "$150", members: "Up to 150 members" },
+  { key: "elite", label: "Elite", price: "$250", members: "Up to 500 members" },
+] as const;
+
 export function CreateLeague() {
   const navigate = useNavigate();
-  const qc = useQueryClient();
 
   const [name, setName] = useState("");
   const [noPick, setNoPick] = useState("50000");
+  const [selectedTier, setSelectedTier] = useState("standard");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -96,20 +102,17 @@ export function CreateLeague() {
     setError("");
     setLoading(true);
     try {
-      const league = await leaguesApi.create(name.trim(), -(parseInt(noPick, 10) || 0));
       const schedule = [...selectedIds].map((id) => ({
         tournament_id: id,
         multiplier: multipliers[id] ?? null,
         is_playoff: false,
       }));
-      if (schedule.length > 0) {
-        await leaguesApi.updateTournaments(league.id, schedule);
-      }
-      qc.invalidateQueries({ queryKey: ["myLeagues"] });
-      navigate(`/leagues/${league.id}`);
+      localStorage.setItem("pendingLeagueSchedule", JSON.stringify(schedule));
+      const penalty = parseInt(noPick, 10) || 0;
+      const { url } = await stripeApi.createLeagueCheckout(name.trim(), penalty, selectedTier);
+      window.location.href = url;
     } catch {
-      setError("Failed to create league. Please try again.");
-    } finally {
+      setError("Failed to start checkout. Please try again.");
       setLoading(false);
     }
   }
@@ -213,9 +216,10 @@ export function CreateLeague() {
             <h2 className="text-base font-bold text-gray-900">Tournament Schedule</h2>
           </div>
           <p className="text-sm text-gray-500">
-            All tournaments are included by default. Majors are worth{" "}
-            <span className="font-semibold text-amber-700">2×</span> and The Players Championship is worth{" "}
-            <span className="font-semibold text-blue-700">1.5×</span>. Uncheck events you want to exclude,
+            All tournaments are included by default. Majors default to{" "}
+            <span className="font-semibold text-amber-500">2×</span> and The Players Championship defaults to{" "}
+            <span className="font-semibold text-blue-500">1.5×</span>.{" "}
+            Uncheck events you want to exclude,
             or adjust multipliers. This can be changed at any time from the Manage page.
           </p>
 
@@ -321,6 +325,49 @@ export function CreateLeague() {
           )}
         </div>
 
+        {/* Tier selection */}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+              </svg>
+            </div>
+            <h2 className="text-base font-bold text-gray-900">Season Pass</h2>
+          </div>
+          <p className="text-sm text-gray-500">Select the plan that fits your league size. You can upgrade later.</p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {TIERS.map((tier) => {
+              const isSelected = selectedTier === tier.key;
+              return (
+                <button
+                  key={tier.key}
+                  type="button"
+                  onClick={() => setSelectedTier(tier.key)}
+                  className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-4 text-center transition-colors ${
+                    isSelected
+                      ? "border-green-700 bg-green-50"
+                      : "border-gray-200 bg-white hover:border-green-300"
+                  }`}
+                >
+                  {"badge" in tier && (
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
+                      {tier.badge}
+                    </span>
+                  )}
+                  <span className={`text-sm font-bold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
+                    {tier.label}
+                  </span>
+                  <span className={`text-lg font-extrabold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
+                    {tier.price}
+                  </span>
+                  <span className="text-xs text-gray-500">{tier.members}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3.5 py-2.5 rounded-xl">
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -336,7 +383,7 @@ export function CreateLeague() {
             disabled={loading || !name.trim() || hasConflicts}
             className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 px-8 rounded-xl transition-colors shadow-sm"
           >
-            {loading ? "Creating…" : "Create League"}
+            {loading ? "Redirecting…" : "Continue to payment"}
           </button>
           <button
             type="button"

@@ -146,7 +146,7 @@ export function Layout() {
             <FlagIcon className="w-4 h-4 flex-shrink-0" />
             League Caddie
           </span>
-          <span>© {new Date().getFullYear()} · Free to play</span>
+          <span>© {new Date().getFullYear()} · League Caddie</span>
           <Link to="/leagues" className="hover:text-green-400 transition-colors">
             My Leagues
           </Link>

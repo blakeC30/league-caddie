@@ -43,6 +43,7 @@ from app.models.base import Base
 if TYPE_CHECKING:
     # Only imported during type-checking (mypy/pyright), not at runtime.
     # This avoids circular imports while keeping the type checker happy.
+    from app.models.league_purchase import LeaguePurchase, LeaguePurchaseEvent
     from app.models.league_tournament import LeagueTournament
     from app.models.pick import Pick
     from app.models.pick_reminder import PickReminder
@@ -144,6 +145,12 @@ class League(Base):
     picks: Mapped[list["Pick"]] = relationship(back_populates="league")
     league_tournaments: Mapped[list["LeagueTournament"]] = relationship(back_populates="league")
     pick_reminders: Mapped[list["PickReminder"]] = relationship(
+        back_populates="league", cascade="all, delete-orphan"
+    )
+    purchases: Mapped[list["LeaguePurchase"]] = relationship(
+        back_populates="league", cascade="all, delete-orphan"
+    )
+    purchase_events: Mapped[list["LeaguePurchaseEvent"]] = relationship(
         back_populates="league", cascade="all, delete-orphan"
     )
 
