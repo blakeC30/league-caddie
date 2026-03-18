@@ -35,25 +35,43 @@ This separation means scraper failures cannot take down the API, and the three c
 
 ## Cost Plan
 
+### One-Time Startup Costs
+| Item | Cost |
+|---|---|
+| LLC formation (state filing fee) | ~$300 (varies by state) |
+| EIN | FREE (IRS.gov) |
+| **Total** | **~$300 one-time** |
+
 ### During AWS Free Tier (first 12 months after account creation)
 | Resource | Cost |
 |---|---|
 | EC2 t2.micro — dev (K3s, all dev services) | FREE (750 hrs/month) |
 | EC2 t3a.small — prod (K3s, all prod services) | ~$14/month |
+| EBS gp3 — dev (20 GB) | FREE (included in 30 GB free tier) |
+| EBS gp3 — prod (30 GB) | FREE (included in 30 GB free tier) |
+| EBS snapshots (Data Lifecycle Manager) | ~$0.05/GB/month (near $0 when DB is small) |
 | ECR (container registry) | FREE (500 MB storage) |
 | SES (email) | FREE (3,000 emails/month first 12 months) |
 | SQS | FREE (1M requests/month free tier) |
+| CloudWatch Logs | FREE (5 GB ingestion/month free tier) |
+| AWS Budgets | FREE (2 budgets free) |
+| Route 53 | ~$0.50/hosted zone/month + ~$12/year domain |
 | GitHub Actions (public repo) | FREE (unlimited minutes) |
-| **Total** | **~$15/month** |
+| **Total** | **~$16/month** |
 
 ### After Free Tier (month 13+)
 | Resource | Est. Cost |
 |---|---|
 | EC2 t2.micro — dev | ~$8.50/month |
 | EC2 t3a.small — prod | ~$14/month |
+| EBS gp3 — dev (20 GB) | ~$1.60/month |
+| EBS gp3 — prod (30 GB) | ~$2.40/month |
+| EBS snapshots | ~$0.50/month (small DB) |
 | SES | $0.10/1,000 emails (effectively $0 at this scale) |
 | SQS | $0.40/1M requests (effectively $0 at this scale) |
-| **Total** | **~$23.50/month** |
+| CloudWatch Logs | ~$0.50/month (low log volume) |
+| Route 53 | ~$0.50/month |
+| **Total** | **~$28/month** |
 
 > **Note:** Dev uses a t2.micro (free tier, 1 GB RAM, 1 vCPU). Prod uses a t3a.small (2 GB RAM, 2 vCPU, AMD EPYC — ~10% cheaper than t3.small for equivalent specs) for headroom running 2 backend replicas + scraper + worker + Postgres + Nginx simultaneously.
 
@@ -727,10 +745,28 @@ Provision all AWS resources needed for production (and dev). Use only free-tier 
    - Security group: same as dev — 22 (SSH from your IP only), 80 (HTTP public), 443 (HTTPS public)
    - **Note:** t3a.small is not free-tier eligible; dev instance (t2.micro) stays free for 12 months
 
-7. **DNS & TLS (optional, ~$12/year for domain)**
-   - Register domain via Route53 or Namecheap
-   - A record → Elastic IP
+7. **DNS & TLS (~$12/year for domain + $0.50/month hosted zone)**
+   - Register domain via Route 53 or Namecheap
+   - Create a hosted zone in Route 53 ($0.50/month)
+   - A record → Elastic IP (prod), separate A record for dev subdomain if desired
    - TLS via cert-manager + Let's Encrypt (free) inside K3s — auto-renews
+
+8. **CloudWatch Logs**
+   - Install the CloudWatch agent on each EC2 instance (or use Fluent Bit as a K3s DaemonSet)
+   - Ship backend + nginx logs to CloudWatch log groups `/fantasy-golf/dev` and `/fantasy-golf/prod`
+   - Free tier: 5 GB ingestion/month — more than enough for this scale
+   - Retention: set to 30 days to avoid unbounded storage costs
+   - Lets you query logs without SSHing into the instance
+
+9. **AWS Budgets**
+   - Create a $20/month budget alert (email notification) — catches unexpected cost spikes immediately
+   - Free for up to 2 budgets
+   - Set up in AWS Console → Billing → Budgets
+
+10. **EBS Snapshots (Data Lifecycle Manager)**
+    - Enable Data Lifecycle Manager for automated daily EBS snapshots on both volumes
+    - Retention: keep 7 daily snapshots (~7× the volume size in snapshot storage, typically <$1/month)
+    - Free to configure; you only pay for snapshot storage ($0.05/GB/month)
 
 ### AWS SES Production Checklist
 
@@ -743,15 +779,19 @@ Before deploying:
 
 1. Create AWS account (use personal email, enables full free tier 12 months)
 2. Enable root MFA
-3. Create IAM user (`fantasy-golf-deploy`) + EC2 role (`fantasy-golf-ec2-role`)
-4. Create ECR repositories (`backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `frontend`)
-5. Create SQS queues (`fantasy-golf-events-prod`, `-dlq`)
-6. Verify SES sender identity; request sandbox exit
-7. Launch EC2 instances (t2.micro for dev, t3a.small for prod), assign Elastic IPs, attach IAM role to each
-8. Install K3s on EC2
-9. Create K8s namespaces: `kubectl create namespace dev && kubectl create namespace prod`
-10. Initial deploy: `helm upgrade --install fantasy-golf ./helm/fantasy-golf -f values-prod.yaml --namespace prod`
-11. (Optional) Configure domain + cert-manager for HTTPS
+3. Set up AWS Budget alert — $20/month threshold, email notification
+4. Create IAM user (`fantasy-golf-deploy`) + EC2 role (`fantasy-golf-ec2-role`)
+5. Create ECR repositories (`backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `frontend`)
+6. Create SQS queues (`fantasy-golf-events-prod`, `-dlq`)
+7. Verify SES sender identity; request sandbox exit
+8. Launch EC2 instances (t2.micro for dev, t3a.small for prod), assign Elastic IPs, attach IAM role to each
+9. Enable Data Lifecycle Manager — daily EBS snapshots, 7-day retention, for both volumes
+10. Install K3s on EC2
+11. Install CloudWatch agent / Fluent Bit on EC2 — ship logs to `/fantasy-golf/dev` and `/fantasy-golf/prod`; set 30-day retention
+12. Create Route 53 hosted zone; point A records at Elastic IPs
+13. Create K8s namespaces: `kubectl create namespace dev && kubectl create namespace prod`
+14. Initial deploy: `helm upgrade --install fantasy-golf ./helm/fantasy-golf -f values-prod.yaml --namespace prod`
+15. Configure cert-manager + Let's Encrypt for HTTPS
 
 ---
 

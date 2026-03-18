@@ -173,3 +173,5 @@ values.secret.yaml
 # -----------------------------------------------------------------------------
 .cursorignore
 .cursorindexingignore
+
+.vscode
