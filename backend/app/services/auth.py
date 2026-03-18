@@ -11,6 +11,7 @@ Keeping this in a service makes it easy to unit-test without starting a web serv
 """
 
 import hashlib
+import os
 import secrets
 from datetime import UTC, datetime, timedelta
 
@@ -20,6 +21,11 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 
+# Default cost factor is 12 (bcrypt recommendation for production).
+# Set BCRYPT_ROUNDS=4 in test environments to keep password hashing fast —
+# bcrypt hashes are self-describing, so a rounds=4 hash verifies correctly.
+_BCRYPT_ROUNDS = int(os.getenv("BCRYPT_ROUNDS", "12"))
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 15
 REFRESH_TOKEN_EXPIRE_DAYS = 7
@@ -27,7 +33,9 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 def hash_password(password: str) -> str:
     """Hash a plaintext password with bcrypt. The salt is embedded in the returned string."""
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=_BCRYPT_ROUNDS)).decode(
+        "utf-8"
+    )
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -107,12 +115,19 @@ def validate_reset_token(db: Session, raw_token: str):
     Return the User associated with the token if it is valid, unused, and
     not expired. Return None for any invalid state without leaking which
     condition failed.
+
+    Timing properties: _hash_token always runs (SHA-256, no shortcuts on
+    token format), and `now` is captured before the DB query so the same
+    work happens regardless of whether the record exists.  The unavoidable
+    DB hit-vs-miss timing difference is not exploitable — tokens have 256
+    bits of entropy so timing feedback cannot narrow the search space.
     """
     from app.models.password_reset_token import PasswordResetToken
     from app.models.user import User
 
-    record = db.query(PasswordResetToken).filter_by(token_hash=_hash_token(raw_token)).first()
-    now = datetime.now(tz=UTC)
+    token_hash = _hash_token(raw_token)  # always computed — no format-based early exit
+    now = datetime.now(tz=UTC)  # captured before the query so all paths do the same work
+    record = db.query(PasswordResetToken).filter_by(token_hash=token_hash).first()
     if not record or record.used_at is not None or record.expires_at <= now:
         return None
     return db.get(User, record.user_id)

@@ -56,6 +56,7 @@ from app.models import (
     Tournament,
     User,
 )
+from app.models.deleted_league import DeletedLeague
 from app.models.tournament import TournamentStatus
 from app.schemas.league import (
     LeagueCreate,
@@ -410,6 +411,25 @@ def delete_league(
         manager.user_id,
     )
 
+    # Snapshot the league into deleted_leagues so financial records survive.
+    deleted_league = DeletedLeague(
+        id=league.id,
+        name=league.name,
+        created_by=league.created_by,
+        created_at=league.created_at,
+        deleted_by=manager.user_id,
+    )
+    db.add(deleted_league)
+    db.flush()  # Write deleted_league row before updating FKs below.
+
+    # Point any purchase records at the audit row so they survive the league deletion.
+    db.query(LeaguePurchase).filter(LeaguePurchase.league_id == league.id).update(
+        {"deleted_league_id": deleted_league.id}, synchronize_session=False
+    )
+    db.query(LeaguePurchaseEvent).filter(LeaguePurchaseEvent.league_id == league.id).update(
+        {"deleted_league_id": deleted_league.id}, synchronize_session=False
+    )
+
     # Build subquery chains for playoff tables (no direct league_id FK below playoff_configs).
     config_ids = db.query(PlayoffConfig.id).filter(PlayoffConfig.league_id == league.id).subquery()
     round_ids = (
@@ -697,6 +717,11 @@ def approve_join_request(
     )
     if not membership:
         raise HTTPException(status_code=404, detail="Pending request not found")
+
+    # Serialize concurrent approvals: lock the league row so two managers cannot
+    # both read the same approved_count, both pass the limit check, and both commit
+    # — which would silently exceed the tier's member cap.
+    db.query(League).filter_by(id=league.id).with_for_update().first()
 
     # Guard: league member cap — checked here so admins can't accidentally exceed it
     # by approving multiple pending requests when the league is nearly full.

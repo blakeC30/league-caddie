@@ -7,10 +7,12 @@
 
 import { Link, Navigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
+import { useStripePricing } from "../hooks/useLeague";
 import { FlagIcon } from "../components/FlagIcon";
 
 export function Welcome() {
   const token = useAuthStore((s) => s.token);
+  const { data: pricingTiers = [] } = useStripePricing();
 
   if (token) return <Navigate to="/leagues" replace />;
 
@@ -382,18 +384,19 @@ export function Welcome() {
               One season, one price
             </h2>
             <p className="text-gray-500 text-lg max-w-xl mx-auto">
-              Every tier includes all features. The only difference is how many members your league can have.
+              Every League Plan includes all features. The only difference is how many members your league can have.
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { tier: "Starter", price: "$50", members: "Up to 20 members" },
-              { tier: "Standard", price: "$90", members: "Up to 50 members", popular: true },
-              { tier: "Pro", price: "$150", members: "Up to 150 members" },
-              { tier: "Elite", price: "$250", members: "Up to 500 members" },
-            ].map(({ tier, price, members, popular }) => (
+            {pricingTiers.map((t) => {
+              const popular = t.tier === "standard";
+              const label = t.tier.charAt(0).toUpperCase() + t.tier.slice(1);
+              const price = `$${(t.amount_cents / 100).toFixed(0)}`;
+              const members = `Up to ${t.member_limit.toLocaleString()} members`;
+              const perMember = `~$${(t.amount_cents / t.member_limit / 100).toFixed(2)} per member`;
+              return (
               <div
-                key={tier}
+                key={t.tier}
                 className={`relative rounded-2xl p-6 flex flex-col ${
                   popular
                     ? "bg-green-800 text-white shadow-xl shadow-green-900/30 border-2 border-green-700"
@@ -406,13 +409,16 @@ export function Welcome() {
                   </span>
                 )}
                 <p className={`text-sm font-bold uppercase tracking-wider mb-3 ${popular ? "text-green-300" : "text-green-700"}`}>
-                  {tier}
+                  {label}
                 </p>
                 <p className={`text-4xl font-extrabold mb-1 ${popular ? "text-white" : "text-gray-900"}`}>
                   {price}
                 </p>
-                <p className={`text-xs mb-6 ${popular ? "text-green-300" : "text-gray-400"}`}>
+                <p className={`text-xs mb-1 ${popular ? "text-green-300" : "text-gray-400"}`}>
                   per season
+                </p>
+                <p className={`text-xs mb-6 ${popular ? "text-green-400" : "text-gray-400"}`}>
+                  {perMember}
                 </p>
                 <div className={`flex items-center gap-2 text-sm font-medium mt-auto ${popular ? "text-green-100" : "text-gray-700"}`}>
                   <svg className={`w-4 h-4 flex-shrink-0 ${popular ? "text-green-300" : "text-green-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -421,10 +427,11 @@ export function Welcome() {
                   {members}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           <p className="text-center text-sm text-gray-400 mt-8">
-            All tiers include live scoring, playoffs, custom schedules, and more.
+            All League Plans include live scoring, playoffs, custom schedules, and more.
           </p>
         </div>
       </section>

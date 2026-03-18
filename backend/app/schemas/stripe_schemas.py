@@ -8,7 +8,7 @@ and prices. Import it in both the router and the webhook handler.
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # ---------------------------------------------------------------------------
 # Pricing constants
@@ -47,9 +47,14 @@ class CheckoutSessionOut(BaseModel):
 
 
 class NewLeagueCheckoutCreate(BaseModel):
-    name: str
-    no_pick_penalty: int = 0
+    name: str = Field(min_length=1, max_length=100)
+    no_pick_penalty: int = Field(default=0, ge=0)
     tier: str
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        return v.strip() if isinstance(v, str) else v
 
 
 class LeaguePurchaseOut(BaseModel):
@@ -59,5 +64,15 @@ class LeaguePurchaseOut(BaseModel):
     member_limit: int | None
     amount_cents: int | None
     paid_at: datetime | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LeaguePurchaseEventOut(BaseModel):
+    id: uuid.UUID
+    tier: str
+    amount_cents: int
+    event_type: str  # "purchase" | "upgrade"
+    paid_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

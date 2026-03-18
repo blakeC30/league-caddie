@@ -11,8 +11,26 @@ Requires:
       docker compose exec postgres psql -U league_caddie -d league_caddie_dev \
         -c "CREATE DATABASE league_caddie_test;"
 
-Isolation strategy: all tables are TRUNCATED after every test, giving each
-test function a completely clean slate without needing rollback gymnastics.
+Isolation strategy
+------------------
+Each pytest-xdist worker creates its own PostgreSQL **schema** inside the shared
+`league_caddie_test` database (e.g. `test_gw0`, `test_gw1`).  The engine for
+that worker sets `search_path` to the worker schema so every table is created
+and queried there — workers never touch each other's rows.
+
+Within a worker, tables are TRUNCATED after every test function for a clean
+slate.  The schema itself is dropped when the session ends.
+
+When running without xdist (`-n 0` or plain `pytest`) the schema is named
+`test_main`.
+
+Performance notes
+-----------------
+- `client` is session-scoped: the FastAPI app starts once per worker, not once
+  per test.  DB isolation is handled by TRUNCATE, not by app teardown.
+- BCRYPT_ROUNDS=4 (set in Makefile / CI) cuts bcrypt cost 64× vs the default
+  12 rounds.  bcrypt hashes are self-describing so `verify_password` works
+  correctly regardless of the cost that was used to create the hash.
 """
 
 import os
@@ -25,7 +43,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 
-TEST_DB_URL = os.environ.get(
+BASE_TEST_DB_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql://league_caddie:league_caddie@localhost:5432/league_caddie_test",
 )
@@ -38,62 +56,85 @@ from app.main import app  # noqa: E402
 # which imports every model class and registers them all with Base.metadata.
 from app.models import Base  # noqa: E402
 
-engine = create_engine(TEST_DB_URL)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# ---------------------------------------------------------------------------
+# Per-worker schema isolation helpers
+# ---------------------------------------------------------------------------
 
 
-@pytest.fixture(scope="session", autouse=True)
-def create_tables():
-    """Create all tables once per test session; drop at the end."""
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
+def _worker_schema(worker_id: str) -> str:
+    """Return a per-worker PostgreSQL schema name for xdist isolation."""
+    return f"test_{worker_id}" if worker_id != "master" else "test_main"
 
 
-@pytest.fixture(autouse=True)
-def clean_db(create_tables):
+def _make_engine(schema: str):
+    """Create an engine whose connections default to `schema` via search_path."""
+    return create_engine(
+        BASE_TEST_DB_URL,
+        # The leading comma keeps 'public' available for extensions / pg_catalog.
+        connect_args={"options": f"-csearch_path={schema},public"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped fixtures (created once per worker process)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(scope="session")
+def worker_id(request) -> str:
+    """Return the xdist worker ID, or 'master' when running without xdist."""
+    return getattr(request.config, "workerinput", {}).get("workerid", "master")
+
+
+@pytest.fixture(scope="session")
+def test_engine(worker_id):
     """
-    Truncate all tables after every test for a clean slate.
+    Session-scoped SQLAlchemy engine pointing at this worker's isolated schema.
 
-    TRUNCATE ... CASCADE handles FK dependencies. RESTART IDENTITY resets
-    auto-increment sequences so IDs don't leak between tests.
+    Creates the schema (and all tables within it) at session start; drops the
+    schema entirely when the session ends.
     """
-    yield
-    table_names = ", ".join(f'"{t.name}"' for t in reversed(Base.metadata.sorted_tables))
-    with engine.connect() as conn:
-        conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
+    schema = _worker_schema(worker_id)
+    eng = _make_engine(schema)
+
+    with eng.connect() as conn:
+        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema}"'))
         conn.commit()
 
+    Base.metadata.create_all(bind=eng)
+    yield eng
 
-@pytest.fixture
-def db(create_tables):
-    """Yield a SQLAlchemy session for direct DB access within a test."""
-    session = TestingSessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+    Base.metadata.drop_all(bind=eng)
+    with eng.connect() as conn:
+        conn.execute(text(f'DROP SCHEMA IF EXISTS "{schema}" CASCADE'))
+        conn.commit()
+    eng.dispose()
 
 
-@pytest.fixture
-def client(db):
+@pytest.fixture(scope="session")
+def session_factory(test_engine):
+    """Session factory bound to this worker's isolated engine."""
+    return sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+
+
+@pytest.fixture(scope="session")
+def client(session_factory):
     """
-    FastAPI TestClient connected to the test database.
+    FastAPI TestClient — session-scoped so the app starts up once per worker.
 
-    Overrides the `get_db` dependency so every HTTP request made through
-    `client` uses `league_caddie_test` instead of the dev database.
-    Each request still gets its own session (matches prod behavior).
+    Overrides `get_db` so every request uses the worker's isolated schema.
+    Database isolation between test functions is handled by `clean_db` (TRUNCATE).
     """
 
     def _override_get_db():
-        s = TestingSessionLocal()
+        s = session_factory()
         try:
             yield s
         finally:
             s.close()
 
     # Bypass the payment gate for all tests — existing tests don't create
-    # purchase rows and shouldn't need to. Dedicated payment-gate tests can
+    # purchase rows and shouldn't need to.  Dedicated payment-gate tests can
     # remove this override or use their own client fixture.
     def _bypass_purchase():
         return None
@@ -103,6 +144,36 @@ def client(db):
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
+# Function-scoped fixtures (reset between every test)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def clean_db(test_engine):
+    """
+    Truncate all tables after every test for a clean slate.
+
+    TRUNCATE ... CASCADE handles FK dependencies. RESTART IDENTITY resets
+    auto-increment sequences so IDs don't leak between tests.
+    """
+    yield
+    table_names = ", ".join(f'"{t.name}"' for t in reversed(Base.metadata.sorted_tables))
+    with test_engine.connect() as conn:
+        conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
+        conn.commit()
+
+
+@pytest.fixture
+def db(session_factory):
+    """Yield a SQLAlchemy session for direct DB access within a test."""
+    session = session_factory()
+    try:
+        yield session
+    finally:
+        session.close()
 
 
 # ---------------------------------------------------------------------------

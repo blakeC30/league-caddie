@@ -32,7 +32,8 @@ app/
 │   ├── golfer.py     # Golfer
 │   ├── pick.py       # Pick
 │   ├── league_tournament.py  # LeagueTournament (join table)
-│   └── league_purchase.py    # StripeCustomer, LeaguePurchase, LeaguePurchaseEvent
+│   ├── league_purchase.py    # StripeCustomer, LeaguePurchase, LeaguePurchaseEvent, StripeWebhookFailure
+│   └── deleted_league.py     # DeletedLeague — audit snapshot written on league deletion; referenced by purchase tables
 ├── schemas/          # Pydantic request/response schemas
 │   ├── auth.py       # RegisterRequest, LoginRequest, GoogleAuthRequest, TokenResponse
 │   ├── user.py       # UserOut, UserUpdate
@@ -129,6 +130,7 @@ All routes are prefixed with `/api/v1`.
 | GET | `/leagues/{league_id}/picks` | member | All picks (completed tournaments only) |
 | PATCH | `/leagues/{league_id}/picks/{pick_id}` | member | Change golfer |
 | GET | `/leagues/{league_id}/standings` | member | Season standings |
+| GET  | `/admin/stats` | platform_admin | Aggregated platform stats (counts only, no PII) |
 | POST | `/admin/sync` | platform_admin | Full ESPN data sync |
 | POST | `/admin/sync/{pga_tour_id}` | platform_admin | Sync single tournament |
 | POST | `/leagues/{league_id}/playoff/config` | manager | Create playoff config for active season (always sets is_enabled=True) |
@@ -220,8 +222,9 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 | `playoff_picks` | id (UUID), pod_id, pod_member_id, golfer_id, tournament_id, draft_slot, points_earned; UNIQUE(pod_id, golfer_id) |
 | `playoff_draft_preferences` | id (UUID), pod_id, pod_member_id, golfer_id, rank; UNIQUE(pod_member_id, golfer_id) |
 | `stripe_customers` | id (UUID), user_id (FK→users, unique, CASCADE), stripe_customer_id (VARCHAR 64, unique), created_at |
-| `league_purchases` | id (UUID), league_id (FK→leagues CASCADE), season_year (int), tier (VARCHAR 16), member_limit (int), stripe_customer_id, stripe_payment_intent_id, stripe_checkout_session_id, amount_cents, paid_at (nullable — null = unpaid/admin-exempt), created_at; UNIQUE(league_id, season_year) |
-| `league_purchase_events` | id (UUID), league_id (FK CASCADE), season_year (int), tier, member_limit, stripe IDs, amount_cents, event_type ("purchase"\|"upgrade"\|"initial"), paid_at, created_at; INDEX(league_id, season_year) |
+| `deleted_leagues` | id (UUID, same as original league), name, created_by (UUID, no FK), created_at, deleted_at, deleted_by (UUID, no FK) — pure audit table, no FK constraints |
+| `league_purchases` | id (UUID), league_id (FK→leagues SET NULL, nullable), deleted_league_id (FK→deleted_leagues RESTRICT, nullable), season_year (int), tier (VARCHAR 16), member_limit (int), stripe_customer_id, stripe_payment_intent_id, stripe_checkout_session_id, amount_cents, paid_at (nullable — null = unpaid/admin-exempt), created_at; UNIQUE(league_id, season_year) |
+| `league_purchase_events` | id (UUID), league_id (FK→leagues SET NULL, nullable), deleted_league_id (FK→deleted_leagues RESTRICT, nullable), season_year (int), tier, member_limit, stripe IDs, amount_cents, event_type ("purchase"\|"upgrade"\|"initial"), paid_at, created_at; INDEX(league_id, season_year) |
 
 ### Points Formula
 ```
@@ -268,6 +271,7 @@ Existing migration files (in order):
 21. `l8m0n2o4p6q8` — add `pick_reminders` table and `users.pick_reminders_enabled`
 22. `m9n1o3p5q7r9` — add `leagues.accepting_requests` (BOOLEAN NOT NULL DEFAULT TRUE); when False, new join requests are blocked at the API level
 23. `n0o2p4q6r8s0` — add `stripe_customers`, `league_purchases`, `league_purchase_events` tables; data migration backfills all existing leagues as Elite tier for 2026 at no cost
+24. `o1p3q5r7s9t1` — preserve financial records on league deletion: add `deleted_leagues` audit table; `league_purchases.league_id` + `league_purchase_events.league_id` changed to nullable with `ON DELETE SET NULL`; `deleted_league_id` FK column added to both tables
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)
@@ -305,14 +309,15 @@ All containers connect to the same PostgreSQL DB. The scraper only writes; it se
 
 All scheduling is **status-driven, not calendar-driven** — no hardcoded weekdays.
 
-| Job ID | Schedule | Trigger condition |
-|---|---|---|
-| `schedule_sync` | Daily 06:00 UTC | Always — publishes `TOURNAMENT_COMPLETED` SQS events for status transitions |
-| `field_sync_d2` | Daily 14:00 UTC | Tournament starts in 2 days |
-| `field_sync_d1` | Daily 18:00 UTC | Tournament starts tomorrow |
-| `field_sync_d0` | Daily 11:00 UTC | Tournament starts today |
-| `live_score_sync` | Every 5 minutes | `tournament.status == "in_progress"` AND within play window; publishes `TOURNAMENT_IN_PROGRESS` while playoff rounds are unresolved |
-| `results_finalization` | Daily 09:00, 15:00, 21:00 UTC | Completed tournament with unscored picks (safety net — SQS worker is primary) |
+| Job ID | Schedule | Sync type | Fires when… | Skips when… | Data updated |
+|---|---|---|---|---|---|
+| `schedule_sync` | Daily 06:00 UTC | **Hard** (via `full_sync`) | Always | Never | Tournament names, dates, status, purse; removes post-Tour-Championship rows; force-clears and re-fetches round data for all in-progress/completed tournaments; publishes `TOURNAMENT_COMPLETED` SQS events |
+| `field_sync_d2` | Daily 14:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today+2 | No tournament starting in 2 days | Golfer roster, tee times, per-round data, purse — stale withdrawn golfers are removed |
+| `field_sync_d1` | Daily 18:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today+1 | No tournament starting tomorrow | Same as above — catches late withdrawals and alternates |
+| `field_sync_d0` | Daily 11:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today | No tournament starting today | Same as above — confirms final tee times (used for pick-locking) |
+| `live_score_sync` | Every 5 minutes | Soft | `tournament.status == "in_progress"` AND within play window | No IN_PROGRESS tournament; outside play window; or `end_date` >3 days past | Per-round scores (strokes, score-to-par), finish positions, earnings, golfer status (CUT/WD/etc.); publishes `TOURNAMENT_IN_PROGRESS` while playoff rounds are unresolved |
+| `results_finalization` | Daily 09:00, 15:00, 21:00 UTC | **Hard** | A COMPLETED tournament has at least one pick with `points_earned = NULL` | All picks already scored | Force-syncs the tournament first (fresh earnings), then sets `picks.points_earned` (golfer earnings × multiplier); safety net if SQS `TOURNAMENT_COMPLETED` pipeline missed anything |
+| `pick_reminder_send` | Wednesday 12:00 UTC | N/A | Always — looks for upcoming tournaments in next 7 days | Leagues with no active season (silently skipped) | Creates `PickReminder` rows; sends reminder emails to members who haven't picked |
 
 **Live sync play window:** Computed from `tournament_entry_rounds.tee_time` values stored in the DB (UTC-aware). If no tee times yet: wide fallback `[10:00–07:00 UTC]` covers all PGA Tour locations (US East through Hawaii). No day-of-week restriction — Monday weather carryovers continue syncing automatically.
 

@@ -60,9 +60,9 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
   const filteredField = useMemo(() => {
     if (field.length === 0) return [];
     const q = search.toLowerCase();
-    return field.filter(
-      (g) => !rankedSet.has(g.id) && (!q || g.name.toLowerCase().includes(q))
-    );
+    return field
+      .filter((g) => !rankedSet.has(g.id) && (!q || g.name.toLowerCase().includes(q)))
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [field, rankedSet, search]);
 
   function addGolfer(id: string) {
@@ -113,6 +113,16 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
 
   return (
     <section className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+      {fieldNotReleased && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+          </svg>
+          <p className="text-xs text-amber-700 leading-relaxed">
+            The official field hasn't been announced yet. If a golfer you rank doesn't enter the tournament, they'll be skipped and your next available pick will be used instead.
+          </p>
+        </div>
+      )}
       {isWindowClosed && (
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
           <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -155,7 +165,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
             return (
               <div
                 key={id}
-                className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 group"
+                className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2"
               >
                 <span className="text-[10px] font-bold text-gray-400 w-5 text-center flex-shrink-0">
                   {idx + 1}
@@ -166,24 +176,36 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                 {g?.world_ranking && (
                   <span className="text-[10px] text-gray-400 flex-shrink-0">#{g.world_ranking}</span>
                 )}
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex gap-1">
                   <button
                     onClick={() => moveUp(idx)}
                     disabled={idx === 0}
-                    className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs px-1"
+                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded-lg hover:bg-gray-200 transition-colors"
                     title="Move up"
-                  >▲</button>
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                    </svg>
+                  </button>
                   <button
                     onClick={() => moveDown(idx)}
                     disabled={idx === ranked.length - 1}
-                    className="text-gray-400 hover:text-gray-700 disabled:opacity-20 text-xs px-1"
+                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded-lg hover:bg-gray-200 transition-colors"
                     title="Move down"
-                  >▼</button>
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
                   <button
                     onClick={() => removeGolfer(id)}
-                    className="text-red-400 hover:text-red-600 text-xs px-1"
+                    className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                     title="Remove"
-                  >✕</button>
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
                 </div>
               </div>
             );

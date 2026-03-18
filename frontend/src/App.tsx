@@ -24,11 +24,9 @@ import { Settings } from "./pages/Settings";
 import { CreateLeague } from "./pages/CreateLeague";
 import { TournamentDetail } from "./pages/TournamentDetail";
 import { PlayoffBracket } from "./pages/PlayoffBracket";
-import { PlayoffDraft } from "./pages/PlayoffDraft";
 import { ForgotPassword } from "./pages/ForgotPassword";
 import { ResetPassword } from "./pages/ResetPassword";
 import { LeagueRules } from "./pages/LeagueRules";
-import { Pricing } from "./pages/Pricing";
 import { BillingSuccess } from "./pages/BillingSuccess";
 import { BillingCanceled } from "./pages/BillingCanceled";
 
@@ -43,7 +41,6 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/join/:inviteCode" element={<JoinLeague />} />
-      <Route path="/pricing" element={<Pricing />} />
       <Route path="/billing/success" element={<BillingSuccess />} />
       <Route path="/billing/canceled" element={<BillingCanceled />} />
 
@@ -58,7 +55,6 @@ export default function App() {
         <Route path="/leagues/:leagueId/leaderboard" element={<Leaderboard />} />
         <Route path="/leagues/:leagueId/manage" element={<ManageLeague />} />
         <Route path="/leagues/:leagueId/playoff" element={<PlayoffBracket />} />
-        <Route path="/leagues/:leagueId/playoff/pod/:podId" element={<PlayoffDraft />} />
         <Route path="/leagues/:leagueId/rules" element={<LeagueRules />} />
         <Route path="/admin" element={<PlatformAdmin />} />
         <Route path="/settings" element={<Settings />} />

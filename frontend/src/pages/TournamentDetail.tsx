@@ -16,8 +16,8 @@
 
 import { useState, useRef, useLayoutEffect } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
-import { useMyPicks, useTournamentLeaderboard, useTournamentSyncStatus, useGolferScorecard } from "../hooks/usePick";
-import { useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
+import { useMyPicks, useTournamentLeaderboard, useTournamentSyncStatus, useGolferScorecard, useTournamentField } from "../hooks/usePick";
+import { useLeagueMembers, useLeaguePurchase, useLeagueTournaments } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
 import { GolferAvatar } from "../components/GolferAvatar";
 import { Spinner } from "../components/Spinner";
@@ -371,6 +371,13 @@ export function TournamentDetail() {
   useTournamentSyncStatus(tournamentId);
   const { data: myPicks } = useMyPicks(leagueId!);
 
+  // For scheduled tournaments the leaderboard endpoint returns 400.
+  // In that case we show a tee time view using the tournament field instead.
+  const isScheduledError = (error as { response?: { status?: number } } | null)?.response?.status === 400;
+  const { data: field, isLoading: fieldLoading } = useTournamentField(isScheduledError ? tournamentId : undefined);
+  const { data: leagueTournaments } = useLeagueTournaments(leagueId ?? "");
+  const thisTournament = leagueTournaments?.find((t) => t.id === tournamentId);
+
   const myPickedGolferId = myPicks?.find((p) => p.tournament_id === tournamentId)?.golfer_id ?? null;
 
   // Playoff picks passed via router state when navigating from MyPicks for a playoff tournament.
@@ -387,11 +394,11 @@ export function TournamentDetail() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">Season Pass Required</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
         <p className="text-gray-600 max-w-sm mb-8">
           {isManager
-            ? "This league needs an active season pass to access features. Purchase one to get started."
-            : "Your league manager needs to purchase a season pass to unlock all features."}
+            ? "This league needs an active League Plan to access features. Purchase one to get started."
+            : "Your league manager needs to purchase a League Plan to unlock all features."}
         </p>
         {isManager ? (
           <Link
@@ -416,6 +423,93 @@ export function TournamentDetail() {
   }
 
   if (error || !leaderboard) {
+    // Scheduled tournament: leaderboard returns 400 — show tee time view instead.
+    if (isScheduledError) {
+      const backLink = (
+        <Link to={`/leagues/${leagueId}/picks`} className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          </svg>
+          Back to Picks
+        </Link>
+      );
+
+      if (fieldLoading) {
+        return (
+          <div className="max-w-4xl mx-auto space-y-4">
+            {backLink}
+            <div className="flex justify-center py-10"><Spinner /></div>
+          </div>
+        );
+      }
+
+      const golferWithTeeTimes = (field ?? []).filter((g) => g.tee_time != null);
+      const sorted = golferWithTeeTimes.sort((a, b) =>
+        new Date(a.tee_time!).getTime() - new Date(b.tee_time!).getTime()
+      );
+
+      // Group by tee_time string so players sharing a slot appear together.
+      const groups: { time: string; golfers: typeof sorted }[] = [];
+      for (const g of sorted) {
+        const last = groups[groups.length - 1];
+        if (last && last.time === g.tee_time) {
+          last.golfers.push(g);
+        } else {
+          groups.push({ time: g.tee_time!, golfers: [g] });
+        }
+      }
+
+      const myPickedGolferIdForField = myPicks?.find((p) => p.tournament_id === tournamentId)?.golfer_id ?? null;
+
+      return (
+        <div className="max-w-lg mx-auto space-y-5">
+          {backLink}
+
+          {/* Tournament header */}
+          <div className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5">
+            <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-1">Tee Times — Round 1</p>
+            <p className="text-xl font-bold">{fmtTournamentName(thisTournament?.name ?? "")}</p>
+            {myPickedGolferIdForField && (
+              <p className="text-sm text-green-300 mt-1">Your pick is highlighted below</p>
+            )}
+          </div>
+
+          {groups.length === 0 ? (
+            <p className="text-sm text-gray-400">Tee times are not yet available for this tournament.</p>
+          ) : (
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-200">
+              {groups.map(({ time, golfers }) => {
+                const localTime = new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                return (
+                  <div key={time} className="flex items-center justify-center gap-4 px-4 py-4">
+                    <span className="text-sm font-semibold text-gray-500 tabular-nums w-20 shrink-0 text-right">{localTime}</span>
+                    <div className="flex flex-col gap-1.5 w-56">
+                      {golfers.map((g) => {
+                        const isMyPick = g.id === myPickedGolferIdForField;
+                        return (
+                          <div key={g.id} className={`flex items-center gap-2.5 rounded-lg px-2 py-0.5 -mx-2 ${isMyPick ? "bg-green-50" : ""}`}>
+                            <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-7 h-7 shrink-0" />
+                            <span className={`text-sm font-medium truncate ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
+                              {g.name}
+                              {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
+                            </span>
+                            {g.world_ranking != null && (
+                              <span className="text-xs text-gray-400 shrink-0">#{g.world_ranking}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-4xl mx-auto space-y-4">
         <Link to={`/leagues/${leagueId}/picks`} className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors">

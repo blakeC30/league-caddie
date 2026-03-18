@@ -6,7 +6,17 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import "./index.css";
 import App from "./App.tsx";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: unknown) => {
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        if (status !== undefined && status >= 400 && status < 500) return false;
+        return failureCount < 3;
+      },
+    },
+  },
+});
 
 // VITE_GOOGLE_CLIENT_ID is set in .env (copy from .env.example)
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID ?? "";

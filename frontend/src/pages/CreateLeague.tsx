@@ -11,15 +11,9 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { stripeApi, type Tournament } from "../api/endpoints";
 import { useTournaments } from "../hooks/usePick";
+import { useStripePricing } from "../hooks/useLeague";
 import { fmtTournamentName, isoWeekKey } from "../utils";
 import { Spinner } from "../components/Spinner";
-
-const TIERS = [
-  { key: "starter", label: "Starter", price: "$50", members: "Up to 20 members" },
-  { key: "standard", label: "Standard", price: "$90", members: "Up to 50 members", badge: "Popular" },
-  { key: "pro", label: "Pro", price: "$150", members: "Up to 150 members" },
-  { key: "elite", label: "Elite", price: "$250", members: "Up to 500 members" },
-] as const;
 
 export function CreateLeague() {
   const navigate = useNavigate();
@@ -30,6 +24,7 @@ export function CreateLeague() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const { data: pricingTiers = [] } = useStripePricing();
   const { data: allTournaments } = useTournaments();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [multipliers, setMultipliers] = useState<Record<string, number>>({});
@@ -99,6 +94,10 @@ export function CreateLeague() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+    if (!pricingTiers.some((t) => t.tier === selectedTier)) {
+      setError("Please select a valid League Plan.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -333,35 +332,41 @@ export function CreateLeague() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">Season Pass</h2>
+            <h2 className="text-base font-bold text-gray-900">League Plan</h2>
           </div>
-          <p className="text-sm text-gray-500">Select the plan that fits your league size. You can upgrade later.</p>
+          <p className="text-sm text-gray-500">Select the League Plan that fits your league size. You can upgrade later.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {TIERS.map((tier) => {
-              const isSelected = selectedTier === tier.key;
+            {pricingTiers.map((tier) => {
+              const isSelected = selectedTier === tier.tier;
+              const isPopular = tier.tier === "standard";
+              const label = tier.tier.charAt(0).toUpperCase() + tier.tier.slice(1);
+              const price = `$${(tier.amount_cents / 100).toFixed(0)}`;
+              const members = `Up to ${tier.member_limit.toLocaleString()} members`;
+              const perMember = `~$${(tier.amount_cents / tier.member_limit / 100).toFixed(2)}/member`;
               return (
                 <button
-                  key={tier.key}
+                  key={tier.tier}
                   type="button"
-                  onClick={() => setSelectedTier(tier.key)}
+                  onClick={() => setSelectedTier(tier.tier)}
                   className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-4 text-center transition-colors ${
                     isSelected
                       ? "border-green-700 bg-green-50"
                       : "border-gray-200 bg-white hover:border-green-300"
                   }`}
                 >
-                  {"badge" in tier && (
+                  {isPopular && (
                     <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
-                      {tier.badge}
+                      Popular
                     </span>
                   )}
                   <span className={`text-sm font-bold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
-                    {tier.label}
+                    {label}
                   </span>
                   <span className={`text-lg font-extrabold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
-                    {tier.price}
+                    {price}
                   </span>
-                  <span className="text-xs text-gray-500">{tier.members}</span>
+                  <span className="text-xs text-gray-500">{members}</span>
+                  <span className="text-[10px] text-gray-400">{perMember}</span>
                 </button>
               );
             })}
@@ -380,7 +385,7 @@ export function CreateLeague() {
         <div className="flex items-center gap-4 pb-8">
           <button
             type="submit"
-            disabled={loading || !name.trim() || hasConflicts}
+            disabled={loading || !name.trim() || hasConflicts || !pricingTiers.some((t) => t.tier === selectedTier)}
             className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 px-8 rounded-xl transition-colors shadow-sm"
           >
             {loading ? "Redirecting…" : "Continue to payment"}

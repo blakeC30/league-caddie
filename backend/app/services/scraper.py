@@ -1155,6 +1155,37 @@ def upsert_field(
         entry_by_pga_id[g["pga_tour_id"]] = entry
         golfers_synced += 1
 
+    # For SCHEDULED tournaments, remove TournamentEntry rows for golfers that
+    # ESPN no longer includes in the field response.  This handles the case where
+    # a golfer withdraws *before* the tournament starts and ESPN silently drops
+    # them from the field list (rather than marking them WD).  We must not do
+    # this for IN_PROGRESS or COMPLETED tournaments: a golfer who teed off and
+    # then withdrew or was DQ'd must keep their entry so that picks made against
+    # them still display correctly.
+    if tournament.status == TournamentStatus.SCHEDULED.value:
+        espn_pga_ids = {g["pga_tour_id"] for g in golfers}
+        stale_entries = (
+            db.query(TournamentEntry)
+            .join(Golfer, TournamentEntry.golfer_id == Golfer.id)
+            .filter(
+                TournamentEntry.tournament_id == tournament.id,
+                ~Golfer.pga_tour_id.in_(espn_pga_ids),
+            )
+            .all()
+        )
+        for stale in stale_entries:
+            db.query(TournamentEntryRound).filter_by(tournament_entry_id=stale.id).delete(
+                synchronize_session=False
+            )
+            db.delete(stale)
+        if stale_entries:
+            log.info(
+                "Removed %d stale field entr%s for scheduled tournament %s",
+                len(stale_entries),
+                "y" if len(stale_entries) == 1 else "ies",
+                tournament.pga_tour_id,
+            )
+
     # Recompute display positions from score_to_par totals so that tied golfers
     # share the same finish_position (e.g. T6 → all get 6, is_tied=True).
     # ESPN's "order" field is sequential and never repeats for ties, so we

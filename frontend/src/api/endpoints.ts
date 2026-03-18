@@ -263,6 +263,14 @@ export interface LeaguePurchaseStatus {
   paid_at: string | null;
 }
 
+export interface LeaguePurchaseEvent {
+  id: string;
+  tier: string;
+  amount_cents: number;
+  event_type: string;  // "purchase" | "upgrade"
+  paid_at: string;
+}
+
 // ---------------------------------------------------------------------------
 // Platform config
 // ---------------------------------------------------------------------------
@@ -375,6 +383,9 @@ export const leaguesApi = {
 
   getPurchase: (leagueId: string) =>
     api.get<LeaguePurchaseStatus | null>(`/leagues/${leagueId}/purchase`).then((r) => r.data),
+
+  getPurchaseEvents: (leagueId: string) =>
+    api.get<LeaguePurchaseEvent[]>(`/leagues/${leagueId}/purchase/events`).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------
@@ -577,15 +588,42 @@ export interface PlayoffDraftStatus {
 // Admin
 // ---------------------------------------------------------------------------
 
+export interface AdminTierBreakdown {
+  tier: string;
+  count: number;
+}
+
+export interface AdminStats {
+  total_users: number;
+  new_users_30d: number;
+  total_leagues: number;
+  paid_leagues_this_year: number;
+  total_approved_memberships: number;
+  leagues_by_tier: AdminTierBreakdown[];
+  total_picks: number;
+  picks_last_7d: number;
+  tournaments_scheduled: number;
+  tournaments_in_progress: number;
+  tournaments_completed: number;
+  leagues_with_playoffs: number;
+  leagues_accepting_requests: number;
+  avg_members_per_league: number;
+  deleted_leagues_total: number;
+  open_webhook_failures: number;
+}
+
 export const adminApi = {
+  getStats: () =>
+    api.get<AdminStats>("/admin/stats").then((r) => r.data),
+
   fullSync: (year?: number, force = false) =>
-    api.post("/admin/sync", null, { params: { ...(year ? { year } : {}), ...(force ? { force: true } : {}) } }).then((r) => r.data),
+    api.post("/admin/sync", null, { params: { ...(year ? { year } : {}), ...(force ? { force: true } : {}) }, timeout: 300_000 }).then((r) => r.data),
 
   syncTournament: (pgaTourId: string) =>
-    api.post(`/admin/sync/${pgaTourId}`).then((r) => r.data),
+    api.post(`/admin/sync/${pgaTourId}`, null, { timeout: 300_000 }).then((r) => r.data),
 
   syncTournamentForce: (pgaTourId: string) =>
-    api.post(`/admin/sync/${pgaTourId}`, null, { params: { force: true } }).then((r) => r.data),
+    api.post(`/admin/sync/${pgaTourId}`, null, { params: { force: true }, timeout: 300_000 }).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

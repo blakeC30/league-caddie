@@ -5,18 +5,24 @@
  * Non-platform-admins are redirected to the leagues list.
  *
  * Responsibilities:
+ *   - Platform statistics dashboard (aggregated counts, no PII)
  *   - Manual data sync: trigger ESPN schedule + field + results scraping
  *   - Per-tournament sync: sync or force-sync individual tournaments
  */
 
 import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import { adminApi } from "../api/endpoints";
+import { useQuery } from "@tanstack/react-query";
+import { adminApi, type AdminStats } from "../api/endpoints";
 import { useAuthStore } from "../store/authStore";
 import { useTournaments } from "../hooks/usePick";
 
+type ConfirmAction = { label: string; description: string; onConfirm: () => void };
+
 export function PlatformAdmin() {
   const user = useAuthStore((s) => s.user);
+
+  const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
 
   const [syncStatus, setSyncStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [syncResult, setSyncResult] = useState<string>("");
@@ -29,6 +35,14 @@ export function PlatformAdmin() {
   const [bulkSyncProgress, setBulkSyncProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
 
   const { data: tournaments } = useTournaments();
+  const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<AdminStats>({
+    queryKey: ["adminStats"],
+    queryFn: adminApi.getStats,
+    // Only fetch when we know the user is a platform admin — auth guard below
+    // handles non-admins, but we skip the network call entirely if user hasn't loaded yet.
+    enabled: !!user?.is_platform_admin,
+    staleTime: 60_000, // 1 minute — stats don't need to be real-time
+  });
 
   // Redirect anyone who isn't a platform admin.
   if (user && !user.is_platform_admin) {
@@ -48,14 +62,10 @@ export function PlatformAdmin() {
     }
   }
 
-  async function handleSync(pgaTourId: string, force: boolean) {
+  async function handleSync(pgaTourId: string) {
     setSyncState((s) => ({ ...s, [pgaTourId]: "syncing" }));
     try {
-      if (force) {
-        await adminApi.syncTournamentForce(pgaTourId);
-      } else {
-        await adminApi.syncTournament(pgaTourId);
-      }
+      await adminApi.syncTournamentForce(pgaTourId);
       setSyncState((s) => ({ ...s, [pgaTourId]: "done" }));
       setTimeout(() => setSyncState((s) => ({ ...s, [pgaTourId]: "idle" })), 3000);
     } catch {
@@ -64,7 +74,7 @@ export function PlatformAdmin() {
     }
   }
 
-  async function handleBulkSync(force: boolean) {
+  async function handleBulkSync() {
     if (!sortedTournaments.length) return;
     setBulkSyncStatus("running");
     setBulkSyncProgress({ done: 0, total: sortedTournaments.length });
@@ -72,11 +82,7 @@ export function PlatformAdmin() {
     for (const t of sortedTournaments) {
       setSyncState((s) => ({ ...s, [t.pga_tour_id]: "syncing" }));
       try {
-        if (force) {
-          await adminApi.syncTournamentForce(t.pga_tour_id);
-        } else {
-          await adminApi.syncTournament(t.pga_tour_id);
-        }
+        await adminApi.syncTournamentForce(t.pga_tour_id);
         setSyncState((s) => ({ ...s, [t.pga_tour_id]: "done" }));
       } catch {
         setSyncState((s) => ({ ...s, [t.pga_tour_id]: "error" }));
@@ -96,9 +102,147 @@ export function PlatformAdmin() {
     ? [...tournaments].sort((a, b) => b.start_date.localeCompare(a.start_date))
     : [];
 
+  const TIER_LABELS: Record<string, string> = {
+    starter: "Starter",
+    standard: "Standard",
+    pro: "Pro",
+    elite: "Elite",
+    unknown: "Unknown",
+  };
+
   return (
     <div className="space-y-10">
       <h1 className="text-2xl font-bold text-gray-900">Platform Admin</h1>
+
+      {/* ── Platform Stats ───────────────────────────────────────────── */}
+      <section>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-800">Platform Stats</h2>
+          <button
+            onClick={() => refetchStats()}
+            className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+
+        {statsLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
+                <div className="h-3 bg-gray-100 rounded w-2/3 mb-3" />
+                <div className="h-6 bg-gray-100 rounded w-1/2" />
+              </div>
+            ))}
+          </div>
+        ) : stats ? (
+          <div className="space-y-4">
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Users */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Total Users</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_users.toLocaleString()}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">New (30d)</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.new_users_30d.toLocaleString()}</p>
+              </div>
+              {/* Leagues */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Total Leagues</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_leagues.toLocaleString()}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Paid This Season</p>
+                <p className="text-2xl font-bold text-green-700 tabular-nums">{stats.paid_leagues_this_year.toLocaleString()}</p>
+              </div>
+              {/* Members */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Active Members</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_approved_memberships.toLocaleString()}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Avg Members / League</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.avg_members_per_league.toFixed(1)}</p>
+              </div>
+              {/* Leagues — breakdown */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">With Playoffs</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.leagues_with_playoffs.toLocaleString()}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Accepting Members</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.leagues_accepting_requests.toLocaleString()}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Deleted Leagues</p>
+                <p className="text-2xl font-bold text-gray-500 tabular-nums">{stats.deleted_leagues_total.toLocaleString()}</p>
+              </div>
+              {/* Picks */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Total Picks</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_picks.toLocaleString()}</p>
+              </div>
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Picks (7d)</p>
+                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.picks_last_7d.toLocaleString()}</p>
+              </div>
+              {/* Webhook failures — red if any open */}
+              <div className={`border rounded-xl p-4 ${stats.open_webhook_failures > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Webhook Failures</p>
+                <p className={`text-2xl font-bold tabular-nums ${stats.open_webhook_failures > 0 ? "text-red-600" : "text-gray-900"}`}>
+                  {stats.open_webhook_failures.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Second row: tournaments + tier breakdown side-by-side */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tournament status breakdown */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-3">Tournaments</p>
+                <div className="space-y-2">
+                  {[
+                    { label: "Completed", value: stats.tournaments_completed, color: "bg-green-500" },
+                    { label: "In Progress", value: stats.tournaments_in_progress, color: "bg-yellow-400" },
+                    { label: "Scheduled", value: stats.tournaments_scheduled, color: "bg-gray-300" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />
+                        <span className="text-sm text-gray-600">{label}</span>
+                      </div>
+                      <span className="text-sm font-semibold text-gray-900 tabular-nums">{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tier breakdown */}
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-3">
+                  Leagues by Tier <span className="normal-case font-normal text-gray-400">(this season)</span>
+                </p>
+                {stats.leagues_by_tier.length === 0 ? (
+                  <p className="text-sm text-gray-400">No paid leagues yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {stats.leagues_by_tier.map(({ tier, count }) => (
+                      <div key={tier} className="flex items-center justify-between gap-3">
+                        <span className="text-sm text-gray-600">{TIER_LABELS[tier] ?? tier}</span>
+                        <span className="text-sm font-semibold text-gray-900 tabular-nums">{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-red-500">Failed to load stats.</p>
+        )}
+      </section>
 
       {/* Full data sync */}
       <section>
@@ -111,7 +255,14 @@ export function PlatformAdmin() {
           The daily scheduler runs a non-overwrite version of this automatically at 6 AM UTC.
         </p>
         <button
-          onClick={handleFullSync}
+          onClick={() =>
+            setConfirmAction({
+              label: "Sync Schedule + Force Overwrite All",
+              description:
+                "This will clear and re-fetch all round data for every in-progress and completed tournament. Continue?",
+              onConfirm: handleFullSync,
+            })
+          }
           disabled={syncStatus === "running"}
           className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors"
         >
@@ -148,17 +299,16 @@ export function PlatformAdmin() {
               <span className="text-xs text-red-500 font-medium">Some failed ✗</span>
             )}
             <button
-              title="Sync all tournaments (update only)"
-              disabled={bulkSyncStatus === "running"}
-              onClick={() => handleBulkSync(false)}
-              className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition-colors"
-            >
-              {bulkSyncStatus === "running" ? "Syncing…" : "↻ Sync All"}
-            </button>
-            <button
               title="Force sync all tournaments (clear & re-fetch all data)"
               disabled={bulkSyncStatus === "running"}
-              onClick={() => handleBulkSync(true)}
+              onClick={() =>
+                setConfirmAction({
+                  label: "Force Sync All Tournaments",
+                  description:
+                    "This will clear and re-fetch all round data for every tournament one by one. This may take a while. Continue?",
+                  onConfirm: handleBulkSync,
+                })
+              }
               className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition-colors"
             >
               {bulkSyncStatus === "running" ? "Syncing…" : "⟳ Force Sync All"}
@@ -166,8 +316,7 @@ export function PlatformAdmin() {
           </div>
         </div>
         <p className="text-sm text-gray-500 mb-4">
-          Sync or force-sync individual tournaments. ↻ updates without clearing existing data.
-          ⟳ clears and re-fetches everything from scratch.
+          Force-sync individual tournaments — clears all cached round data and re-fetches everything from ESPN.
         </p>
 
         {sortedTournaments.length === 0 ? (
@@ -235,24 +384,21 @@ export function PlatformAdmin() {
                             <span className="text-xs text-gray-400">Syncing…</span>
                           )}
 
-                          {/* Sync button */}
-                          <button
-                            title="Sync (update only)"
-                            disabled={isSyncing}
-                            onClick={() => handleSync(t.pga_tour_id, false)}
-                            className="text-gray-400 hover:text-green-700 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-green-50 text-base leading-none"
-                          >
-                            ↻
-                          </button>
-
-                          {/* Force sync button — destructive style */}
+                          {/* Force sync button */}
                           <button
                             title="Force sync (clear & re-fetch all data)"
                             disabled={isSyncing}
-                            onClick={() => handleSync(t.pga_tour_id, true)}
-                            className="text-gray-400 hover:text-red-600 disabled:opacity-40 transition-colors px-2 py-1 rounded-lg hover:bg-red-50 text-base leading-none"
+                            onClick={() =>
+                              setConfirmAction({
+                                label: `Force Sync: ${t.name}`,
+                                description:
+                                  "This will clear all cached round data for this tournament and re-fetch everything from ESPN. Continue?",
+                                onConfirm: () => handleSync(t.pga_tour_id),
+                              })
+                            }
+                            className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors"
                           >
-                            ⟳
+                            ⟳ Sync
                           </button>
                         </div>
                       </td>
@@ -264,6 +410,33 @@ export function PlatformAdmin() {
           </div>
         )}
       </section>
+
+      {/* Confirmation modal */}
+      {confirmAction && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <h3 className="text-base font-semibold text-gray-900">{confirmAction.label}</h3>
+            <p className="text-sm text-gray-600">{confirmAction.description}</p>
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => setConfirmAction(null)}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmAction.onConfirm();
+                  setConfirmAction(null);
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

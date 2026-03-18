@@ -26,8 +26,8 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest>=8.3.0",
-    "pytest-asyncio>=0.24.0",
     "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.5.0",
     "ruff>=0.7.0",
 ]
 
@@ -49,13 +49,22 @@ select = ["E", "F", "I", "UP"]
 "scripts/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
-asyncio_mode = "auto"
 testpaths = ["tests"]
-addopts = "--cov=app --cov-report=term-missing"
+# --cov is intentionally absent from addopts — bare `pytest` / `make test` is fast.
+# Use `make cov` or pass --cov explicitly for coverage runs (CI, pre-merge).
+addopts = "-n auto"
 
 [tool.coverage.run]
 source = ["app"]
+omit = [
+    # ESPN API scraper — 1800+ lines of HTTP calls; requires live ESPN API mocking
+    "app/services/scraper.py",
+    # Scraper container entrypoint — just calls start_scheduler(), no logic
+    "app/scraper_main.py",
+    # APScheduler job registration — schedules jobs that run in prod; not unit-testable
+    "app/services/scheduler.py",
+]
 
 [tool.coverage.report]
-fail_under = 62
+fail_under = 90
 show_missing = true

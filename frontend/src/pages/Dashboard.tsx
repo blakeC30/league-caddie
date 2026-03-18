@@ -103,7 +103,7 @@ export function Dashboard() {
   // Only show the playoff button after the bracket is seeded (regular season complete + earnings published).
   const playoffSeeded = hasPlayoff && bracket && bracket.rounds.length > 0;
 
-  // Purchase gate — show before main content if no season pass
+  // Purchase gate — show before main content if no League Plan
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
@@ -112,11 +112,11 @@ export function Dashboard() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">Season Pass Required</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
         <p className="text-gray-600 max-w-sm mb-8">
           {isManager
-            ? "This league needs an active season pass to access features. Purchase one to get started."
-            : "Your league manager needs to purchase a season pass to unlock all features."}
+            ? "This league needs an active League Plan to access features. Purchase one to get started."
+            : "Your league manager needs to purchase a League Plan to unlock all features."}
         </p>
         {isManager ? (
           <Link

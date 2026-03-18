@@ -45,7 +45,7 @@ repos:
       - id: frontend-lint
         name: frontend lint (eslint)
         language: system
-        entry: bash -c 'cd frontend && npm run lint'
+        entry: bash -c 'cd frontend && npm run lint -- --fix'
         pass_filenames: false
         files: ^frontend/src/.*\.(ts|tsx|js|jsx)$
 

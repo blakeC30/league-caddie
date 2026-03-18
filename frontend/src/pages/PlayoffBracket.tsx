@@ -28,7 +28,7 @@ import type { PlayoffPodMemberOut, PlayoffPodOut, PlayoffRoundOut } from "../hoo
 const SLOT_H = 260;  // vertical px per bracket slot (one round-1 pod = 1 slot)
 const COL_W  = 252;  // pod card column width
 const CONN_W = 72;   // connector gap width between columns
-const HDR_H  = 52;   // round label header height above pod area
+const HDR_H  = 68;   // round label header height above pod area
 
 // ---------------------------------------------------------------------------
 // Layout helpers
@@ -174,7 +174,7 @@ function BracketGrid({
         return (
           <div key={round.roundNumber}>
             <div
-              className="absolute flex flex-col items-center justify-center gap-0.5"
+              className="absolute flex flex-col items-center justify-center gap-1.5"
               style={{ left: colX, top: 0, width: COL_W, height: HDR_H }}
             >
               <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${faint ? "text-gray-400" : "text-green-700"}`}>
@@ -380,7 +380,6 @@ function PodModal({
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <StatusPill status={pod.status} />
             <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white transition-colors ml-1">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -400,7 +399,7 @@ function PodModal({
               </p>
               {isDrafting && isInPod && (
                 <Link
-                  to={`/leagues/${leagueId}/playoff/pod/${pod.id}`}
+                  to={`/leagues/${leagueId}/pick`}
                   className="inline-block text-sm font-semibold text-green-700 hover:text-green-900"
                 >
                   Submit your rankings →
@@ -467,17 +466,6 @@ function PodModal({
           )}
         </div>
 
-        {/* Footer — draft link when applicable */}
-        {isDrafting && isInPod && (
-          <div className="px-5 py-3 border-t border-gray-100 bg-amber-50">
-            <Link
-              to={`/leagues/${leagueId}/playoff/pod/${pod.id}`}
-              className="text-sm font-semibold text-amber-700 hover:text-amber-900"
-            >
-              Rankings open — submit your preferences →
-            </Link>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -506,9 +494,8 @@ function PodCard({
       onClick={onClick}
       className="bg-white rounded-2xl border border-gray-200 hover:shadow-md cursor-pointer transition-shadow overflow-hidden w-full"
     >
-      <div className="bg-gradient-to-r from-green-900 to-green-700 px-4 py-2.5 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-green-900 to-green-700 px-4 py-2.5">
         <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {pod.bracket_position}</span>
-        <StatusPill status={pod.status} />
       </div>
       <div className="divide-y divide-gray-100">
         {pod.members.map((m: PlayoffPodMemberOut, i) => {
@@ -559,9 +546,8 @@ function PendingPodCard({ position, numMembers, onClick }: { position: number; n
       className={`bg-white rounded-2xl border border-dashed border-gray-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
       onClick={onClick}
     >
-      <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-4 py-2.5 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-4 py-2.5">
         <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {position}</span>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white">Pending</span>
       </div>
       <div className="divide-y divide-gray-100">
         {Array.from({ length: numMembers }).map((_, k) => (
@@ -658,11 +644,11 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">Season Pass Required</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
         <p className="text-gray-600 max-w-sm mb-8">
           {isManager
-            ? "This league needs an active season pass to access features. Purchase one to get started."
-            : "Your league manager needs to purchase a season pass to unlock all features."}
+            ? "This league needs an active League Plan to access features. Purchase one to get started."
+            : "Your league manager needs to purchase a League Plan to unlock all features."}
         </p>
         {isManager ? (
           <Link

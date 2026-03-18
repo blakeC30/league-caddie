@@ -112,10 +112,10 @@ export function PlayoffBracketCard({
         </p>
       )}
 
-      {/* CTA: submit rankings if user is in this pod and draft is open */}
+      {/* CTA: go to pick page to submit rankings if user is in this pod and draft is open */}
       {currentUserInPod && isDrafting && (
         <Link
-          to={`/leagues/${leagueId}/playoff/draft/${pod.id}`}
+          to={`/leagues/${leagueId}/pick`}
           className="mt-3 flex items-center justify-center gap-1 w-full bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
         >
           Submit Rankings

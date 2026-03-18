@@ -125,11 +125,11 @@ export function MakePick() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">Season Pass Required</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
         <p className="text-gray-600 max-w-sm mb-8">
           {isManager
-            ? "This league needs an active season pass to access features. Purchase one to get started."
-            : "Your league manager needs to purchase a season pass to unlock all features."}
+            ? "This league needs an active League Plan to access features. Purchase one to get started."
+            : "Your league manager needs to purchase a League Plan to unlock all features."}
         </p>
         {isManager ? (
           <Link
@@ -154,7 +154,7 @@ export function MakePick() {
       } else {
         await submitPick.mutateAsync({ tournament_id: tournament!.id, golfer_id: golferId });
       }
-      const golfer = field?.find((g) => g.id === golferId);
+      const golfer = effectiveField.find((g) => g.id === golferId);
       setConfirmed({ golferName: golfer?.name ?? "your golfer", pgaTourId: golfer?.pga_tour_id ?? "", changed: wasChange });
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
@@ -482,9 +482,14 @@ export function MakePick() {
     );
   }
 
+  // Tee times are available when the field is released and at least one entry has a tee_time set.
+  const hasTeetimes = !fieldNotReleased && (field ?? []).some((g) => g.tee_time != null);
+  const tournamentDetailPath = `/leagues/${leagueId}/tournaments/${tournament.id}`;
+
   // Shared tournament context header — shown whenever a tournament is known.
-  const tournamentHeader = (
-    <div className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5">
+  // Wraps in a Link to the tournament detail page when tee times are available.
+  const headerContent = (
+    <>
       <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
       <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-1">
         {existingPick ? "Change Your Pick" : "Make Your Pick"}
@@ -504,7 +509,26 @@ export function MakePick() {
             <span className="font-bold text-amber-300">{tournament.effective_multiplier}× MAJOR</span>
           </>
         )}
+        {hasTeetimes && (
+          <>
+            <span className="text-green-600">·</span>
+            <span className="text-green-300 underline underline-offset-2">View tee times →</span>
+          </>
+        )}
       </div>
+    </>
+  );
+
+  const tournamentHeader = hasTeetimes ? (
+    <Link
+      to={tournamentDetailPath}
+      className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5 block hover:from-green-800 hover:to-green-600 transition-colors"
+    >
+      {headerContent}
+    </Link>
+  ) : (
+    <div className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5">
+      {headerContent}
     </div>
   );
 

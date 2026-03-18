@@ -11,6 +11,8 @@ RUN pip install uv --quiet
 # which is outside /app and is never affected by the bind mount.
 COPY pyproject.toml uv.lock ./
 RUN uv export --frozen --no-dev -o /tmp/requirements.txt \
-    && uv pip install --system -r /tmp/requirements.txt
+    && uv pip install --system -r /tmp/requirements.txt \
+    && uv export --frozen --only-group dev -o /tmp/dev-requirements.txt \
+    && uv pip install --system -r /tmp/dev-requirements.txt
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

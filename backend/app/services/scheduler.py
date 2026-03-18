@@ -186,14 +186,19 @@ def _is_within_play_window(db, tournament) -> bool:
 
 
 def _run_schedule_sync() -> None:
-    """Daily at 06:00 UTC: fetch and upsert the full PGA Tour season schedule."""
+    """Daily at 06:00 UTC: fetch and upsert the full PGA Tour season schedule.
+
+    Uses a hard sync (force=True) via full_sync() so that any in-progress or
+    completed tournament round data is fully cleared and re-fetched alongside
+    the schedule update. This ensures stale round data never persists overnight.
+    """
     from app.database import SessionLocal
-    from app.services.scraper import sync_schedule
+    from app.services.scraper import full_sync
 
     db = SessionLocal()
     try:
         year = date.today().year
-        result = sync_schedule(db, year)
+        result = full_sync(db, year, force=True)
         log.info("Schedule sync complete: %s", result)
     except Exception as exc:
         log.error("Schedule sync failed: %s", exc, exc_info=True)
@@ -239,7 +244,7 @@ def _run_field_sync(days_before_start: int) -> None:
                 tournament.name,
                 target_date,
             )
-            sync_tournament(db, tournament.pga_tour_id)
+            sync_tournament(db, tournament.pga_tour_id, force=True)
     except Exception as exc:
         log.error("Field sync (d%d) failed: %s", days_before_start, exc, exc_info=True)
     finally:
@@ -340,7 +345,7 @@ def _run_results_finalization() -> None:
     """
     from app.database import SessionLocal
     from app.models import Pick, Tournament, TournamentStatus
-    from app.services.scraper import score_picks
+    from app.services.scraper import score_picks, sync_tournament
 
     db = SessionLocal()
     try:
@@ -361,10 +366,14 @@ def _run_results_finalization() -> None:
 
         for tournament in tournaments_needing_scoring:
             log.info(
-                "Results finalization: scoring picks for completed '%s'",
+                "Results finalization: force-syncing then scoring picks for completed '%s'",
                 tournament.name,
             )
             try:
+                # Hard sync first: clears stale round data and re-fetches fresh
+                # earnings from ESPN so score_picks() always uses current values.
+                sync_tournament(db, tournament.pga_tour_id, force=True)
+                db.refresh(tournament)
                 count = score_picks(db, tournament)
                 log.info(
                     "Results finalization: scored %d picks for '%s'",

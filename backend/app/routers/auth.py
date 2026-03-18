@@ -175,7 +175,9 @@ def google_auth(
 
 
 @router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("30/minute")
 def refresh_token(
+    request: Request,
     response: Response,
     user: User = Depends(get_refresh_token_user),
 ):

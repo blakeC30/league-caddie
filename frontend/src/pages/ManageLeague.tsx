@@ -8,7 +8,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useDropdownDirection } from "../hooks/useDropdownDirection";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   useApproveRequest,
   useDeleteLeague,
@@ -18,7 +18,9 @@ import {
   useLeaguePurchase,
   useLeagueTournaments,
   usePendingRequests,
+  usePurchaseEvents,
   useRemoveMember,
+  useStripePricing,
   useUpdateLeague,
   useUpdateLeagueTournaments,
   useUpdateMemberRole,
@@ -36,6 +38,12 @@ import { fmtTournamentName, isoWeekKey } from "../utils";
 import { useAuthStore } from "../store/authStore";
 import { Spinner } from "../components/Spinner";
 import { stripeApi } from "../api/endpoints";
+
+// ---------------------------------------------------------------------------
+// Tier definitions — prices must match backend PRICING_TIERS
+// ---------------------------------------------------------------------------
+
+const TIER_ORDER: Record<string, number> = { starter: 1, standard: 2, pro: 3, elite: 4 };
 
 // ---------------------------------------------------------------------------
 // Custom dropdown — matches the Leaderboard tournament picker style
@@ -754,8 +762,11 @@ export function ManageLeague() {
 
   // Billing
   const { data: purchase } = useLeaguePurchase(leagueId!);
+  const { data: pricingTiers = [] } = useStripePricing();
+  const { data: purchaseEvents = [] } = usePurchaseEvents(leagueId!);
   const [billingLoading, setBillingLoading] = useState(false);
   const [upgradeSelectedTier, setUpgradeSelectedTier] = useState<string>("");
+  const [billingEditing, setBillingEditing] = useState(false);
 
   async function handleQuickPurchase(tier: string, upgrade = false) {
     if (!leagueId) return;
@@ -1056,6 +1067,25 @@ export function ManageLeague() {
               </svg>
             </SectionIcon>
             <h2 className="text-base font-bold text-gray-900">League Members</h2>
+            {members && purchase && (() => {
+              const pct = members.length / purchase.member_limit;
+              const colors =
+                pct >= 1
+                  ? "bg-red-100 text-red-700"
+                  : pct >= 0.8
+                  ? "bg-amber-100 text-amber-700"
+                  : "bg-green-100 text-green-700";
+              return (
+                <span className="relative group">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${colors}`}>
+                    {members.length} / {purchase.member_limit} members
+                  </span>
+                  <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white z-20 shadow-lg">
+                    {members.length} of {purchase.member_limit} member slots used
+                  </span>
+                </span>
+              );
+            })()}
           </div>
           {isManager && (
             membersEditing ? (
@@ -1818,49 +1848,59 @@ export function ManageLeague() {
         </section>
       )}
 
-      {/* Billing & Plan — manager only */}
+      {/* League Plan — manager only, edit-gated */}
       {isManager && (
         <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-          <div className="flex items-center gap-3">
-            <SectionIcon>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
-              </svg>
-            </SectionIcon>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">Billing</p>
-              <h2 className="text-base font-bold text-gray-900">Billing &amp; Plan</h2>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <SectionIcon>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
+                </svg>
+              </SectionIcon>
+              <h2 className="text-base font-bold text-gray-900">League Plan</h2>
             </div>
+            {billingEditing ? (
+              <button
+                onClick={() => { setBillingEditing(false); setUpgradeSelectedTier(""); }}
+                className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+              >
+                Done
+              </button>
+            ) : (
+              <button
+                onClick={() => setBillingEditing(true)}
+                className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+              >
+                Edit
+              </button>
+            )}
           </div>
 
           {!purchase?.paid_at ? (
             /* No active purchase */
             <div className="space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
-                No active season pass for 2026. Purchase a season pass to unlock all league features.
+                No active League Plan for 2026. Purchase a League Plan to unlock all league features.
               </div>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  to={`/pricing?league_id=${leagueId}`}
-                  className="text-sm font-semibold text-green-800 border border-green-300 hover:border-green-500 hover:bg-green-50 px-4 py-2 rounded-xl transition-colors"
-                >
-                  View Pricing
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => handleQuickPurchase("starter")}
-                  disabled={billingLoading}
-                  className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
-                >
-                  {billingLoading ? <Spinner /> : null}
-                  Purchase — Starter ($50)
-                </button>
-              </div>
+              {billingEditing && (
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleQuickPurchase("starter")}
+                    disabled={billingLoading}
+                    className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {billingLoading ? <Spinner /> : null}
+                    Purchase — Starter ($50)
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             /* Has active purchase */
             <div className="space-y-5">
-              {/* Plan summary */}
+              {/* Plan summary — always visible */}
               <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
@@ -1885,11 +1925,12 @@ export function ManageLeague() {
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 font-medium">Amount paid</p>
+                    <p className="text-xs text-gray-400 font-medium">Plan price</p>
                     <p className="font-semibold text-gray-800">
-                      {purchase.amount_cents !== null
-                        ? `$${(purchase.amount_cents / 100).toFixed(2)}`
-                        : "—"}
+                      {(() => {
+                        const tierPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents;
+                        return tierPrice != null ? `$${(tierPrice / 100).toFixed(0)}` : "—";
+                      })()}
                     </p>
                   </div>
                   <div>
@@ -1907,30 +1948,97 @@ export function ManageLeague() {
                 </div>
               </div>
 
-              {/* Upgrade plan — only if not already on elite */}
-              {purchase.tier !== "elite" && (
-                <div className="space-y-3">
-                  <p className="text-sm font-semibold text-gray-700">Upgrade Plan</p>
-                  <div className="flex flex-wrap gap-2">
-                    {(["standard", "pro", "elite"] as const)
-                      .filter((t) => {
-                        const tierOrder: Record<string, number> = { starter: 1, standard: 2, pro: 3, elite: 4 };
-                        return (tierOrder[t] ?? 0) > (tierOrder[purchase.tier ?? ""] ?? 0);
-                      })
-                      .map((t) => (
-                        <label key={t} className="flex items-center gap-2 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="upgradeTier"
-                            value={t}
-                            checked={upgradeSelectedTier === t}
-                            onChange={() => setUpgradeSelectedTier(t)}
-                            className="text-green-700 focus:ring-green-600"
-                          />
-                          <span className="text-sm text-gray-700 capitalize">{t}</span>
-                        </label>
-                      ))}
+              {/* Payment history — always visible when events exist */}
+              {purchaseEvents.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Payment History</p>
+                  <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
+                    {purchaseEvents.map((event) => {
+                      const label = event.event_type === "upgrade" ? "Upgrade" : "League Plan";
+                      const tierLabel = event.tier.charAt(0).toUpperCase() + event.tier.slice(1);
+                      const date = new Date(event.paid_at).toLocaleDateString("en-US", {
+                        month: "short", day: "numeric", year: "numeric",
+                      });
+                      return (
+                        <div key={event.id} className="flex items-center justify-between px-3 py-2.5 bg-white text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
+                              event.event_type === "upgrade"
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-green-50 text-green-700"
+                            }`}>
+                              {label}
+                            </span>
+                            <span className="text-gray-700">{tierLabel} plan</span>
+                          </div>
+                          <div className="flex items-center gap-4 text-right">
+                            <span className="text-gray-400 text-xs">{date}</span>
+                            <span className="font-semibold text-gray-800 tabular-nums">
+                              ${(event.amount_cents / 100).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
+              )}
+
+              {/* Upgrade League Plan — only shown in edit mode, only if not already on elite */}
+              {billingEditing && purchase.tier !== "elite" && (
+                <div className="space-y-4">
+                  <p className="text-sm font-semibold text-gray-700">Upgrade League Plan</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {pricingTiers
+                      .filter((t) => (TIER_ORDER[t.tier] ?? 0) > (TIER_ORDER[purchase.tier ?? ""] ?? 0))
+                      .map((t) => {
+                        const isSelected = upgradeSelectedTier === t.tier;
+                        const currentTierFullPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents ?? 0;
+                        const upgradeCostCents = t.amount_cents - currentTierFullPrice;
+                        const totalDollars = (t.amount_cents / 100).toFixed(0);
+                        const upgradeDollars = (Math.max(0, upgradeCostCents) / 100).toFixed(0);
+                        const label = t.tier.charAt(0).toUpperCase() + t.tier.slice(1);
+                        const perMember = `~$${(t.amount_cents / t.member_limit / 100).toFixed(2)}/member`;
+                        return (
+                          <button
+                            key={t.tier}
+                            type="button"
+                            onClick={() => setUpgradeSelectedTier(t.tier)}
+                            className={`relative flex flex-col items-start gap-1 rounded-xl border-2 p-4 text-left transition-colors ${
+                              isSelected
+                                ? "border-green-700 bg-green-50"
+                                : "border-gray-200 bg-white hover:border-green-300"
+                            }`}
+                          >
+                            <span className={`text-sm font-bold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
+                              {label}
+                            </span>
+                            <span className={`text-xl font-extrabold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
+                              ${upgradeDollars}
+                            </span>
+                            <span className="text-xs text-gray-500">upgrade cost</span>
+                            <span className="mt-2 text-xs text-gray-400">Supports up to {t.member_limit.toLocaleString()} members</span>
+                            <span className="text-xs text-gray-400">{perMember}</span>
+                            <span className="text-xs text-gray-400">
+                              Full plan price: ${totalDollars}
+                            </span>
+                          </button>
+                        );
+                      })}
+                  </div>
+                  {upgradeSelectedTier && (() => {
+                    const selected = pricingTiers.find((t) => t.tier === upgradeSelectedTier);
+                    const currentTierFullPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents ?? 0;
+                    const chargeCents = Math.max(0, (selected?.amount_cents ?? 0) - currentTierFullPrice);
+                    return (
+                      <p className="text-xs text-gray-500">
+                        You'll be charged{" "}
+                        <span className="font-semibold text-gray-700">${(chargeCents / 100).toFixed(0)}</span>
+                        {" "}— the difference between your current League Plan and the{" "}
+                        <span className="font-semibold text-gray-700 capitalize">{upgradeSelectedTier}</span> League Plan.
+                      </p>
+                    );
+                  })()}
                   <button
                     type="button"
                     disabled={!upgradeSelectedTier || billingLoading}
@@ -1938,7 +2046,9 @@ export function ManageLeague() {
                     className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-40 flex items-center gap-2"
                   >
                     {billingLoading ? <Spinner /> : null}
-                    Upgrade
+                    {upgradeSelectedTier
+                      ? `Upgrade to ${upgradeSelectedTier.charAt(0).toUpperCase() + upgradeSelectedTier.slice(1)}`
+                      : "Upgrade"}
                   </button>
                 </div>
               )}

@@ -4,7 +4,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useMyPicks, useAllPicks, useTournaments } from "../hooks/usePick";
+import { useMyPicks, useAllPicks, useTournaments, useTournamentField } from "../hooks/usePick";
 import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
 import { TournamentBadge } from "../components/TournamentBadge";
@@ -124,6 +124,11 @@ export function MyPicks() {
     : leagueTournaments
         ?.filter((t) => t.status === "scheduled")
         .sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+
+  // Fetch the field for the next scheduled tournament to know if tee times are available.
+  // React Query caches this; it's the same data MakePick already fetches.
+  const { data: nextField } = useTournamentField(nextTournament?.id);
+  const hasTeeTimesForNext = Array.isArray(nextField) && nextField.length > 0 && nextField.some((g) => g.tee_time != null);
 
   // hasPickForNext always reflects the current user — used for the Make Pick button label.
   const hasPickForNext = nextTournament
@@ -291,11 +296,11 @@ export function MyPicks() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">Season Pass Required</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
         <p className="text-gray-600 max-w-sm mb-8">
           {isManager
-            ? "This league needs an active season pass to access features. Purchase one to get started."
-            : "Your league manager needs to purchase a season pass to unlock all features."}
+            ? "This league needs an active League Plan to access features. Purchase one to get started."
+            : "Your league manager needs to purchase a League Plan to unlock all features."}
         </p>
         {isManager ? (
           <Link
@@ -413,20 +418,18 @@ export function MyPicks() {
         );
       })()}
 
-      {/* Season total — show whenever at least one tournament has completed,
-          even if the member submitted no picks (total may be zero or negative) */}
-      {finalTournamentCount > 0 && (
-        <div className="relative overflow-hidden bg-gradient-to-br from-green-900 via-green-800 to-green-700 rounded-2xl p-6 text-white shadow-lg shadow-green-900/20">
-          {/* Decorative blob */}
-          <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-2">
-            Season Total
-          </p>
-          <p className="text-4xl font-extrabold tabular-nums">
-            {totalEarned < 0 ? "-" : ""}${Math.round(Math.abs(totalEarned)).toLocaleString()}
-          </p>
-        </div>
-      )}
+      {/* Season total — always shown so the member can see their running total
+          even before any tournaments have completed (shows $0 at season start) */}
+      <div className="relative overflow-hidden bg-gradient-to-br from-green-900 via-green-800 to-green-700 rounded-2xl p-6 text-white shadow-lg shadow-green-900/20">
+        {/* Decorative blob */}
+        <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+        <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-2">
+          Season Total
+        </p>
+        <p className="text-4xl font-extrabold tabular-nums">
+          {totalEarned < 0 ? "-" : ""}${Math.round(Math.abs(totalEarned)).toLocaleString()}
+        </p>
+      </div>
 
       {/* Stats grid — always shown; individual cards fall back to "—" before any picks are scored */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -501,7 +504,8 @@ export function MyPicks() {
             const playoffPickNames = isPlayoffTournament ? (playoffData?.picks.map((p) => p.golfer_name) ?? []) : [];
             const isClickable = isPlayoffTournament
               ? !!(playoffData || (myPod?.tournament_id === tournament.id && myPod?.is_in_playoffs))
-              : tournament.status === "in_progress" || tournament.status === "completed";
+              : tournament.status === "in_progress" || tournament.status === "completed"
+                || (tournament.id === nextTournament?.id && hasTeeTimesForNext);
             const rowLinkTarget = isPlayoffTournament && tournament.status !== "scheduled"
               ? `/leagues/${leagueId}/tournaments/${tournament.id}`
               : isPlayoffTournament
@@ -546,10 +550,10 @@ export function MyPicks() {
                             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                             </svg>
-                            <p className="text-sm font-semibold">Pick submitted</p>
+                            <p className="text-sm font-semibold">Rankings submitted</p>
                           </div>
                         ) : (
-                          <p className="text-sm font-medium text-amber-500">No pick yet</p>
+                          <p className="text-sm font-medium text-amber-500">No rankings yet</p>
                         );
                       }
                       return <p className="text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
@@ -558,11 +562,11 @@ export function MyPicks() {
                       // Tournament underway — picks locked but not yet scored.
                       if (poPicks.length > 0) {
                         return (
-                          <div className="text-right space-y-0.5">
-                            <p className="text-sm font-medium text-gray-600">
-                              {poPicks.map((p) => p.golfer_name).join(", ")}
-                            </p>
-                            <p className="text-sm text-gray-400">In progress</p>
+                          <div className="text-right space-y-1">
+                            {poPicks.map((p) => (
+                              <p key={p.id} className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                            ))}
+                            <p className="text-xs text-gray-400">In progress</p>
                           </div>
                         );
                       }
@@ -577,15 +581,26 @@ export function MyPicks() {
                     if (roundStatus === "completed" || tournament.status === "completed") {
                       if (poPicks.length > 0) {
                         return (
-                          <div className="text-right space-y-0.5">
-                            <p className="text-sm font-medium text-gray-600">
-                              {poPicks.map((p) => p.golfer_name).join(", ")}
-                            </p>
-                            <p className={`text-lg font-bold tabular-nums ${
-                              (total_points ?? 0) >= 0 ? "text-green-700" : "text-red-500"
-                            }`}>
-                              {formatPoints(total_points)}
-                            </p>
+                          <div className="text-right space-y-1.5">
+                            {poPicks.map((p) => (
+                              <div key={p.id} className="space-y-0.5">
+                                <p className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                                <p className={`text-sm font-bold tabular-nums ${
+                                  p.points_earned === null ? "text-gray-400"
+                                  : p.points_earned > 0 ? "text-green-700"
+                                  : "text-red-500"
+                                }`}>
+                                  {formatPoints(p.points_earned)}
+                                </p>
+                              </div>
+                            ))}
+                            {poPicks.length > 1 && (
+                              <p className={`text-xs font-bold tabular-nums border-t border-gray-100 pt-1 ${
+                                (total_points ?? 0) >= 0 ? "text-green-700" : "text-red-500"
+                              }`}>
+                                Total: {formatPoints(total_points)}
+                              </p>
+                            )}
                           </div>
                         );
                       }

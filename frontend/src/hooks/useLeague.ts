@@ -3,8 +3,8 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { leaguesApi, usersApi } from "../api/endpoints";
-import type { LeaguePurchaseStatus } from "../api/endpoints";
+import { leaguesApi, stripeApi, usersApi } from "../api/endpoints";
+import type { LeaguePurchaseEvent, LeaguePurchaseStatus, PricingTier } from "../api/endpoints";
 
 export function useMyLeagues() {
   return useQuery({
@@ -180,6 +180,22 @@ export function useLeaguePurchase(leagueId: string) {
   return useQuery<LeaguePurchaseStatus | null>({
     queryKey: ["leaguePurchase", leagueId],
     queryFn: () => leaguesApi.getPurchase(leagueId),
+    enabled: !!leagueId,
+  });
+}
+
+export function useStripePricing() {
+  return useQuery<PricingTier[]>({
+    queryKey: ["stripePricing"],
+    queryFn: stripeApi.getPricing,
+    staleTime: 1000 * 60 * 60, // pricing rarely changes — cache for 1 hour
+  });
+}
+
+export function usePurchaseEvents(leagueId: string) {
+  return useQuery<LeaguePurchaseEvent[]>({
+    queryKey: ["purchaseEvents", leagueId],
+    queryFn: () => leaguesApi.getPurchaseEvents(leagueId),
     enabled: !!leagueId,
   });
 }

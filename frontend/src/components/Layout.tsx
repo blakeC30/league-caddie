@@ -18,7 +18,7 @@ export function Layout() {
   const { leagueId } = useParams<{ leagueId?: string }>();
   const location = useLocation();
 
-  const { data: leagueMembers } = useLeagueMembers(leagueId ?? "");
+  const { data: leagueMembers, isError: leagueMembersError } = useLeagueMembers(leagueId ?? "");
   const isManager = leagueMembers?.some(
     (m) => m.user_id === user?.id && m.role === "manager"
   ) ?? false;
@@ -71,6 +71,10 @@ export function Layout() {
 
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (leagueId && leagueMembersError) {
+    return <Navigate to="/leagues" replace />;
   }
 
   return (
