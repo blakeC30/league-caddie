@@ -174,6 +174,7 @@ class TestAccessTokenEdgeCases:
 class TestRefreshTokenEdgeCases:
     def test_no_cookie_returns_401(self, client):
         """POST /auth/refresh without a cookie must return 401, not 500."""
+        client.cookies.delete("refresh_token")
         resp = client.post("/api/v1/auth/refresh")
         assert resp.status_code == 401
         assert "refresh" in resp.json()["detail"].lower()
