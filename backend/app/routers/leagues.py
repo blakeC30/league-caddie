@@ -431,11 +431,17 @@ def delete_league(
     )
 
     # Build subquery chains for playoff tables (no direct league_id FK below playoff_configs).
-    config_ids = db.query(PlayoffConfig.id).filter(PlayoffConfig.league_id == league.id).subquery()
-    round_ids = (
-        db.query(PlayoffRound.id).filter(PlayoffRound.playoff_config_id.in_(config_ids)).subquery()
+    config_ids = (
+        db.query(PlayoffConfig.id).filter(PlayoffConfig.league_id == league.id).scalar_subquery()
     )
-    pod_ids = db.query(PlayoffPod.id).filter(PlayoffPod.playoff_round_id.in_(round_ids)).subquery()
+    round_ids = (
+        db.query(PlayoffRound.id)
+        .filter(PlayoffRound.playoff_config_id.in_(config_ids))
+        .scalar_subquery()
+    )
+    pod_ids = (
+        db.query(PlayoffPod.id).filter(PlayoffPod.playoff_round_id.in_(round_ids)).scalar_subquery()
+    )
 
     # Leaf playoff tables first (both FKs point at pods/pod_members — delete before those).
     db.query(PlayoffDraftPreference).filter(PlayoffDraftPreference.pod_id.in_(pod_ids)).delete(

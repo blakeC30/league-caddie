@@ -198,7 +198,7 @@ def get_all_picks(
         )
         .group_by(TournamentEntry.tournament_id)
         .having(sqlfunc.max(TournamentEntry.tee_time) <= now_utc)
-        .subquery()
+        .scalar_subquery()
     )
 
     return _picks_with_relations(

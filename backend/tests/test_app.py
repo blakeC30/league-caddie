@@ -180,10 +180,9 @@ class TestRefreshTokenEdgeCases:
         assert "refresh" in resp.json()["detail"].lower()
 
     def test_malformed_cookie_returns_401(self, client):
-        resp = client.post(
-            "/api/v1/auth/refresh",
-            cookies={"refresh_token": "not.a.valid.jwt"},
-        )
+        client.cookies["refresh_token"] = "not.a.valid.jwt"
+        resp = client.post("/api/v1/auth/refresh")
+        client.cookies.delete("refresh_token")
         assert resp.status_code == 401
 
     def test_access_token_in_refresh_cookie_returns_401(self, client, db):
@@ -193,10 +192,9 @@ class TestRefreshTokenEdgeCases:
         """
         user = _make_user(db, "wrongcookietype@example.com")
         access = create_access_token(str(user.id))
-        resp = client.post(
-            "/api/v1/auth/refresh",
-            cookies={"refresh_token": access},
-        )
+        client.cookies["refresh_token"] = access
+        resp = client.post("/api/v1/auth/refresh")
+        client.cookies.delete("refresh_token")
         assert resp.status_code == 401
 
     def test_valid_refresh_cookie_returns_new_access_token(self, client, db):
