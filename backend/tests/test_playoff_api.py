@@ -2054,8 +2054,8 @@ class TestAdminCreatePodPick:
         )
         assert resp.status_code == 403
 
-    def test_round_not_drafting_or_locked_returns_422(self, client, db):
-        """Creating an admin pick when the round is completed returns 422."""
+    def test_round_not_locked_returns_422(self, client, db):
+        """Creating an admin pick when the round is drafting (not yet resolved) returns 422."""
         (
             league,
             manager,
@@ -2068,7 +2068,33 @@ class TestAdminCreatePodPick:
             pod_id,
         ) = self._seeded_with_open_draft(db, client, suffix="_acpnd")
 
-        # Set round to completed — admin picks should only work in drafting or locked.
+        # Round is in drafting status — picks don't exist yet, admin-pick should be blocked.
+        resp = client.post(
+            f"/api/v1/leagues/{league.id}/playoff/pods/{pod_id}/admin-pick",
+            headers=mgr_headers,
+            json={
+                "user_id": str(manager.id),
+                "golfer_id": str(golfer1.id),
+                "draft_slot": 1,
+            },
+        )
+        assert resp.status_code == 422
+        assert "locked" in resp.json()["detail"].lower()
+
+    def test_round_completed_returns_422(self, client, db):
+        """Creating an admin pick when the round is completed returns 422."""
+        (
+            league,
+            manager,
+            player,
+            _,
+            golfer1,
+            _,
+            mgr_headers,
+            round_id,
+            pod_id,
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpco")
+
         round_obj = db.query(PlayoffRound).filter_by(id=round_id).first()
         round_obj.status = "completed"
         db.commit()
@@ -2083,9 +2109,7 @@ class TestAdminCreatePodPick:
             },
         )
         assert resp.status_code == 422
-        assert (
-            "drafting" in resp.json()["detail"].lower() or "locked" in resp.json()["detail"].lower()
-        )
+        assert "locked" in resp.json()["detail"].lower()
 
     def test_admin_pick_allowed_when_locked(self, client, db):
         """Creating an admin pick when the round is locked (post-resolve) succeeds."""
