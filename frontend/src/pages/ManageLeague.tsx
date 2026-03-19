@@ -271,7 +271,7 @@ export function ManageLeague() {
   async function handleSaveSettings() {
     await updateLeague.mutateAsync({
       name: settingsName,
-      no_pick_penalty: -(parseInt(settingsNoPick, 10) || 0),
+      no_pick_penalty: parseInt(settingsNoPick, 10) || 0,
     });
     setSettingsEditing(false);
   }
