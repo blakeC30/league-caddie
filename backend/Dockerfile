@@ -36,8 +36,10 @@ ENV UV_SYSTEM_PYTHON=1
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-# Copy application source after deps — cheap layer on code changes.
+# Copy application source and migration files after deps — cheap layer on code changes.
 COPY app/ ./app/
+COPY alembic/ ./alembic/
+COPY alembic.ini ./
 
 # Standard Python container best practices.
 # uv sync creates a .venv even with UV_SYSTEM_PYTHON=1 in recent versions,
