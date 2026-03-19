@@ -23,6 +23,12 @@ RUN npm ci
 
 # Copy source and produce the optimised static build.
 COPY . .
+
+# Vite bakes VITE_* env vars at build time. Pass --build-arg VITE_GOOGLE_CLIENT_ID=...
+# from CI/CD so the Google OAuth button works in production.
+ARG VITE_GOOGLE_CLIENT_ID=""
+ENV VITE_GOOGLE_CLIENT_ID=$VITE_GOOGLE_CLIENT_ID
+
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────

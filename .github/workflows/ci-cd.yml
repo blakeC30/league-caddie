@@ -225,6 +225,8 @@ jobs:
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
+          build-args: |
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
           cache-from: type=gha,scope=frontend

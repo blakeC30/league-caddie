@@ -9,7 +9,7 @@
 
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { stripeApi, type Tournament } from "../api/endpoints";
+import { leaguesApi, stripeApi, type Tournament } from "../api/endpoints";
 import { useTournaments } from "../hooks/usePick";
 import { useStripePricing } from "../hooks/useLeague";
 import { useAppConfig } from "../hooks/useAppConfig";
@@ -98,24 +98,33 @@ export function CreateLeague() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    if (!pricingTiers.some((t) => t.tier === selectedTier)) {
-      setError("Please select a valid League Plan.");
-      return;
-    }
     setError("");
     setLoading(true);
+
+    const schedule = [...selectedIds].map((id) => ({
+      tournament_id: id,
+      multiplier: multipliers[id] ?? null,
+    }));
+    const penalty = parseInt(noPick, 10) || 0;
+
     try {
-      const schedule = [...selectedIds].map((id) => ({
-        tournament_id: id,
-        multiplier: multipliers[id] ?? null,
-        is_playoff: false,
-      }));
-      localStorage.setItem("pendingLeagueSchedule", JSON.stringify(schedule));
-      const penalty = parseInt(noPick, 10) || 0;
-      const { url } = await stripeApi.createLeagueCheckout(name.trim(), penalty, selectedTier);
-      window.location.href = url;
+      if (user?.is_platform_admin) {
+        // Platform admins skip Stripe — create league directly with free Elite purchase.
+        const league = await leaguesApi.create(name.trim(), penalty);
+        await leaguesApi.updateTournaments(league.id, schedule);
+        navigate(`/leagues/${league.id}`);
+      } else {
+        if (!pricingTiers.some((t) => t.tier === selectedTier)) {
+          setError("Please select a valid League Plan.");
+          setLoading(false);
+          return;
+        }
+        localStorage.setItem("pendingLeagueSchedule", JSON.stringify(schedule));
+        const { url } = await stripeApi.createLeagueCheckout(name.trim(), penalty, selectedTier);
+        window.location.href = url;
+      }
     } catch {
-      setError("Failed to start checkout. Please try again.");
+      setError("Failed to create league. Please try again.");
       setLoading(false);
     }
   }
@@ -332,7 +341,8 @@ export function CreateLeague() {
           )}
         </div>
 
-        {/* Tier selection */}
+        {/* Tier selection — hidden for platform admins (they get free Elite) */}
+        {!user?.is_platform_admin && (
         <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -380,6 +390,7 @@ export function CreateLeague() {
             })}
           </div>
         </div>
+        )}
 
         {error && (
           <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3.5 py-2.5 rounded-xl">
@@ -393,10 +404,10 @@ export function CreateLeague() {
         <div className="flex items-center gap-4 pb-8">
           <button
             type="submit"
-            disabled={loading || !name.trim() || hasConflicts || !pricingTiers.some((t) => t.tier === selectedTier)}
+            disabled={loading || !name.trim() || hasConflicts || (!user?.is_platform_admin && !pricingTiers.some((t) => t.tier === selectedTier))}
             className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 px-8 rounded-xl transition-colors shadow-sm"
           >
-            {loading ? "Redirecting…" : "Continue to payment"}
+            {loading ? (user?.is_platform_admin ? "Creating…" : "Redirecting…") : (user?.is_platform_admin ? "Create League" : "Continue to payment")}
           </button>
           <button
             type="button"
