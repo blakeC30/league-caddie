@@ -2054,8 +2054,8 @@ class TestAdminCreatePodPick:
         )
         assert resp.status_code == 403
 
-    def test_round_not_drafting_returns_422(self, client, db):
-        """Creating an admin pick when the round is not in drafting status returns 422."""
+    def test_round_not_drafting_or_locked_returns_422(self, client, db):
+        """Creating an admin pick when the round is completed returns 422."""
         (
             league,
             manager,
@@ -2068,7 +2068,40 @@ class TestAdminCreatePodPick:
             pod_id,
         ) = self._seeded_with_open_draft(db, client, suffix="_acpnd")
 
-        # Lock the round manually to simulate post-resolve state
+        # Set round to completed — admin picks should only work in drafting or locked.
+        round_obj = db.query(PlayoffRound).filter_by(id=round_id).first()
+        round_obj.status = "completed"
+        db.commit()
+
+        resp = client.post(
+            f"/api/v1/leagues/{league.id}/playoff/pods/{pod_id}/admin-pick",
+            headers=mgr_headers,
+            json={
+                "user_id": str(manager.id),
+                "golfer_id": str(golfer1.id),
+                "draft_slot": 1,
+            },
+        )
+        assert resp.status_code == 422
+        assert (
+            "drafting" in resp.json()["detail"].lower() or "locked" in resp.json()["detail"].lower()
+        )
+
+    def test_admin_pick_allowed_when_locked(self, client, db):
+        """Creating an admin pick when the round is locked (post-resolve) succeeds."""
+        (
+            league,
+            manager,
+            player,
+            _,
+            golfer1,
+            _,
+            mgr_headers,
+            round_id,
+            pod_id,
+        ) = self._seeded_with_open_draft(db, client, suffix="_acplk")
+
+        # Lock the round to simulate post-resolve state
         round_obj = db.query(PlayoffRound).filter_by(id=round_id).first()
         round_obj.status = "locked"
         db.commit()
@@ -2082,8 +2115,7 @@ class TestAdminCreatePodPick:
                 "draft_slot": 1,
             },
         )
-        assert resp.status_code == 422
-        assert "drafting" in resp.json()["detail"].lower()
+        assert resp.status_code == 201
 
     def test_user_not_in_pod_returns_404(self, client, db):
         """Creating an admin pick for a user not in the pod returns 404."""
