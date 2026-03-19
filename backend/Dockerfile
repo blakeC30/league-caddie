@@ -40,8 +40,11 @@ RUN uv sync --frozen --no-dev
 COPY app/ ./app/
 
 # Standard Python container best practices.
+# uv sync creates a .venv even with UV_SYSTEM_PYTHON=1 in recent versions,
+# so we add it to PATH explicitly.
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/app/.venv/bin:$PATH"
 
 # Non-root user — running as root means a container escape = full host access.
 # All app files are owned by appuser; system Python packages remain root-owned
