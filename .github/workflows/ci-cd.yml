@@ -229,7 +229,7 @@ jobs:
             VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
-          cache-from: type=gha,scope=frontend
+          no-cache: true
           cache-to: type=gha,scope=frontend,mode=max
       - name: Clean dangling — frontend
         if: github.event_name != 'pull_request'
