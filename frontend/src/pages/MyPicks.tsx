@@ -503,7 +503,7 @@ export function MyPicks() {
             // with state containing the resolved pick names for starring.
             const playoffPickNames = isPlayoffTournament ? (playoffData?.picks.map((p) => p.golfer_name) ?? []) : [];
             const isClickable = isPlayoffTournament
-              ? !!(playoffData || (myPod?.tournament_id === tournament.id && myPod?.is_in_playoffs))
+              ? tournament.status === "in_progress" || tournament.status === "completed" || !!(playoffData || (myPod?.tournament_id === tournament.id && myPod?.is_in_playoffs))
               : tournament.status === "in_progress" || tournament.status === "completed"
                 || (tournament.id === nextTournament?.id && hasTeeTimesForNext);
             const rowLinkTarget = isPlayoffTournament && tournament.status !== "scheduled"
@@ -534,8 +534,8 @@ export function MyPicks() {
                   {isPlayoffTournament ? (() => {
                     // Playoff tournament — use playoff pick data, not a regular Pick record.
                     if (!playoffData) {
-                      // Data not yet loaded or member was not in playoffs for this round.
-                      return <p className="text-sm text-gray-400">—</p>;
+                      // Member was not in the playoffs for this round.
+                      return <p className="text-sm text-gray-400 text-right">Not in playoffs</p>;
                     }
                     const { picks: poPicks, total_points, status: roundStatus } = playoffData;
                     const is_picks_visible = isViewingSelf ? true : (otherPlayoffData?.is_picks_visible ?? true);

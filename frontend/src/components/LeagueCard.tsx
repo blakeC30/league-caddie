@@ -11,7 +11,7 @@ import { type League, type LeagueTournamentOut } from "../api/endpoints";
 import { fmtTournamentName } from "../utils";
 import { useLeagueMembers, useLeagueTournaments } from "../hooks/useLeague";
 import { useMyPicks, useStandings, useTournaments } from "../hooks/usePick";
-import { useMyPlayoffPod } from "../hooks/usePlayoff";
+import { useMyPlayoffPod, useMyPlayoffPicks } from "../hooks/usePlayoff";
 import { useAuthStore } from "../store/authStore";
 
 function formatDate(dateStr: string): string {
@@ -59,6 +59,7 @@ export function LeagueCard({ league }: { league: League }) {
   const { data: tournaments } = useLeagueTournaments(league.id);
   const { data: myPicks } = useMyPicks(league.id);
   const { data: myPod } = useMyPlayoffPod(league.id);
+  const { data: myPlayoffPicks } = useMyPlayoffPicks(league.id);
   const { data: globalScheduled } = useTournaments("scheduled");
   const { data: globalInProgress } = useTournaments("in_progress");
 
@@ -68,6 +69,11 @@ export function LeagueCard({ league }: { league: League }) {
 
   const current = tournaments ? activeTournament(tournaments) : undefined;
   const myPickForCurrent = myPicks?.find((p) => p.tournament_id === current?.id);
+
+  // Playoff picks for the current tournament (if it's a playoff week).
+  const myPlayoffPicksForCurrent = myPod?.is_playoff_week && current
+    ? myPlayoffPicks?.find((p) => p.tournament_id === current.id)
+    : undefined;
 
   const globallyNextId = globalScheduled
     ?.slice()
@@ -155,7 +161,20 @@ export function LeagueCard({ league }: { league: League }) {
                   </span>
                 )}
               </div>
-              {myPickForCurrent ? (
+              {myPlayoffPicksForCurrent && myPlayoffPicksForCurrent.picks.length > 0 ? (
+                <div className="mt-0.5 space-y-0.5">
+                  {myPlayoffPicksForCurrent.picks.map((p, i) => (
+                    <p key={i} className="text-[11px] text-green-700 font-medium flex items-center gap-1">
+                      <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                      </svg>
+                      {p.golfer_name}
+                    </p>
+                  ))}
+                </div>
+              ) : myPod?.is_playoff_week && !myPod?.is_in_playoffs ? (
+                <p className="text-[11px] text-gray-400 font-medium mt-0.5">Not in playoffs</p>
+              ) : myPickForCurrent ? (
                 <p className="text-[11px] text-green-700 font-medium mt-0.5 flex items-center gap-1">
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
