@@ -391,7 +391,7 @@ export function Welcome() {
             {pricingTiers.map((t) => {
               const popular = t.tier === "standard";
               const label = t.tier.charAt(0).toUpperCase() + t.tier.slice(1);
-              const price = `$${(t.amount_cents / 100).toFixed(0)}`;
+              const price = `$${(t.amount_cents / 100).toFixed(2)}`;
               const members = `Up to ${t.member_limit.toLocaleString()} members`;
               const perMember = `~$${(t.amount_cents / t.member_limit / 100).toFixed(2)} per member`;
               return (

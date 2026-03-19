@@ -1947,7 +1947,7 @@ export function ManageLeague() {
                     <p className="font-semibold text-gray-800">
                       {(() => {
                         const tierPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents;
-                        return tierPrice != null ? `$${(tierPrice / 100).toFixed(0)}` : "—";
+                        return tierPrice != null ? `$${(tierPrice / 100).toFixed(2)}` : "—";
                       })()}
                     </p>
                   </div>
@@ -2013,8 +2013,8 @@ export function ManageLeague() {
                         const isSelected = upgradeSelectedTier === t.tier;
                         const currentTierFullPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents ?? 0;
                         const upgradeCostCents = t.amount_cents - currentTierFullPrice;
-                        const totalDollars = (t.amount_cents / 100).toFixed(0);
-                        const upgradeDollars = (Math.max(0, upgradeCostCents) / 100).toFixed(0);
+                        const totalDollars = (t.amount_cents / 100).toFixed(2);
+                        const upgradeDollars = (Math.max(0, upgradeCostCents) / 100).toFixed(2);
                         const label = t.tier.charAt(0).toUpperCase() + t.tier.slice(1);
                         const perMember = `~$${(t.amount_cents / t.member_limit / 100).toFixed(2)}/member`;
                         return (
@@ -2051,7 +2051,7 @@ export function ManageLeague() {
                     return (
                       <p className="text-xs text-gray-500">
                         You'll be charged{" "}
-                        <span className="font-semibold text-gray-700">${(chargeCents / 100).toFixed(0)}</span>
+                        <span className="font-semibold text-gray-700">${(chargeCents / 100).toFixed(2)}</span>
                         {" "}— the difference between your current League Plan and the{" "}
                         <span className="font-semibold text-gray-700 capitalize">{upgradeSelectedTier}</span> League Plan.
                       </p>

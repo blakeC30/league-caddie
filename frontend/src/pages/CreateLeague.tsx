@@ -358,7 +358,7 @@ export function CreateLeague() {
               const isSelected = selectedTier === tier.tier;
               const isPopular = tier.tier === "standard";
               const label = tier.tier.charAt(0).toUpperCase() + tier.tier.slice(1);
-              const price = `$${(tier.amount_cents / 100).toFixed(0)}`;
+              const price = `$${(tier.amount_cents / 100).toFixed(2)}`;
               const members = `Up to ${tier.member_limit.toLocaleString()} members`;
               const perMember = `~$${(tier.amount_cents / tier.member_limit / 100).toFixed(2)}/member`;
               return (
