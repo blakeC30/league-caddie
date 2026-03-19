@@ -6,23 +6,21 @@
 #     --namespace dev --create-namespace \
 #     -f helm/league-caddie/values-dev.yaml \
 #     --set secrets.secretKey="..." \
-#     --set secrets.postgresPassword="..." \
-#     --set certManager.email="your@email.com"
+#     --set secrets.postgresPassword="..."
 # =============================================================================
 
 config:
   environment: development
   debug: "true"
-  frontendUrl: "https://dev.league-caddie.com"
+  frontendUrl: "http://localhost:8080"
   leagueCreationRestricted: "true"
-  # Real SQS queue for dev — replace ACCOUNT_ID with your AWS account number.
-  sqsQueueUrl: "https://sqs.us-east-1.amazonaws.com/ACCOUNT_ID/league-caddie-events-dev"
+  sqsQueueUrl: "https://sqs.us-east-1.amazonaws.com/049429105437/league-caddie-events-dev"
 
 postgres:
   database: league_caddie_dev
   storage: 5Gi
 
 ingress:
-  host: dev.league-caddie.com
-  tlsEnabled: true
-  clusterIssuer: letsencrypt-staging   # Use staging first — no rate limits
+  host: localhost
+  tlsEnabled: false
+  # No cert-manager needed — dev is accessed via SSH tunnel, not a public domain

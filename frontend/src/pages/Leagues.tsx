@@ -23,8 +23,10 @@ export function Leagues() {
   const user = useAuthStore((s) => s.user);
 
   const [joinCode, setJoinCode] = useState("");
+  const [withdrawLeagueId, setWithdrawLeagueId] = useState<string | null>(null);
+  const withdrawLeagueName = pendingRequests?.find((r) => String(r.league_id) === withdrawLeagueId)?.league_name;
 
-  const atLeagueCap = !!leagues && leagues.length >= 5;
+  const atLeagueCap = !!leagues && (leagues.length + (pendingRequests?.length ?? 0)) >= 5;
   const createBlocked =
     !!appConfig?.league_creation_restricted && !user?.is_platform_admin;
 
@@ -82,7 +84,7 @@ export function Leagues() {
                   Pending approval
                 </span>
                 <button
-                  onClick={() => cancelRequest.mutate(String(req.league_id))}
+                  onClick={() => setWithdrawLeagueId(String(req.league_id))}
                   disabled={cancelRequest.isPending}
                   className="flex-shrink-0 text-xs font-medium text-red-500 hover:text-red-700 hover:underline disabled:opacity-40 transition-colors"
                 >
@@ -165,6 +167,36 @@ export function Leagues() {
           </div>
         </div>
       </div>
+      {/* Withdraw confirmation modal */}
+      {withdrawLeagueId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-base font-bold text-gray-900">Withdraw request?</h3>
+            <p className="text-sm text-gray-600">
+              Are you sure you want to withdraw your join request for <span className="font-semibold">{withdrawLeagueName}</span>? You can request to join again later.
+            </p>
+            <div className="flex justify-end gap-3 pt-1">
+              <button
+                onClick={() => setWithdrawLeagueId(null)}
+                className="px-5 py-2 text-sm font-semibold rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  cancelRequest.mutate(withdrawLeagueId, {
+                    onSuccess: () => setWithdrawLeagueId(null),
+                  });
+                }}
+                disabled={cancelRequest.isPending}
+                className="px-5 py-2 text-sm font-semibold rounded-xl text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 transition-colors"
+              >
+                {cancelRequest.isPending ? "Withdrawing…" : "Withdraw"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

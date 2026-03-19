@@ -356,9 +356,9 @@ We do NOT need an alerting system (PagerDuty, SNS email) for now — this is a p
 
 1. Create `app/scraper_main.py` (entrypoint for scraper container)
 2. Update `app/services/scheduler.py` — replace two jobs with four sync types + status-driven logic
-3. Create `fantasy-golf-scraper/Dockerfile` (or add a second build stage)
+3. Create `league-caddie/scraper` Dockerfile (or add a second build stage)
 4. Update `helm/` — add Scraper Deployment alongside existing API Deployment
-5. Update CI/CD — build and push `fantasy-golf-scraper` image alongside `backend`
+5. Update CI/CD — build and push `league-caddie/scraper` image alongside `league-caddie/backend`
 6. (Optional) Add `sync_status` table for error visibility
 
 The scraper and API share the same Python source tree. No new package or microservice boundary is needed — just a different entrypoint.

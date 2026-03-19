@@ -152,7 +152,7 @@ FantasyGolf/
 ├── CLAUDE.md
 ├── docker-compose.yml            # Local development
 ├── helm/
-│   └── fantasy-golf/             # Helm chart for K8s deployments
+│   └── league-caddie/             # Helm chart for K8s deployments
 ├── .github/
 │   └── workflows/ci-cd.yml       # GitHub Actions pipeline
 ├── frontend/        # React + TypeScript app

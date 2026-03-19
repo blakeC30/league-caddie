@@ -44,9 +44,8 @@ select = ["E", "F", "I", "UP"]
 # Forward references to League and Tournament use string annotations to avoid circular
 # imports; the type: ignore comments on those lines already suppress mypy's equivalent warning.
 "app/models/league_tournament.py" = ["F821"]
-# HTML email templates and seed scripts contain long string literals that cannot be wrapped.
+# HTML email templates contain long string literals that cannot be wrapped.
 "app/services/email.py" = ["E501"]
-"scripts/*.py" = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

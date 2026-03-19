@@ -143,8 +143,8 @@ jobs:
   # don't interfere with each other.
   #
   # ECR repo names match the `repository` field in values.yaml exactly:
-  #   backend → api target, scraper → scraper target, worker → worker target,
-  #   frontend → frontend image
+  #   league-caddie/backend → api target, league-caddie/scraper → scraper target,
+  #   league-caddie/worker → worker target, league-caddie/frontend → frontend image
   # ────────────────────────────────────────────────────────────────────────────
   build:
     needs: [test-backend, test-frontend, helm-lint]
@@ -176,7 +176,7 @@ jobs:
           file: ./backend/Dockerfile
           target: api
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/backend:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/backend:latest
           cache-from: type=gha,scope=backend-api
           cache-to: type=gha,scope=backend-api,mode=max
 
@@ -188,7 +188,7 @@ jobs:
           file: ./backend/Dockerfile
           target: scraper
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/scraper:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:latest
           cache-from: type=gha,scope=backend-scraper
           cache-to: type=gha,scope=backend-scraper,mode=max
 
@@ -200,7 +200,7 @@ jobs:
           file: ./backend/Dockerfile
           target: worker
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/worker:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/worker:latest
           cache-from: type=gha,scope=backend-worker
           cache-to: type=gha,scope=backend-worker,mode=max
 
@@ -211,7 +211,7 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/frontend:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
 
@@ -240,28 +240,28 @@ jobs:
       - name: Scan api
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/backend:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/backend:latest
           exit-code: "1"
           severity: CRITICAL
 
       - name: Scan scraper
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/scraper:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:latest
           exit-code: "1"
           severity: CRITICAL
 
       - name: Scan worker
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/worker:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/worker:latest
           exit-code: "1"
           severity: CRITICAL
 
       - name: Scan frontend
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/frontend:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
           exit-code: "1"
           severity: CRITICAL
 
@@ -304,7 +304,9 @@ jobs:
             --set secrets.secretKey="${{ secrets.JWT_SECRET_DEV }}" \
             --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_DEV }}" \
             --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
+            --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_DEV }}" \
+            --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_DEV }}" \
+            --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}" \
             --wait --timeout=5m
 
       - name: Verify rollout (dev)
@@ -345,6 +347,9 @@ jobs:
             --set secrets.secretKey="${{ secrets.JWT_SECRET_PROD }}" \
             --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_PROD }}" \
             --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+            --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_PROD }}" \
+            --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}" \
+            --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}" \
             --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
             --wait --timeout=5m
 

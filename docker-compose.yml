@@ -53,7 +53,7 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       SES_FROM_EMAIL: noreply@league-caddie.com
       # Set to "true" to restrict league creation to platform admins only.
-      LEAGUE_CREATION_RESTRICTED: "false"
+      LEAGUE_CREATION_RESTRICTED: "true"
     depends_on:
       postgres:
         condition: service_healthy

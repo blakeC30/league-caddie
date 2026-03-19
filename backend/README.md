@@ -516,7 +516,7 @@ The worker runs in its own container (`python -m app.worker_main`). It consumes 
 
 **Local dev:** LocalStack emulates SQS. The queue is created automatically by `localstack-init/create-queues.sh` on startup. If `SQS_QUEUE_URL` is unset, publish calls are silently skipped.
 
-**Production:** EC2 instance profile provides credentials. Queue names: `fantasy-golf-events` / `fantasy-golf-events-dlq`.
+**Production:** EC2 instance profile provides credentials. Queue names: `league-caddie-events-prod` / `league-caddie-events-prod-dlq`.
 
 ---
 

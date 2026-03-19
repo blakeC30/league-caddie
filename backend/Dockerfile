@@ -7,9 +7,9 @@
 #   worker  → SQS consumer loop
 #
 # Build commands:
-#   docker build --target api     -t backend  .
-#   docker build --target scraper -t fantasy-golf-scraper  .
-#   docker build --target worker  -t fantasy-golf-worker   .
+#   docker build --target api     -t league-caddie/backend  .
+#   docker build --target scraper -t league-caddie/scraper  .
+#   docker build --target worker  -t league-caddie/worker   .
 #
 # If no --target is specified, Docker builds the last defined stage (api).
 # CI/CD builds all three targets from the same source tree.

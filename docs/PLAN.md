@@ -47,8 +47,8 @@ This separation means scraper failures cannot take down the API, and the three c
 |---|---|
 | EC2 t2.micro — dev (K3s, all dev services) | FREE (750 hrs/month) |
 | EC2 t3a.small — prod (K3s, all prod services) | ~$14/month |
-| EBS gp3 — dev (20 GB) | FREE (included in 30 GB free tier) |
-| EBS gp3 — prod (30 GB) | FREE (included in 30 GB free tier) |
+| EBS gp3 — dev (8 GB) | FREE (included in 30 GB free tier) |
+| EBS gp3 — prod (22 GB) | FREE (included in 30 GB free tier) |
 | EBS snapshots (Data Lifecycle Manager) | ~$0.05/GB/month (near $0 when DB is small) |
 | ECR (container registry) | FREE (500 MB storage) |
 | SES (email) | FREE (3,000 emails/month first 12 months) |
@@ -64,14 +64,14 @@ This separation means scraper failures cannot take down the API, and the three c
 |---|---|
 | EC2 t2.micro — dev | ~$8.50/month |
 | EC2 t3a.small — prod | ~$14/month |
-| EBS gp3 — dev (20 GB) | ~$1.60/month |
-| EBS gp3 — prod (30 GB) | ~$2.40/month |
+| EBS gp3 — dev (8 GB) | ~$0.64/month |
+| EBS gp3 — prod (22 GB) | ~$1.76/month |
 | EBS snapshots | ~$0.50/month (small DB) |
 | SES | $0.10/1,000 emails (effectively $0 at this scale) |
 | SQS | $0.40/1M requests (effectively $0 at this scale) |
 | CloudWatch Logs | ~$0.50/month (low log volume) |
 | Route 53 | ~$0.50/month |
-| **Total** | **~$28/month** |
+| **Total** | **~$26.50/month** |
 
 > **Note:** Dev uses a t2.micro (free tier, 1 GB RAM, 1 vCPU). Prod uses a t3a.small (2 GB RAM, 2 vCPU, AMD EPYC — ~10% cheaper than t3.small for equivalent specs) for headroom running 2 backend replicas + scraper + worker + Postgres + Nginx simultaneously.
 
@@ -354,7 +354,7 @@ full_sync(db, year)         → sync schedule + in_progress/completed + next sch
 | TOURNAMENT_IN_PROGRESS | live_score_sync (every 5 min) | resolve_draft() when R1 tee-offs detected in "drafting" playoff rounds |
 | TOURNAMENT_COMPLETED | schedule_sync on status transition | score_picks() → score_round() → advance_bracket() |
 
-LocalStack emulates SQS locally (same boto3 code, no real AWS cost). Queue: `fantasy-golf-events-dev` with DLQ after 3 retries.
+LocalStack emulates SQS locally (same boto3 code, no real AWS cost). Queue: `league-caddie-events-dev` with DLQ after 3 retries.
 
 ---
 
@@ -459,8 +459,8 @@ frontend/src/
 
 ```sh
 # SQS queues
-awslocal sqs create-queue --queue-name fantasy-golf-events-dev-dlq
-awslocal sqs create-queue --queue-name fantasy-golf-events-dev \
+awslocal sqs create-queue --queue-name league-caddie-events-dev-dlq
+awslocal sqs create-queue --queue-name league-caddie-events-dev \
   --attributes VisibilityTimeout=120,RedrivePolicy=...
 
 # SES sender identity
@@ -506,7 +506,7 @@ Helm chart that deploys the full application to K3s, with separate values files 
 
 ```
 helm/
-└── fantasy-golf/
+└── league-caddie/
     ├── Chart.yaml
     ├── values.yaml           # Shared defaults
     ├── values-dev.yaml       # Dev overrides
@@ -561,7 +561,7 @@ helm/
 
 ### Tasks
 
-1. Create `helm/fantasy-golf/Chart.yaml`
+1. Create `helm/league-caddie/Chart.yaml`
 2. Write templates for all 5 services: backend, scraper, worker, frontend, postgres
 3. Write `pvc.yaml` for Postgres data
 4. Write `ingress.yaml` (Traefik routes: `/api/*` → backend, `/*` → frontend)
@@ -569,8 +569,8 @@ helm/
 6. Create `values.yaml`, `values-dev.yaml`, `values-prod.yaml`
 7. Test chart locally with `k3d` or a local K3s instance:
    ```sh
-   helm upgrade --install fantasy-golf ./helm/fantasy-golf \
-     -f helm/fantasy-golf/values-dev.yaml \
+   helm upgrade --install league-caddie ./helm/league-caddie \
+     -f helm/league-caddie/values-dev.yaml \
      --namespace dev --create-namespace
    ```
 8. Verify all 5 services come up and the app is accessible
@@ -673,7 +673,7 @@ jobs:
 
 ### AWS IAM for CI/CD
 
-Create a dedicated IAM user `fantasy-golf-deploy` with a minimal policy — ECR push only. The running EC2 instance uses an IAM instance role (not this user) for SES and SQS access at runtime.
+Create a dedicated IAM user `league-caddie-deploy` with a minimal policy — ECR push only. The running EC2 instance uses an IAM instance role (not this user) for SES and SQS access at runtime.
 
 ```json
 {
@@ -694,7 +694,7 @@ Create a dedicated IAM user `fantasy-golf-deploy` with a minimal policy — ECR 
 
 1. Write `.github/workflows/ci-cd.yml`
 2. Set up all GitHub repository secrets
-3. Create IAM user `fantasy-golf-deploy` with ECR-push-only policy
+3. Create IAM user `league-caddie-deploy` with ECR-push-only policy
 4. Test: open a PR → tests run; merge to `main` → approve dev deploy → verify dev → approve prod deploy
 
 ---
@@ -709,17 +709,18 @@ Provision all AWS resources needed for production (and dev). Use only free-tier 
 
 1. **IAM**
    - Root: enable MFA immediately, never use for daily work
-   - User `fantasy-golf-deploy` (programmatic only): ECR push policy (above)
-   - EC2 instance role `fantasy-golf-ec2-role`: policies for SES send + SQS full access
+   - User `league-caddie-deploy` (programmatic only): ECR push policy (above)
+   - EC2 instance role `league-caddie-ec2-role`: policies for SES send + SQS full access
 
 2. **ECR (Elastic Container Registry)**
-   - Create four repositories: `backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `frontend`
+   - Create four repositories: `league-caddie/backend`, `league-caddie/scraper`, `league-caddie/worker`, `league-caddie/frontend`
    - Free tier: 500 MB/month storage
    - **Tag strategy: `latest` (prod) and `dev-latest` (dev) only** — each push overwrites the previous tag, keeping storage at a minimum. Rollback = push a revert commit and redeploy.
 
 3. **SQS**
-   - Create queue: `fantasy-golf-events-prod` (same config as dev)
-   - Create DLQ: `fantasy-golf-events-prod-dlq`
+   - Create dev queues: `league-caddie-events-dev` + `league-caddie-events-dev-dlq`
+   - Create prod queues: `league-caddie-events-prod` + `league-caddie-events-prod-dlq`
+   - LocalStack is only for local docker-compose — both dev and prod on AWS use real SQS
    - Free tier: 1M requests/month — more than enough
 
 4. **SES (Simple Email Service)**
@@ -730,30 +731,31 @@ Provision all AWS resources needed for production (and dev). Use only free-tier 
 
 5. **EC2 — Dev instance (`t2.micro`)**
    - Launch `t2.micro` with Amazon Linux 2023 (free tier eligible)
-   - 20 GB EBS gp3 volume (free tier: 30 GB included)
+   - 8 GB EBS gp3 volume (8 + 22 = 30 GB total, fits within free tier)
    - Assign Elastic IP (free while instance is running)
-   - Attach IAM instance role `fantasy-golf-ec2-role`
+   - Attach IAM instance role `league-caddie-ec2-role`
    - Install K3s on first boot: `curl -sfL https://get.k3s.io | sh -`
    - Security group: 22 (SSH from your IP only), 80 (HTTP public), 443 (HTTPS public)
 
 6. **EC2 — Prod instance (`t3a.small`)**
    - Launch `t3a.small` with Amazon Linux 2023 (2 vCPU, 2 GB RAM, AMD EPYC — ~$13.70/month)
-   - 30 GB EBS gp3 volume (more headroom for prod Postgres data)
+   - 22 GB EBS gp3 volume (more headroom for prod Postgres data)
    - Assign Elastic IP (free while instance is running)
-   - Attach IAM instance role `fantasy-golf-ec2-role`
+   - Attach IAM instance role `league-caddie-ec2-role`
    - Install K3s on first boot: `curl -sfL https://get.k3s.io | sh -`
    - Security group: same as dev — 22 (SSH from your IP only), 80 (HTTP public), 443 (HTTPS public)
    - **Note:** t3a.small is not free-tier eligible; dev instance (t2.micro) stays free for 12 months
 
 7. **DNS & TLS (~$12/year for domain + $0.50/month hosted zone)**
-   - Register domain via Route 53 or Namecheap
-   - Create a hosted zone in Route 53 ($0.50/month)
+   - Domain registered via Squarespace; nameservers pointed to Route 53
+   - Route 53 hosted zone for `league-caddie.com` ($0.50/month) — all DNS managed here
    - A record → Elastic IP (prod), separate A record for dev subdomain if desired
    - TLS via cert-manager + Let's Encrypt (free) inside K3s — auto-renews
+   - **Email forwarding:** ImprovMX (free tier) forwards `admin@league-caddie.com` → personal Gmail; MX + SPF records in Route 53
 
 8. **CloudWatch Logs**
    - Install the CloudWatch agent on each EC2 instance (or use Fluent Bit as a K3s DaemonSet)
-   - Ship backend + nginx logs to CloudWatch log groups `/fantasy-golf/dev` and `/fantasy-golf/prod`
+   - Ship backend + nginx logs to CloudWatch log groups `/league-caddie/dev` and `/league-caddie/prod`
    - Free tier: 5 GB ingestion/month — more than enough for this scale
    - Retention: set to 30 days to avoid unbounded storage costs
    - Lets you query logs without SSHing into the instance
@@ -780,17 +782,17 @@ Before deploying:
 1. Create AWS account (use personal email, enables full free tier 12 months)
 2. Enable root MFA
 3. Set up AWS Budget alert — $20/month threshold, email notification
-4. Create IAM user (`fantasy-golf-deploy`) + EC2 role (`fantasy-golf-ec2-role`)
-5. Create ECR repositories (`backend`, `fantasy-golf-scraper`, `fantasy-golf-worker`, `frontend`)
-6. Create SQS queues (`fantasy-golf-events-prod`, `-dlq`)
+4. Create IAM user (`league-caddie-deploy`) + EC2 role (`league-caddie-ec2-role`)
+5. Create ECR repositories (`league-caddie/backend`, `league-caddie/scraper`, `league-caddie/worker`, `league-caddie/frontend`)
+6. Create SQS queues (`league-caddie-events-dev`, `-dlq`, `league-caddie-events-prod`, `-dlq`)
 7. Verify SES sender identity; request sandbox exit
 8. Launch EC2 instances (t2.micro for dev, t3a.small for prod), assign Elastic IPs, attach IAM role to each
 9. Enable Data Lifecycle Manager — daily EBS snapshots, 7-day retention, for both volumes
 10. Install K3s on EC2
-11. Install CloudWatch agent / Fluent Bit on EC2 — ship logs to `/fantasy-golf/dev` and `/fantasy-golf/prod`; set 30-day retention
+11. Install CloudWatch agent / Fluent Bit on EC2 — ship logs to `/league-caddie/dev` and `/league-caddie/prod`; set 30-day retention
 12. Create Route 53 hosted zone; point A records at Elastic IPs
 13. Create K8s namespaces: `kubectl create namespace dev && kubectl create namespace prod`
-14. Initial deploy: `helm upgrade --install fantasy-golf ./helm/fantasy-golf -f values-prod.yaml --namespace prod`
+14. Initial deploy: `helm upgrade --install league-caddie ./helm/league-caddie -f values-prod.yaml --namespace prod`
 15. Configure cert-manager + Let's Encrypt for HTTPS
 
 ---
@@ -1204,7 +1206,8 @@ Keep a simple spreadsheet (or use free Wave Accounting) logging every business e
 | Category | Examples | Tax Deductible? |
 |---|---|---|
 | Cloud infrastructure | AWS EC2, ECR, SQS, SES | ✅ Yes |
-| Domain & DNS | Route53, Namecheap | ✅ Yes |
+| Domain & DNS | Route 53, Squarespace (registrar) | ✅ Yes |
+| Email forwarding | ImprovMX (free tier) | ✅ Yes |
 | LLC formation | State filing fee, EIN | ✅ Yes (startup cost) |
 | Software & tools | GitHub Pro (if upgraded), Stripe fees | ✅ Yes |
 | Home office | Percentage of rent/utilities if working from home | ✅ Yes (calculate carefully) |
@@ -1304,7 +1307,7 @@ Fantasy sports with money prizes exist in a legal gray area in the US. The short
 | Password reset | SHA-256 token hash in DB, AWS SES email | Secure, single-use, 1-hour TTL |
 | Scheduler | APScheduler (scraper container) | In-process, no Celery/Redis |
 | Scraping | httpx + ESPN unofficial API | Async, no browser |
-| Event pipeline | AWS SQS (LocalStack in dev) | Decouples scraper → playoff automation |
+| Event pipeline | AWS SQS (LocalStack in local dev) | Decouples scraper → playoff automation |
 | Email | AWS SES + HTML template | Free tier, no third-party service |
 | DB | PostgreSQL in K3s (PVC-backed) | No RDS cost; persists on EBS |
 | Containers | Docker multi-stage | Small prod images |

@@ -148,10 +148,10 @@ class League(Base):
         back_populates="league", cascade="all, delete-orphan"
     )
     purchases: Mapped[list["LeaguePurchase"]] = relationship(
-        back_populates="league", cascade="all, delete-orphan"
+        back_populates="league", passive_deletes=True
     )
     purchase_events: Mapped[list["LeaguePurchaseEvent"]] = relationship(
-        back_populates="league", cascade="all, delete-orphan"
+        back_populates="league", passive_deletes=True
     )
 
     def __repr__(self) -> str:

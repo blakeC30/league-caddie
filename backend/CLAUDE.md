@@ -336,7 +336,7 @@ All handlers are **idempotent** — SQS at-least-once delivery is safe. The visi
 
 **Local dev:** LocalStack emulates SQS locally. Queue auto-created by `localstack-init/create-queues.sh`. Set `SQS_QUEUE_URL` env var (see docker-compose.yml). If `SQS_QUEUE_URL` is unset, publish calls are silently skipped.
 
-**Production:** EC2 instance profile provides SQS credentials — no access keys in env vars. `AWS_ENDPOINT_URL` is absent in production; boto3 uses real AWS. Queue names: `fantasy-golf-events` / `fantasy-golf-events-dlq`. See `SQS.md` in the project root for AWS setup steps.
+**Production:** EC2 instance profile provides SQS credentials — no access keys in env vars. `AWS_ENDPOINT_URL` is absent in production; boto3 uses real AWS. Queue names: `league-caddie-events-prod` / `league-caddie-events-prod-dlq`. See `SQS.md` in the project root for AWS setup steps.
 
 **DLQ monitoring:** After 3 failed delivery attempts a message moves to the DLQ. Non-zero DLQ depth means a finalization step failed permanently and needs manual investigation.
 

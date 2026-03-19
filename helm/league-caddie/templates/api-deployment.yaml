@@ -66,6 +66,21 @@ spec:
                 secretKeyRef:
                   name: {{ include "league-caddie.secretName" . }}
                   key: AWS_SECRET_ACCESS_KEY
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: STRIPE_SECRET_KEY
+            - name: STRIPE_PUBLISHABLE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: STRIPE_PUBLISHABLE_KEY
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: STRIPE_WEBHOOK_SECRET
 
             # --- ConfigMap (non-secret) ---
             - name: ENVIRONMENT

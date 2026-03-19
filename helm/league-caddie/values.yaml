@@ -24,7 +24,7 @@ image:
 api:
   replicas: 1
   image:
-    repository: backend
+    repository: league-caddie/backend
   resources:
     requests:
       cpu: "100m"
@@ -40,7 +40,7 @@ api:
 scraper:
   replicas: 1
   image:
-    repository: scraper
+    repository: league-caddie/scraper
   resources:
     requests:
       cpu: "50m"
@@ -56,7 +56,7 @@ scraper:
 # -----------------------------------------------------------------------------
 worker:
   image:
-    repository: worker
+    repository: league-caddie/worker
   resources:
     requests:
       cpu: "50m"
@@ -71,7 +71,7 @@ worker:
 frontend:
   replicas: 1
   image:
-    repository: frontend
+    repository: league-caddie/frontend
   resources:
     requests:
       cpu: "50m"
@@ -124,6 +124,10 @@ secrets:
   # AWS credentials. Leave empty in production — EC2 IAM instance role provides them.
   awsAccessKeyId: ""
   awsSecretAccessKey: ""
+  # Stripe keys. Use test mode keys for dev, live mode keys for prod.
+  stripeSecretKey: ""
+  stripePublishableKey: ""
+  stripeWebhookSecret: ""
 
 # -----------------------------------------------------------------------------
 # Ingress (Traefik — built into K3s)

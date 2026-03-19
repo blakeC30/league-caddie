@@ -104,12 +104,18 @@ def create_league(
             detail="League creation is not available yet. Stay tuned!",
         )
 
-    # Guard: per-user league cap — checked before any DB write so nothing is rolled back.
+    # Guard: per-user league cap — count approved + pending so pending requests count
+    # toward the cap. Checked before any DB write so nothing is rolled back.
     user_league_count = (
         db.query(LeagueMember)
-        .filter_by(
-            user_id=current_user.id,
-            status=LeagueMemberStatus.APPROVED.value,
+        .filter(
+            LeagueMember.user_id == current_user.id,
+            LeagueMember.status.in_(
+                [
+                    LeagueMemberStatus.APPROVED.value,
+                    LeagueMemberStatus.PENDING.value,
+                ]
+            ),
         )
         .count()
     )
@@ -118,7 +124,7 @@ def create_league(
             status_code=400,
             detail=(
                 f"You have reached the maximum of {USER_LEAGUE_CAP} leagues. "
-                "Leave a league before creating another."
+                "Leave a league or withdraw a pending request before creating another."
             ),
         )
 
@@ -289,13 +295,18 @@ def request_to_join(
             detail="This league is not currently accepting new join requests.",
         )
 
-    # Guard: per-user league cap — block the request now so the user isn't waiting for
-    # an approval that can never succeed.
+    # Guard: per-user league cap — count both approved memberships and pending requests
+    # so a user can't submit unlimited requests that would exceed the cap if all approved.
     user_league_count = (
         db.query(LeagueMember)
-        .filter_by(
-            user_id=current_user.id,
-            status=LeagueMemberStatus.APPROVED.value,
+        .filter(
+            LeagueMember.user_id == current_user.id,
+            LeagueMember.status.in_(
+                [
+                    LeagueMemberStatus.APPROVED.value,
+                    LeagueMemberStatus.PENDING.value,
+                ]
+            ),
         )
         .count()
     )
@@ -304,7 +315,7 @@ def request_to_join(
             status_code=400,
             detail=(
                 f"You have reached the maximum of {USER_LEAGUE_CAP} leagues. "
-                "Leave a league before joining another."
+                "Leave a league or withdraw a pending request before joining another."
             ),
         )
 

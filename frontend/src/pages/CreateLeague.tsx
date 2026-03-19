@@ -8,15 +8,19 @@
  */
 
 import { Fragment, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { stripeApi, type Tournament } from "../api/endpoints";
 import { useTournaments } from "../hooks/usePick";
 import { useStripePricing } from "../hooks/useLeague";
+import { useAppConfig } from "../hooks/useAppConfig";
+import { useAuthStore } from "../store/authStore";
 import { fmtTournamentName, isoWeekKey } from "../utils";
 import { Spinner } from "../components/Spinner";
 
 export function CreateLeague() {
   const navigate = useNavigate();
+  const { data: appConfig } = useAppConfig();
+  const user = useAuthStore((s) => s.user);
 
   const [name, setName] = useState("");
   const [noPick, setNoPick] = useState("50000");
@@ -114,6 +118,10 @@ export function CreateLeague() {
       setError("Failed to start checkout. Please try again.");
       setLoading(false);
     }
+  }
+
+  if (appConfig?.league_creation_restricted && !user?.is_platform_admin) {
+    return <Navigate to="/leagues" replace />;
   }
 
   return (

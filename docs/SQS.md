@@ -175,10 +175,10 @@ This keeps the queue clean and prevents hundreds of redundant messages per day.
 ### Naming
 
 ```
-Production:   fantasy-golf-events
-              fantasy-golf-events-dlq
-Development:  fantasy-golf-events-dev
-              fantasy-golf-events-dev-dlq
+Production:   league-caddie-events-prod
+              league-caddie-events-prod-dlq
+Development:  league-caddie-events-dev
+              league-caddie-events-dev-dlq
 ```
 
 ---
@@ -379,7 +379,7 @@ Add the following to `docker-compose.yml`:
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test       # LocalStack accepts any value
       AWS_SECRET_ACCESS_KEY: test
-      SQS_QUEUE_URL: http://localstack:4566/000000000000/fantasy-golf-events-dev
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/league-caddie-events-dev
     command: ["python", "-m", "app.worker_main"]
     depends_on:
       postgres:
@@ -396,7 +396,7 @@ Add the following to `docker-compose.yml`:
       AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
-      SQS_QUEUE_URL: http://localstack:4566/000000000000/fantasy-golf-events-dev
+      SQS_QUEUE_URL: http://localstack:4566/000000000000/league-caddie-events-dev
 ```
 
 ### LocalStack Bootstrap Script
@@ -408,17 +408,17 @@ Create `localstack-init/create-queues.sh`. LocalStack runs scripts in
 #!/bin/bash
 # Create the DLQ first, then the main queue with a redrive policy.
 awslocal sqs create-queue \
-  --queue-name fantasy-golf-events-dev-dlq \
+  --queue-name league-caddie-events-dev-dlq \
   --region us-east-1
 
 DLQ_ARN=$(awslocal sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/fantasy-golf-events-dev-dlq \
+  --queue-url http://localhost:4566/000000000000/league-caddie-events-dev-dlq \
   --attribute-names QueueArn \
   --query 'Attributes.QueueArn' \
   --output text)
 
 awslocal sqs create-queue \
-  --queue-name fantasy-golf-events-dev \
+  --queue-name league-caddie-events-dev \
   --region us-east-1 \
   --attributes "{
     \"VisibilityTimeout\": \"120\",
@@ -439,12 +439,12 @@ docker-compose up
 
 # Publish a test event manually (useful for testing handlers without the scraper)
 docker-compose exec localstack awslocal sqs send-message \
-  --queue-url http://localhost:4566/000000000000/fantasy-golf-events-dev \
+  --queue-url http://localhost:4566/000000000000/league-caddie-events-dev \
   --message-body '{"type": "TOURNAMENT_IN_PROGRESS", "tournament_id": "<uuid>"}'
 
 # Check DLQ depth (non-zero = something failed)
 docker-compose exec localstack awslocal sqs get-queue-attributes \
-  --queue-url http://localhost:4566/000000000000/fantasy-golf-events-dev-dlq \
+  --queue-url http://localhost:4566/000000000000/league-caddie-events-dev-dlq \
   --attribute-names ApproximateNumberOfMessages
 ```
 
@@ -460,17 +460,17 @@ charges). Use the AWS console or CLI:
 ```bash
 # DLQ
 aws sqs create-queue \
-  --queue-name fantasy-golf-events-dlq \
+  --queue-name league-caddie-events-prod-dlq \
   --region us-east-1
 
 # Main queue with redrive policy (replace DLQ ARN)
 aws sqs create-queue \
-  --queue-name fantasy-golf-events \
+  --queue-name league-caddie-events-prod \
   --region us-east-1 \
   --attributes '{
     "VisibilityTimeout": "120",
     "ReceiveMessageWaitTimeSeconds": "20",
-    "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:<account>:fantasy-golf-events-dlq\",\"maxReceiveCount\":\"3\"}"
+    "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:049429105437:league-caddie-events-prod-dlq\",\"maxReceiveCount\":\"3\"}"
   }'
 ```
 
@@ -493,8 +493,10 @@ or attach a managed policy with these permissions:
         "sqs:ChangeMessageVisibility"
       ],
       "Resource": [
-        "arn:aws:sqs:us-east-1:<account>:fantasy-golf-events",
-        "arn:aws:sqs:us-east-1:<account>:fantasy-golf-events-dlq"
+        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-prod",
+        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-prod-dlq",
+        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-dev",
+        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-dev-dlq"
       ]
     }
   ]
@@ -507,14 +509,14 @@ secrets in production.**
 
 ### Helm / K8s Environment Variables
 
-Add to the scraper and worker deployments in `helm/fantasy-golf/`:
+Add to the scraper and worker deployments in `helm/league-caddie/`:
 
 ```yaml
 # No AWS_ENDPOINT_URL in production — boto3 uses real AWS
 - name: AWS_REGION
   value: us-east-1
 - name: SQS_QUEUE_URL
-  value: https://sqs.us-east-1.amazonaws.com/<account>/fantasy-golf-events
+  value: https://sqs.us-east-1.amazonaws.com/049429105437/league-caddie-events-prod
 ```
 
 The `worker` pod is a new Kubernetes Deployment alongside the existing `scraper`
@@ -532,7 +534,7 @@ command: ["python", "-m", "app.worker_main"]
 
 Set a CloudWatch alarm on:
 
-- **Metric**: `ApproximateNumberOfMessagesVisible` on `fantasy-golf-events-dlq`
+- **Metric**: `ApproximateNumberOfMessagesVisible` on `league-caddie-events-prod-dlq`
 - **Threshold**: >= 1
 - **Action**: SNS email alert to the admin
 

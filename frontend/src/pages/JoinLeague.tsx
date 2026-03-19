@@ -20,7 +20,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { useJoinByCode, useJoinPreview, useCancelMyRequest } from "../hooks/useLeague";
+import { useJoinByCode, useJoinPreview, useCancelMyRequest, useMyLeagues, useMyRequests } from "../hooks/useLeague";
 import { FlagIcon } from "../components/FlagIcon";
 import { Spinner } from "../components/Spinner";
 
@@ -61,8 +61,12 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   const { data: preview, isLoading, isError } = useJoinPreview(inviteCode);
   const joinByCode = useJoinByCode();
   const cancelRequest = useCancelMyRequest();
+  const { data: leagues } = useMyLeagues();
+  const { data: pendingRequests } = useMyRequests();
   const [submitted, setSubmitted] = useState(false);
   const [joinError, setJoinError] = useState("");
+
+  const atLeagueCap = !!leagues && (leagues.length + (pendingRequests?.length ?? 0)) >= 5;
 
   if (isLoading) {
     return (
@@ -113,6 +117,36 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
           </div>
           <p className="text-sm text-gray-500">
             This league is not currently accepting new join requests. Contact the league manager for more information.
+          </p>
+          <button
+            onClick={() => navigate("/leagues")}
+            className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+          >
+            Back to my leagues
+          </button>
+        </div>
+      </GradientShell>
+    );
+  }
+
+  // League cap reached and user has no existing relationship — block the request.
+  if (atLeagueCap && preview.user_status === null) {
+    return (
+      <GradientShell>
+        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
+          <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-600">
+              League limit reached
+            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{preview.name}</h1>
+          </div>
+          <p className="text-sm text-gray-500">
+            You've reached the maximum of 5 leagues (including pending requests). Leave a league or withdraw a pending request before joining another.
           </p>
           <button
             onClick={() => navigate("/leagues")}

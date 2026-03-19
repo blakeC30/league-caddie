@@ -1367,10 +1367,23 @@ export function ManageLeague() {
               </div>
             );
           })()}
+          {scheduleEditing && playoffConfig && playoffConfig.playoff_size > 0 && (
+            <div className="text-sm px-4 py-2.5 rounded-xl border bg-amber-50 border-amber-300 text-amber-800 space-y-1">
+              <p className="font-semibold">⚠ Important — playoff is configured</p>
+              <p>Changing the schedule may affect which tournaments are used as playoff rounds. Check the playoff round labels above to verify the correct tournaments are assigned before saving. Once playoffs begin, the schedule is permanently locked. Refunds will not be issued if your schedule was configured incorrectly.</p>
+            </div>
+          )}
           {scheduleEditing && (
             <div className="flex items-center gap-3 pt-2">
               <button
-                onClick={handleSaveSchedule}
+                onClick={() => {
+                  setConfirmModal({
+                    title: "Save tournament schedule?",
+                    message: "This will update the tournament schedule for your league. If a playoff is configured, this may change which tournaments are used as playoff rounds. Make sure your schedule is correct before saving.",
+                    confirmLabel: "Save Schedule",
+                    onConfirm: handleSaveSchedule,
+                  });
+                }}
                 disabled={updateSchedule.isPending || hasScheduleConflicts || hasPlayoffScheduleError}
                 className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
               >
@@ -1427,7 +1440,7 @@ export function ManageLeague() {
             )}
           </div>
           <p className="text-sm text-gray-500">
-            Configure the bracket size and picks per round. The final scheduled tournaments in your season will automatically serve as playoff rounds.
+            Configure the bracket size and picks per round. The final scheduled tournaments in your season will automatically serve as playoff rounds. Once the playoffs begin, your tournament schedule is permanently locked. Double-check your schedule before enabling playoffs — refunds will not be issued if your schedule was configured incorrectly.
           </p>
 
           {/* Playoff tournament count advisory — only shown when schedule is insufficient */}
@@ -1439,8 +1452,8 @@ export function ManageLeague() {
             </div>
           )}
 
-          {/* Schedule-lock warning — shown in edit mode whenever a non-zero playoff size is selected */}
-          {playoffEditing && playoffSize > 0 && (
+          {/* Schedule-lock warning — shown when increasing playoff size beyond current config */}
+          {playoffEditing && playoffSize > 0 && playoffSize > (playoffConfig?.playoff_size ?? 0) && (
             <div className="text-sm px-4 py-2.5 rounded-xl border bg-amber-50 border-amber-300 text-amber-800 space-y-1">
               <p className="font-semibold">⚠ Important — review your schedule before enabling playoffs</p>
               <p>Once the first playoff round opens for picks, your tournament schedule is <strong>permanently locked</strong>. No tournaments can be added or removed after that point. If your schedule is incomplete, your season will end earlier than intended and <strong>this cannot be undone</strong>.</p>
@@ -1568,7 +1581,7 @@ export function ManageLeague() {
                   if (needsConfirm) {
                     setConfirmModal({
                       title: "Enable playoff bracket?",
-                      message: "Once the first playoff round opens for picks, your tournament schedule will be permanently locked — no tournaments can be added or removed. Make sure your schedule is complete before proceeding.",
+                      message: "Once the first playoff round opens for picks, your tournament schedule will be permanently locked — no tournaments can be added or removed. Make sure your schedule is complete before proceeding. Refunds will not be issued if your schedule was configured incorrectly.",
                       confirmLabel: "Enable playoffs",
                       onConfirm: handleSavePlayoff,
                     });
@@ -1868,12 +1881,14 @@ export function ManageLeague() {
                 Done
               </button>
             ) : (
-              <button
-                onClick={() => setBillingEditing(true)}
-                className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
-              >
-                Edit
-              </button>
+              !(purchase?.paid_at && purchase.tier === "elite") && (
+                <button
+                  onClick={() => setBillingEditing(true)}
+                  className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+                >
+                  Edit
+                </button>
+              )
             )}
           </div>
 
@@ -2089,7 +2104,7 @@ export function ManageLeague() {
 
           <p className="text-sm text-gray-500">
             Permanently delete this league and all of its data — members, picks, and standings.
-            This action cannot be undone.
+            This action cannot be undone. Refunds will not be issued for deleted leagues.
           </p>
 
           {dangerStep === "editing" && (
