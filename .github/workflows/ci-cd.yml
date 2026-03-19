@@ -287,62 +287,54 @@ jobs:
 
 
   # ────────────────────────────────────────────────────────────────────────────
-  # deploy-dev
+  # deploy-dev (DISABLED — dev instance is stopped to save costs)
   #
-  # APPROVAL GATE #1: GitHub pauses here and sends a notification. You must
-  # approve in the GitHub Actions UI before the deploy runs.
-  #
-  # Deploys to the `dev` K8s namespace using the kubeconfig stored as a secret.
-  # The kubeconfig must be base64-encoded and point to the dev K3s cluster's
-  # public IP (port 6443).
-  #
-  # Helm migrations run automatically via the pre-upgrade hook in migrate-job.yaml.
+  # Uncomment this job and change deploy-prod.needs back to deploy-dev
+  # when the dev instance is restored.
   # ────────────────────────────────────────────────────────────────────────────
-  deploy-dev:
-    needs: scan
-    if: github.event_name != 'pull_request'
-    environment: dev
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: azure/setup-helm@v4
-
-      - name: Configure kubectl (dev)
-        run: |
-          mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
-          chmod 600 ~/.kube/config
-
-      - name: Deploy to dev namespace
-        run: |
-          helm upgrade --install league-caddie helm/league-caddie \
-            --namespace dev --create-namespace \
-            -f helm/league-caddie/values-dev.yaml \
-            --set image.registry=${{ env.ECR_REGISTRY }} \
-            --set image.tag=latest \
-            --set secrets.secretKey="${{ secrets.JWT_SECRET_DEV }}" \
-            --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_DEV }}" \
-            --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
-            --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_DEV }}" \
-            --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_DEV }}" \
-            --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}" \
-            --wait --timeout=5m
-
-      - name: Verify rollout (dev)
-        run: kubectl rollout status deployment -n dev --timeout=120s
+  # deploy-dev:
+  #   needs: scan
+  #   if: github.event_name != 'pull_request'
+  #   environment: dev
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - uses: azure/setup-helm@v4
+  #
+  #     - name: Configure kubectl (dev)
+  #       run: |
+  #         mkdir -p ~/.kube
+  #         echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
+  #         chmod 600 ~/.kube/config
+  #
+  #     - name: Deploy to dev namespace
+  #       run: |
+  #         helm upgrade --install league-caddie helm/league-caddie \
+  #           --namespace dev --create-namespace \
+  #           -f helm/league-caddie/values-dev.yaml \
+  #           --set image.registry=${{ env.ECR_REGISTRY }} \
+  #           --set image.tag=latest \
+  #           --set secrets.secretKey="${{ secrets.JWT_SECRET_DEV }}" \
+  #           --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_DEV }}" \
+  #           --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
+  #           --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_DEV }}" \
+  #           --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_DEV }}" \
+  #           --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}" \
+  #           --wait --timeout=5m
+  #
+  #     - name: Verify rollout (dev)
+  #       run: kubectl rollout status deployment -n dev --timeout=120s
 
   # ────────────────────────────────────────────────────────────────────────────
   # deploy-prod
   #
-  # APPROVAL GATE #2: Structurally blocked until deploy-dev succeeds.
-  # You cannot reach this job without dev having deployed successfully first.
-  #
-  # Approve only after verifying the feature works on the dev cluster.
+  # Deploys directly to prod (dev is disabled). Change needs back to deploy-dev
+  # when the dev instance is restored.
   # ────────────────────────────────────────────────────────────────────────────
   deploy-prod:
-    needs: deploy-dev
+    needs: scan
     if: github.event_name != 'pull_request'
     environment: prod
     runs-on: ubuntu-latest
