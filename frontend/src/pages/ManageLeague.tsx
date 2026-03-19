@@ -993,13 +993,13 @@ export function ManageLeague() {
                   updateLeague.mutate({ accepting_requests: !league.accepting_requests })
                 }
                 disabled={updateLeague.isPending}
-                className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40 ${
+                className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-40 whitespace-nowrap ${
                   league.accepting_requests
                     ? "text-gray-600 border-gray-200 hover:bg-gray-50"
                     : "text-green-700 border-green-200 bg-green-50 hover:bg-green-100"
                 }`}
               >
-                {league.accepting_requests ? "Stop accepting requests" : "Reopen requests"}
+                {league.accepting_requests ? "Pause requests" : "Reopen requests"}
               </button>
             )}
           </div>
@@ -1094,8 +1094,9 @@ export function ManageLeague() {
                   : "bg-green-100 text-green-700";
               return (
                 <span className="relative group">
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${colors}`}>
-                    {members.length} / {purchase.member_limit} members
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${colors}`}>
+                    <span className="sm:hidden">{members.length}/{purchase.member_limit}</span>
+                    <span className="hidden sm:inline">{members.length} / {purchase.member_limit} members</span>
                   </span>
                   <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white z-20 shadow-lg">
                     {members.length} of {purchase.member_limit} member slots used

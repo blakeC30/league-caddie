@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Prevent horizontal scroll on mobile — keeps the page feeling solid. */
+body {
+  overflow-x: hidden;
+}
+
 /* Prevent iOS Safari auto-zoom on input focus.
    Safari zooms when font-size < 16px; this override keeps the
    visual design intact on desktop while fixing mobile zoom. */

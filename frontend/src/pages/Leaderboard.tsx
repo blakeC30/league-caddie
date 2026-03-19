@@ -558,18 +558,20 @@ function TournamentPicksSection({ leagueId }: { leagueId: string }) {
       {summary && !isScheduled && !selectedPlayoffRound && (
         <div className="space-y-5">
           {/* Stats row */}
-          <div className={`grid grid-cols-2 gap-3 ${isCompleted ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
+          <div className={`grid grid-cols-2 gap-3 ${isCompleted ? "sm:grid-cols-4" : missedCutPicks > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <StatCard
               label="Submission rate"
               value={`${Math.round(submissionRate)}%`}
               sub={`${totalPickers} of ${summary.member_count} members`}
               color={submissionRate === 100 ? "text-green-700" : "text-gray-900"}
             />
-            <StatCard
-              label="Missed cut"
-              value={totalPickers > 0 ? `${missedCutPct}%` : "—"}
-              sub={totalPickers > 0 ? `${missedCutPicks} of ${totalPickers} picks` : undefined}
-            />
+            {missedCutPicks > 0 && (
+              <StatCard
+                label="Missed cut"
+                value={`${missedCutPct}%`}
+                sub={`${missedCutPicks} of ${totalPickers} picks`}
+              />
+            )}
             <StatCard
               label="Most popular"
               value={topPick ? topPick.golfer_name.split(" ").pop()! : "—"}
