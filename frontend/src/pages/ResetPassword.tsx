@@ -64,7 +64,7 @@ export function ResetPassword() {
 
     setLoading(true);
     try {
-      const { access_token } = await authApi.resetPassword(token, newPassword);
+      const { access_token } = await authApi.resetPassword(token!, newPassword);
       // Set token first so the me() request can attach it as a Bearer header.
       useAuthStore.getState().setToken(access_token);
       const me = await usersApi.me();

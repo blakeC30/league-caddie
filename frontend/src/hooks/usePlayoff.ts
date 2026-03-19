@@ -10,7 +10,6 @@ import {
   PlayoffConfigUpdate,
   PlayoffDraftStatus,
   PlayoffPickOut,
-  PlayoffPodOut,
   PlayoffPreference,
   PlayoffRoundOut,
   PlayoffConfigOut,
@@ -140,7 +139,7 @@ export function useSubmitPreferences(leagueId: string, podId: number) {
 
 export function useOverridePlayoffResult(leagueId: string) {
   const qc = useQueryClient();
-  return useMutation<PlayoffPodOut, Error, { pod_id: number; winner_user_id: string }>({
+  return useMutation<{ detail: string }, Error, { pod_id: number; winner_user_id: string }>({
     mutationFn: (data: { pod_id: number; winner_user_id: string }) =>
       playoffApi.overrideResult(leagueId, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["playoffBracket", leagueId] }),

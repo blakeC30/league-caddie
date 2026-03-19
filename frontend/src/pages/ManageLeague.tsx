@@ -1068,7 +1068,7 @@ export function ManageLeague() {
             </SectionIcon>
             <h2 className="text-base font-bold text-gray-900">League Members</h2>
             {members && purchase && (() => {
-              const pct = members.length / purchase.member_limit;
+              const pct = members.length / (purchase.member_limit ?? 500);
               const colors =
                 pct >= 1
                   ? "bg-red-100 text-red-700"

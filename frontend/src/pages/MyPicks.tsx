@@ -563,8 +563,8 @@ export function MyPicks() {
                       if (poPicks.length > 0) {
                         return (
                           <div className="text-right space-y-1">
-                            {poPicks.map((p) => (
-                              <p key={p.id} className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                            {poPicks.map((p, i) => (
+                              <p key={i} className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
                             ))}
                             <p className="text-xs text-gray-400">In progress</p>
                           </div>
@@ -582,8 +582,8 @@ export function MyPicks() {
                       if (poPicks.length > 0) {
                         return (
                           <div className="text-right space-y-1.5">
-                            {poPicks.map((p) => (
-                              <div key={p.id} className="space-y-0.5">
+                            {poPicks.map((p, i) => (
+                              <div key={i} className="space-y-0.5">
                                 <p className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
                                 <p className={`text-sm font-bold tabular-nums ${
                                   p.points_earned === null ? "text-gray-400"
