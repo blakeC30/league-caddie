@@ -305,11 +305,33 @@ jobs:
   #
   #     - uses: azure/setup-helm@v4
   #
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: ${{ env.AWS_REGION }}
+  #
   #     - name: Configure kubectl (dev)
   #       run: |
   #         mkdir -p ~/.kube
   #         echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
   #         chmod 600 ~/.kube/config
+  #
+  #     - name: Refresh ECR pull secret
+  #       run: |
+  #         PASSWORD=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+  #         kubectl delete secret ecr-registry -n dev --ignore-not-found
+  #         kubectl create secret docker-registry ecr-registry \
+  #           --docker-server=${{ env.ECR_REGISTRY }} \
+  #           --docker-username=AWS \
+  #           --docker-password="$PASSWORD" \
+  #           -n dev
+  #
+  #     - name: Clear stale Helm locks
+  #       run: |
+  #         kubectl delete secret -l owner=helm,status=pending-upgrade -n dev --ignore-not-found
+  #         kubectl delete secret -l owner=helm,status=pending-install -n dev --ignore-not-found
   #
   #     - name: Deploy to dev namespace
   #       run: |
@@ -324,7 +346,7 @@ jobs:
   #           --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_DEV }}" \
   #           --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_DEV }}" \
   #           --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}" \
-  #           --wait --timeout=5m
+  #           --atomic --wait --timeout=5m
   #
   #     - name: Verify rollout (dev)
   #       run: kubectl rollout status deployment -n dev --timeout=120s
@@ -346,11 +368,36 @@ jobs:
 
       - uses: azure/setup-helm@v4
 
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
       - name: Configure kubectl (prod)
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_PROD }}" > ~/.kube/config
           chmod 600 ~/.kube/config
+
+      # Refresh ECR pull secret before every deploy so image pulls never fail
+      # due to expired tokens (ECR tokens last 12 hours).
+      - name: Refresh ECR pull secret
+        run: |
+          PASSWORD=$(aws ecr get-login-password --region ${{ env.AWS_REGION }})
+          kubectl delete secret ecr-registry -n prod --ignore-not-found
+          kubectl create secret docker-registry ecr-registry \
+            --docker-server=${{ env.ECR_REGISTRY }} \
+            --docker-username=AWS \
+            --docker-password="$PASSWORD" \
+            -n prod
+
+      # Clear any stale Helm locks from previous failed deploys.
+      - name: Clear stale Helm locks
+        run: |
+          kubectl delete secret -l owner=helm,status=pending-upgrade -n prod --ignore-not-found
+          kubectl delete secret -l owner=helm,status=pending-install -n prod --ignore-not-found
 
       - name: Deploy to prod namespace
         run: |
@@ -366,7 +413,7 @@ jobs:
             --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}" \
             --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}" \
             --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
-            --wait --timeout=10m
+            --atomic --wait --timeout=10m
 
       - name: Verify rollout (prod)
         run: kubectl rollout status deployment -n prod --timeout=120s
