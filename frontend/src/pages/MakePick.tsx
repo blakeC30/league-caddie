@@ -103,18 +103,18 @@ export function MakePick() {
   // Set of golfer IDs already used this season (for the "Used" greyed-out display).
   const usedGolferIds = new Set(myPicks?.map((p) => p.golfer_id) ?? []);
 
-  // When the tournament is in_progress, identify golfers whose Round 1 tee time
-  // has already passed. These golfers are no longer eligible for a late pick.
-  // We keep them visible in the list (greyed out with a "Teed off" label) so the
-  // user understands why they cannot select them, rather than hiding them silently.
+  // Identify golfers whose Round 1 tee time has already passed.
+  // These golfers are filtered out of the list entirely — the user should only
+  // see golfers they can actually pick.
   const now = new Date();
   const teedOffGolferIds = new Set(
-    tournament?.status === "in_progress"
+    (tournament?.status === "in_progress" || tournament?.status === "scheduled")
       ? effectiveField
           .filter((g) => g.tee_time != null && new Date(g.tee_time) <= now)
           .map((g) => g.id)
       : []
   );
+  const hasTeedOffGolfers = teedOffGolferIds.size > 0;
 
   // Purchase gate
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
@@ -637,6 +637,16 @@ export function MakePick() {
           This tournament is underway. You can still pick a golfer who hasn't teed off yet.
         </p>
       )}
+      {hasTeedOffGolfers && (
+        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+          <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+          </svg>
+          <p className="text-xs text-amber-700 leading-relaxed">
+            Golfers who have already teed off are hidden from this list. Only golfers with upcoming tee times are available to pick.
+          </p>
+        </div>
+      )}
       {tournament.is_team_event && (
         <div className="flex items-start gap-2.5 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3">
           <svg className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -648,7 +658,7 @@ export function MakePick() {
         </div>
       )}
       <PickForm
-        field={effectiveField}
+        field={effectiveField.filter((g) => !teedOffGolferIds.has(g.id) || g.id === existingPick?.golfer_id)}
         usedGolferIds={usedGolferIds}
         teedOffGolferIds={teedOffGolferIds}
         existingPick={existingPick}
