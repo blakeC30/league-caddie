@@ -11,13 +11,15 @@ from app.schemas.user import UserOut
 class LeagueCreate(BaseModel):
     name: str = Field(min_length=1, max_length=60)
     # Default matches the house rule; league manager can override on creation.
-    no_pick_penalty: int = -50_000
+    # Accepts positive values for convenience (frontend sends display value);
+    # the validator auto-negates them so the DB always stores non-positive.
+    no_pick_penalty: int = 50_000
 
     @field_validator("no_pick_penalty")
     @classmethod
-    def penalty_must_be_non_positive(cls, v: int) -> int:
+    def normalize_penalty(cls, v: int) -> int:
         if v > 0:
-            raise ValueError("no_pick_penalty must be 0 or negative")
+            v = -v
         if v < -500_000:
             raise ValueError("no_pick_penalty cannot exceed -500,000")
         return v
@@ -32,9 +34,9 @@ class LeagueUpdate(BaseModel):
 
     @field_validator("no_pick_penalty")
     @classmethod
-    def penalty_must_be_non_positive(cls, v: int | None) -> int | None:
+    def normalize_penalty(cls, v: int | None) -> int | None:
         if v is not None and v > 0:
-            raise ValueError("no_pick_penalty must be 0 or negative")
+            v = -v
         if v is not None and v < -500_000:
             raise ValueError("no_pick_penalty cannot exceed -500,000")
         return v
