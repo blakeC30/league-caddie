@@ -20,9 +20,9 @@ metadata:
     {{- include "league-caddie.labels" . | nindent 4 }}
     app.kubernetes.io/component: migrate
   annotations:
-    # post-install: on first deploy, postgres must be running before migrations can connect.
-    # pre-upgrade: on subsequent deploys, run migrations before new app code starts.
-    "helm.sh/hook": post-install,pre-upgrade
+    # pre-upgrade only: skips the first install (postgres must exist first).
+    # First install: deploy with --no-hooks, then run migrations manually or re-deploy.
+    "helm.sh/hook": pre-upgrade
     # Delete the old Job before creating the new one (keeps cluster tidy).
     "helm.sh/hook-delete-policy": before-hook-creation
     # Wait for the job to complete before Helm proceeds.
