@@ -20,21 +20,21 @@ export function Welcome() {
     <div className="min-h-screen bg-white text-gray-900 antialiased">
       {/* ── Sticky nav ── */}
       <header className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <span className="inline-flex items-center gap-2 text-lg font-bold text-green-900 tracking-tight">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <span className="inline-flex items-center gap-2 text-lg font-bold text-green-900 tracking-tight whitespace-nowrap">
             <FlagIcon className="w-5 h-5 flex-shrink-0" />
             League Caddie
           </span>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-2 flex-shrink-0">
             <Link
               to="/login"
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               Sign in
             </Link>
             <Link
               to="/register"
-              className="text-sm font-semibold bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+              className="text-sm font-semibold bg-green-800 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
             >
               Get started
             </Link>
