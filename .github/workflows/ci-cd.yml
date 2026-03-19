@@ -265,6 +265,17 @@ jobs:
           exit-code: "1"
           severity: CRITICAL
 
+      # Clean up untagged (dangling) images from ECR to stay within free tier storage.
+      # Each push overwrites :latest, leaving the previous image untagged.
+      - name: Clean up dangling ECR images
+        run: |
+          for repo in league-caddie/backend league-caddie/scraper league-caddie/worker league-caddie/frontend; do
+            IMAGE_IDS=$(aws ecr list-images --repository-name "$repo" --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
+            if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then
+              aws ecr batch-delete-image --repository-name "$repo" --image-ids "$IMAGE_IDS"
+            fi
+          done
+
   # ────────────────────────────────────────────────────────────────────────────
   # deploy-dev
   #
@@ -291,7 +302,7 @@ jobs:
       - name: Configure kubectl (dev)
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_DEV }}" | base64 -d > ~/.kube/config
+          echo "${{ secrets.KUBECONFIG_DEV }}" > ~/.kube/config
           chmod 600 ~/.kube/config
 
       - name: Deploy to dev namespace
@@ -334,7 +345,7 @@ jobs:
       - name: Configure kubectl (prod)
         run: |
           mkdir -p ~/.kube
-          echo "${{ secrets.KUBECONFIG_PROD }}" | base64 -d > ~/.kube/config
+          echo "${{ secrets.KUBECONFIG_PROD }}" > ~/.kube/config
           chmod 600 ~/.kube/config
 
       - name: Deploy to prod namespace
