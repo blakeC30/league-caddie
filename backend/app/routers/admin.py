@@ -106,6 +106,7 @@ def get_platform_stats(
         .filter(
             LeaguePurchase.season_year == current_year,
             LeaguePurchase.paid_at.isnot(None),
+            LeaguePurchase.amount_cents > 0,
         )
         .scalar()
         or 0
@@ -117,12 +118,14 @@ def get_platform_stats(
         or 0
     )
 
-    # Count paid purchases per tier for the current year, sorted by count desc
+    # Count paid purchases per tier for the current year, sorted by count desc.
+    # Excludes platform-admin leagues (amount_cents=0) — they don't represent real revenue.
     tier_rows = (
         db.query(LeaguePurchase.tier, func.count(LeaguePurchase.id).label("n"))
         .filter(
             LeaguePurchase.season_year == current_year,
             LeaguePurchase.paid_at.isnot(None),
+            LeaguePurchase.amount_cents > 0,
         )
         .group_by(LeaguePurchase.tier)
         .order_by(func.count(LeaguePurchase.id).desc())
