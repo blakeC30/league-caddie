@@ -179,6 +179,11 @@ jobs:
           tags: ${{ env.ECR_REGISTRY }}/league-caddie/backend:latest
           cache-from: type=gha,scope=backend-api
           cache-to: type=gha,scope=backend-api,mode=max
+      - name: Clean dangling — backend
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/backend --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
+          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/backend --image-ids "$IMAGE_IDS"; fi
 
       # ── Backend: scraper target ─────────────────────────────────────────────
       - name: Build scraper
@@ -191,6 +196,11 @@ jobs:
           tags: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:latest
           cache-from: type=gha,scope=backend-scraper
           cache-to: type=gha,scope=backend-scraper,mode=max
+      - name: Clean dangling — scraper
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/scraper --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
+          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/scraper --image-ids "$IMAGE_IDS"; fi
 
       # ── Backend: worker target ──────────────────────────────────────────────
       - name: Build worker
@@ -203,6 +213,11 @@ jobs:
           tags: ${{ env.ECR_REGISTRY }}/league-caddie/worker:latest
           cache-from: type=gha,scope=backend-worker
           cache-to: type=gha,scope=backend-worker,mode=max
+      - name: Clean dangling — worker
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/worker --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
+          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/worker --image-ids "$IMAGE_IDS"; fi
 
       # ── Frontend ────────────────────────────────────────────────────────────
       - name: Build frontend
@@ -214,6 +229,11 @@ jobs:
           tags: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
           cache-from: type=gha,scope=frontend
           cache-to: type=gha,scope=frontend,mode=max
+      - name: Clean dangling — frontend
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/frontend --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
+          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/frontend --image-ids "$IMAGE_IDS"; fi
 
   # ────────────────────────────────────────────────────────────────────────────
   # scan
@@ -265,16 +285,6 @@ jobs:
           exit-code: "1"
           severity: CRITICAL
 
-      # Clean up untagged (dangling) images from ECR to stay within free tier storage.
-      # Each push overwrites :latest, leaving the previous image untagged.
-      - name: Clean up dangling ECR images
-        run: |
-          for repo in league-caddie/backend league-caddie/scraper league-caddie/worker league-caddie/frontend; do
-            IMAGE_IDS=$(aws ecr list-images --repository-name "$repo" --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
-            if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then
-              aws ecr batch-delete-image --repository-name "$repo" --image-ids "$IMAGE_IDS"
-            fi
-          done
 
   # ────────────────────────────────────────────────────────────────────────────
   # deploy-dev
