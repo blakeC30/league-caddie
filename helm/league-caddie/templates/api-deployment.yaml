@@ -25,6 +25,8 @@ spec:
       labels:
         {{- include "league-caddie.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: api
+      annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
     spec:
       {{- if .Values.image.registry }}
       imagePullSecrets:
