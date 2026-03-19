@@ -30,6 +30,9 @@ RUN npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 FROM nginx:alpine AS runtime
 
+# Patch OS-level vulnerabilities in the base image before adding anything else.
+RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
+
 # Replace the default nginx config with our own (React Router + gzip + caching).
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
