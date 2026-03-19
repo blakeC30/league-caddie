@@ -364,7 +364,7 @@ jobs:
             --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}" \
             --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}" \
             --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
-            --wait --timeout=5m
+            --wait --timeout=10m
 
       - name: Verify rollout (prod)
         run: kubectl rollout status deployment -n prod --timeout=120s
