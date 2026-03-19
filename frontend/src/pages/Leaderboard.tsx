@@ -558,7 +558,11 @@ function TournamentPicksSection({ leagueId }: { leagueId: string }) {
       {summary && !isScheduled && !selectedPlayoffRound && (
         <div className="space-y-5">
           {/* Stats row */}
-          <div className={`grid grid-cols-2 gap-3 ${isCompleted ? "sm:grid-cols-4" : missedCutPicks > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          <div className={`grid grid-cols-2 gap-3 ${
+            isCompleted && missedCutPicks > 0 ? "sm:grid-cols-4" :
+            isCompleted || missedCutPicks > 0 ? "sm:grid-cols-3" :
+            "sm:grid-cols-2"
+          }`}>
             <StatCard
               label="Submission rate"
               value={`${Math.round(submissionRate)}%`}
