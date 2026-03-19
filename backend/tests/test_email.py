@@ -20,7 +20,7 @@ class TestSesClientBuilding:
     def test_uses_endpoint_url_when_set(self):
         """When AWS_ENDPOINT_URL is configured, boto3.client receives endpoint_url."""
         with patch("app.services.email.settings") as mock_settings:
-            mock_settings.AWS_REGION = "us-east-1"
+            mock_settings.AWS_REGION = "us-east-2"
             mock_settings.AWS_ENDPOINT_URL = "http://localhost:4566"
             mock_settings.AWS_ACCESS_KEY_ID = ""
             mock_settings.AWS_SECRET_ACCESS_KEY = ""
@@ -36,7 +36,7 @@ class TestSesClientBuilding:
     def test_uses_access_key_when_set(self):
         """When AWS_ACCESS_KEY_ID is set, boto3.client receives aws_access_key_id."""
         with patch("app.services.email.settings") as mock_settings:
-            mock_settings.AWS_REGION = "us-east-1"
+            mock_settings.AWS_REGION = "us-east-2"
             mock_settings.AWS_ENDPOINT_URL = ""
             mock_settings.AWS_ACCESS_KEY_ID = "AKIATEST1234"
             mock_settings.AWS_SECRET_ACCESS_KEY = "secret"

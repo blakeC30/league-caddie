@@ -349,7 +349,7 @@ sudo helm install fluent-bit fluent/fluent-bit \
   --namespace kube-system \
   --kubeconfig /etc/rancher/k3s/k3s.yaml \
   --set cloudWatchLogs.enabled=true \
-  --set cloudWatchLogs.region=us-east-1 \
+  --set cloudWatchLogs.region=us-east-2 \
   --set cloudWatchLogs.logGroupName=/league-caddie/dev \
   --set cloudWatchLogs.autoCreateGroup=true
 
@@ -358,7 +358,7 @@ sudo helm install fluent-bit fluent/fluent-bit \
   --namespace kube-system \
   --kubeconfig /etc/rancher/k3s/k3s.yaml \
   --set cloudWatchLogs.enabled=true \
-  --set cloudWatchLogs.region=us-east-1 \
+  --set cloudWatchLogs.region=us-east-2 \
   --set cloudWatchLogs.logGroupName=/league-caddie/prod \
   --set cloudWatchLogs.autoCreateGroup=true
 ```

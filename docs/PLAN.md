@@ -483,7 +483,7 @@ awslocal ses verify-email-identity --email-address noreply@league-caddie.com
 | SECRET_KEY | any random string | from K8s secret |
 | GOOGLE_CLIENT_ID | real client ID | same |
 | FRONTEND_URL | http://localhost:5173 | https://yourdomain.com |
-| AWS_REGION | us-east-1 | us-east-1 |
+| AWS_REGION | us-east-2 | us-east-2 |
 | AWS_ENDPOINT_URL | http://localstack:4566 | (empty — use EC2 IAM role) |
 | AWS_ACCESS_KEY_ID | test | (empty — use EC2 IAM role) |
 | AWS_SECRET_ACCESS_KEY | test | (empty — use EC2 IAM role) |

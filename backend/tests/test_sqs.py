@@ -26,16 +26,16 @@ class TestGetClient:
 
     def test_includes_region_from_env(self):
         """region_name is sourced from AWS_REGION — required in both local and prod."""
-        with patch.dict(os.environ, {"AWS_REGION": "us-east-1"}, clear=False):
+        with patch.dict(os.environ, {"AWS_REGION": "us-east-2"}, clear=False):
             with patch("boto3.client") as mock_client:
                 mock_client.return_value = MagicMock()
                 _get_client()
                 call_kwargs = mock_client.call_args[1]
-                assert call_kwargs["region_name"] == "us-east-1"
+                assert call_kwargs["region_name"] == "us-east-2"
 
     def test_includes_endpoint_when_set(self):
         """When AWS_ENDPOINT_URL is present, endpoint_url is forwarded to boto3.client."""
-        env = {"AWS_REGION": "us-east-1", "AWS_ENDPOINT_URL": "http://localhost:4566"}
+        env = {"AWS_REGION": "us-east-2", "AWS_ENDPOINT_URL": "http://localhost:4566"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_client:
                 mock_client.return_value = MagicMock()
@@ -45,7 +45,7 @@ class TestGetClient:
 
     def test_no_endpoint_when_not_set(self):
         """When AWS_ENDPOINT_URL is absent (production), endpoint_url must not appear."""
-        env = {"AWS_REGION": "us-east-1"}
+        env = {"AWS_REGION": "us-east-2"}
         # Ensure the variable is absent even if the outer environment has it.
         clean_env = {k: v for k, v in os.environ.items() if k != "AWS_ENDPOINT_URL"}
         clean_env.update(env)
@@ -66,7 +66,7 @@ class TestGetClient:
 
     def test_boto3_called_with_sqs_service(self):
         """The first positional argument to boto3.client must be 'sqs'."""
-        with patch.dict(os.environ, {"AWS_REGION": "us-east-1"}, clear=False):
+        with patch.dict(os.environ, {"AWS_REGION": "us-east-2"}, clear=False):
             with patch("boto3.client") as mock_client:
                 mock_client.return_value = MagicMock()
                 _get_client()
@@ -84,10 +84,10 @@ class TestGetQueueUrl:
 
     def test_returns_sqs_queue_url(self):
         """Returns the URL string set in SQS_QUEUE_URL."""
-        env = {"SQS_QUEUE_URL": "https://sqs.us-east-1.amazonaws.com/123456/my-queue"}
+        env = {"SQS_QUEUE_URL": "https://sqs.us-east-2.amazonaws.com/123456/my-queue"}
         with patch.dict(os.environ, env, clear=False):
             url = get_queue_url()
-            assert url == "https://sqs.us-east-1.amazonaws.com/123456/my-queue"
+            assert url == "https://sqs.us-east-2.amazonaws.com/123456/my-queue"
 
     def test_missing_raises_key_error(self):
         """If SQS_QUEUE_URL is unset, a KeyError is raised immediately."""
@@ -107,7 +107,7 @@ class TestPublish:
 
     def test_sends_message_with_correct_body(self):
         """The MessageBody JSON contains type and all extra payload kwargs."""
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/queue"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/queue"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -121,8 +121,8 @@ class TestPublish:
 
     def test_uses_queue_url_from_env(self):
         """send_message receives the QueueUrl from the SQS_QUEUE_URL environment variable."""
-        queue_url = "https://sqs.us-east-1.amazonaws.com/999/test-queue"
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": queue_url}
+        queue_url = "https://sqs.us-east-2.amazonaws.com/999/test-queue"
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": queue_url}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -133,7 +133,7 @@ class TestPublish:
 
     def test_multiple_payload_fields_included(self):
         """All keyword arguments become top-level keys in the serialised message."""
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -146,7 +146,7 @@ class TestPublish:
 
     def test_message_body_is_valid_json(self):
         """The serialised message body must be valid JSON (not a repr or something else)."""
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -173,7 +173,7 @@ class TestConsume:
         """A successfully handled message is deleted from the queue."""
         handler = MagicMock()
         msg = {"Body": json.dumps({"type": "TEST"}), "ReceiptHandle": "receipt_123"}
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -194,7 +194,7 @@ class TestConsume:
         """If the handler raises, the message is NOT deleted so SQS can retry it."""
         handler = MagicMock(side_effect=RuntimeError("handler failed"))
         msg = {"Body": json.dumps({"type": "TEST"}), "ReceiptHandle": "receipt_456"}
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -210,7 +210,7 @@ class TestConsume:
     def test_handles_empty_message_batch(self):
         """An empty Messages list results in zero handler calls and zero deletes."""
         handler = MagicMock()
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -229,7 +229,7 @@ class TestConsume:
             {"Body": json.dumps({"type": "B"}), "ReceiptHandle": "r2"},
             {"Body": json.dumps({"type": "C"}), "ReceiptHandle": "r3"},
         ]
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -257,7 +257,7 @@ class TestConsume:
             {"Body": json.dumps({"type": "OK"}), "ReceiptHandle": "r_ok"},
             {"Body": json.dumps({"type": "FAIL"}), "ReceiptHandle": "r_fail"},
         ]
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()
@@ -276,7 +276,7 @@ class TestConsume:
     def test_missing_messages_key_handled_gracefully(self):
         """A response with no 'Messages' key (SQS timeout) should iterate zero messages."""
         handler = MagicMock()
-        env = {"AWS_REGION": "us-east-1", "SQS_QUEUE_URL": "https://sqs.test/q"}
+        env = {"AWS_REGION": "us-east-2", "SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
             with patch("boto3.client") as mock_boto3_client:
                 mock_sqs = MagicMock()

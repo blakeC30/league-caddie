@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # --- AWS / SES ---
     # Region where SES is configured.
-    AWS_REGION: str = "us-east-1"
+    AWS_REGION: str = "us-east-2"
     # Credentials — leave empty in production to use the EC2 IAM instance role.
     # Set to "test" when pointing at LocalStack.
     AWS_ACCESS_KEY_ID: str = ""

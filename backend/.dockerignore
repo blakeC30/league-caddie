@@ -25,9 +25,14 @@ README*
 Dockerfile*
 .dockerignore
 
+# Scripts — dev-only utilities
+scripts/
+
 # Editor + OS noise
 .git/
 .gitignore
 .DS_Store
+.idea/
+.vscode/
 *.swp
 *.swo

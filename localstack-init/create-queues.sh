@@ -13,7 +13,7 @@ set -e
 echo "Creating SQS dead-letter queue..."
 awslocal sqs create-queue \
   --queue-name league-caddie-events-dev-dlq \
-  --region us-east-1
+  --region us-east-2
 
 DLQ_ARN=$(awslocal sqs get-queue-attributes \
   --queue-url http://localhost:4566/000000000000/league-caddie-events-dev-dlq \
@@ -26,7 +26,7 @@ echo "DLQ ARN: ${DLQ_ARN}"
 echo "Creating SQS main event queue..."
 awslocal sqs create-queue \
   --queue-name league-caddie-events-dev \
-  --region us-east-1 \
+  --region us-east-2 \
   --attributes "{
     \"VisibilityTimeout\": \"120\",
     \"ReceiveMessageWaitTimeSeconds\": \"20\",
@@ -42,5 +42,5 @@ echo "  DLQ:   http://localhost:4566/000000000000/league-caddie-events-dev-dlq"
 echo "Verifying SES sender identity..."
 awslocal ses verify-email-identity \
   --email-address noreply@league-caddie.com \
-  --region us-east-1
+  --region us-east-2
 echo "SES sender identity verified: noreply@league-caddie.com"

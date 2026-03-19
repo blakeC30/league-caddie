@@ -355,7 +355,7 @@ Add the following to `docker-compose.yml`:
       - "4566:4566"
     environment:
       - SERVICES=sqs
-      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-2
       - LOCALSTACK_HOST=localstack
     volumes:
       - ./localstack-init:/etc/localstack/init/ready.d   # bootstrap script (see below)
@@ -376,7 +376,7 @@ Add the following to `docker-compose.yml`:
     environment:
       DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_REGION: us-east-1
+      AWS_REGION: us-east-2
       AWS_ACCESS_KEY_ID: test       # LocalStack accepts any value
       AWS_SECRET_ACCESS_KEY: test
       SQS_QUEUE_URL: http://localstack:4566/000000000000/league-caddie-events-dev
@@ -393,7 +393,7 @@ Add the following to `docker-compose.yml`:
     environment:
       DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_REGION: us-east-1
+      AWS_REGION: us-east-2
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       SQS_QUEUE_URL: http://localstack:4566/000000000000/league-caddie-events-dev
@@ -409,7 +409,7 @@ Create `localstack-init/create-queues.sh`. LocalStack runs scripts in
 # Create the DLQ first, then the main queue with a redrive policy.
 awslocal sqs create-queue \
   --queue-name league-caddie-events-dev-dlq \
-  --region us-east-1
+  --region us-east-2
 
 DLQ_ARN=$(awslocal sqs get-queue-attributes \
   --queue-url http://localhost:4566/000000000000/league-caddie-events-dev-dlq \
@@ -419,7 +419,7 @@ DLQ_ARN=$(awslocal sqs get-queue-attributes \
 
 awslocal sqs create-queue \
   --queue-name league-caddie-events-dev \
-  --region us-east-1 \
+  --region us-east-2 \
   --attributes "{
     \"VisibilityTimeout\": \"120\",
     \"ReceiveMessageWaitTimeSeconds\": \"20\",
@@ -461,16 +461,16 @@ charges). Use the AWS console or CLI:
 # DLQ
 aws sqs create-queue \
   --queue-name league-caddie-events-prod-dlq \
-  --region us-east-1
+  --region us-east-2
 
 # Main queue with redrive policy (replace DLQ ARN)
 aws sqs create-queue \
   --queue-name league-caddie-events-prod \
-  --region us-east-1 \
+  --region us-east-2 \
   --attributes '{
     "VisibilityTimeout": "120",
     "ReceiveMessageWaitTimeSeconds": "20",
-    "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-1:049429105437:league-caddie-events-prod-dlq\",\"maxReceiveCount\":\"3\"}"
+    "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-2:049429105437:league-caddie-events-prod-dlq\",\"maxReceiveCount\":\"3\"}"
   }'
 ```
 
@@ -493,10 +493,10 @@ or attach a managed policy with these permissions:
         "sqs:ChangeMessageVisibility"
       ],
       "Resource": [
-        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-prod",
-        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-prod-dlq",
-        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-dev",
-        "arn:aws:sqs:us-east-1:049429105437:league-caddie-events-dev-dlq"
+        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-prod",
+        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-prod-dlq",
+        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-dev",
+        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-dev-dlq"
       ]
     }
   ]
@@ -514,9 +514,9 @@ Add to the scraper and worker deployments in `helm/league-caddie/`:
 ```yaml
 # No AWS_ENDPOINT_URL in production — boto3 uses real AWS
 - name: AWS_REGION
-  value: us-east-1
+  value: us-east-2
 - name: SQS_QUEUE_URL
-  value: https://sqs.us-east-1.amazonaws.com/049429105437/league-caddie-events-prod
+  value: https://sqs.us-east-2.amazonaws.com/049429105437/league-caddie-events-prod
 ```
 
 The `worker` pod is a new Kubernetes Deployment alongside the existing `scraper`

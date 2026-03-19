@@ -23,7 +23,7 @@ services:
       - "4566:4566"
     environment:
       - SERVICES=sqs,ses
-      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_DEFAULT_REGION=us-east-2
       - LOCALSTACK_HOST=localstack
     volumes:
       - ./localstack-init:/etc/localstack/init/ready.d
@@ -48,7 +48,7 @@ services:
       DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       # Point SES at LocalStack instead of real AWS.
       AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_REGION: us-east-1
+      AWS_REGION: us-east-2
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       SES_FROM_EMAIL: noreply@league-caddie.com
@@ -72,7 +72,7 @@ services:
     environment:
       DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_REGION: us-east-1
+      AWS_REGION: us-east-2
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       SQS_QUEUE_URL: http://localstack:4566/000000000000/league-caddie-events-dev
@@ -95,7 +95,7 @@ services:
     environment:
       DATABASE_URL: postgresql://league_caddie:league_caddie@postgres:5432/league_caddie_dev
       AWS_ENDPOINT_URL: http://localstack:4566
-      AWS_REGION: us-east-1
+      AWS_REGION: us-east-2
       AWS_ACCESS_KEY_ID: test
       AWS_SECRET_ACCESS_KEY: test
       SQS_QUEUE_URL: http://localstack:4566/000000000000/league-caddie-events-dev

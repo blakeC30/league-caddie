@@ -9,7 +9,7 @@
 
 # -----------------------------------------------------------------------------
 # Image configuration
-# registry:   ECR repository URL, e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com
+# registry:   ECR repository URL, e.g. 123456789012.dkr.ecr.us-east-2.amazonaws.com
 #             Filled in by CI/CD (Phase 7). Empty = local image name only.
 # tag:        Docker image tag. CI/CD injects the Git SHA.
 # -----------------------------------------------------------------------------
@@ -97,7 +97,7 @@ config:
   environment: development
   debug: "false"
   frontendUrl: "https://league-caddie.com"
-  awsRegion: "us-east-1"
+  awsRegion: "us-east-2"
   # Empty = use real AWS. Set to LocalStack URL for local dev only.
   awsEndpointUrl: ""
   sesFromEmail: "noreply@league-caddie.com"

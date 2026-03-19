@@ -216,7 +216,7 @@ All settings live in `app/config.py` (Pydantic `BaseSettings`). Values are read 
 | `FRONTEND_URL` | str | `http://localhost:5173` | CORS allowed origin — must be `https://` in production |
 | `GOOGLE_CLIENT_ID` | str | `""` | Google OAuth client ID — empty disables Google auth |
 | `RESET_TOKEN_EXPIRE_HOURS` | int | `1` | Password reset token TTL (hours) |
-| `AWS_REGION` | str | `us-east-1` | AWS region for SES and SQS |
+| `AWS_REGION` | str | `us-east-2` | AWS region for SES and SQS |
 | `AWS_ACCESS_KEY_ID` | str | `""` | AWS credentials — empty = use EC2 IAM role in production |
 | `AWS_SECRET_ACCESS_KEY` | str | `""` | AWS credentials — empty = use EC2 IAM role in production |
 | `AWS_ENDPOINT_URL` | str | `""` | Override endpoint URL — set to `http://localstack:4566` in docker-compose |

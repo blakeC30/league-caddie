@@ -18,9 +18,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-east-2
   # Constructed from the AWS_ACCOUNT_ID secret — avoids hardcoding the account number.
-  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-2.amazonaws.com
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
@@ -73,7 +73,7 @@ jobs:
           DATABASE_URL: postgresql://league_caddie:league_caddie@localhost:5432/league_caddie_test
           SECRET_KEY: ci-test-secret-key-not-used-in-prod
           ENVIRONMENT: test
-          AWS_REGION: us-east-1
+          AWS_REGION: us-east-2
           # Dummy credentials — no real AWS calls are made during tests.
           AWS_ACCESS_KEY_ID: test
           AWS_SECRET_ACCESS_KEY: test

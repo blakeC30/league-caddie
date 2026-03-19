@@ -16,7 +16,7 @@ config:
   debug: "false"
   frontendUrl: "https://league-caddie.com"
   leagueCreationRestricted: "true"
-  sqsQueueUrl: "https://sqs.us-east-1.amazonaws.com/049429105437/league-caddie-events-prod"
+  sqsQueueUrl: "https://sqs.us-east-2.amazonaws.com/049429105437/league-caddie-events-prod"
 
 postgres:
   database: league_caddie_prod
