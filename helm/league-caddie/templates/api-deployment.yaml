@@ -26,6 +26,10 @@ spec:
         {{- include "league-caddie.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: api
     spec:
+      {{- if .Values.image.registry }}
+      imagePullSecrets:
+        - name: ecr-registry
+      {{- end }}
       containers:
         - name: api
           image: {{ include "league-caddie.image" (dict "root" . "repo" .Values.api.image.repository) }}

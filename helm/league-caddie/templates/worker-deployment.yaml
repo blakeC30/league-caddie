@@ -30,6 +30,10 @@ spec:
         {{- include "league-caddie.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: worker
     spec:
+      {{- if .Values.image.registry }}
+      imagePullSecrets:
+        - name: ecr-registry
+      {{- end }}
       containers:
         - name: worker
           image: {{ include "league-caddie.image" (dict "root" . "repo" .Values.worker.image.repository) }}

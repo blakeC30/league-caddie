@@ -36,6 +36,10 @@ spec:
         {{- include "league-caddie.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: migrate
     spec:
+      {{- if .Values.image.registry }}
+      imagePullSecrets:
+        - name: ecr-registry
+      {{- end }}
       restartPolicy: OnFailure
       initContainers:
         - name: wait-for-postgres

@@ -33,6 +33,10 @@ spec:
         {{- include "league-caddie.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
+      {{- if .Values.image.registry }}
+      imagePullSecrets:
+        - name: ecr-registry
+      {{- end }}
       containers:
         - name: frontend
           image: {{ include "league-caddie.image" (dict "root" . "repo" .Values.frontend.image.repository) }}
