@@ -934,7 +934,14 @@ def _build_league_tournament_out(
     """
     t = row.tournament
     effective = row.multiplier if row.multiplier is not None else t.multiplier
-    in_progress = t.status == TournamentStatus.IN_PROGRESS.value
+    # Check tee times for both in_progress and scheduled tournaments — the scraper
+    # may not have flipped the status to in_progress yet even though R1 has started.
+    # For scheduled tournaments, all_r1_teed_off will return False if no tee times
+    # exist yet (field not synced), so this is safe.
+    check_tee_times = t.status in (
+        TournamentStatus.IN_PROGRESS.value,
+        TournamentStatus.SCHEDULED.value,
+    )
     return LeagueTournamentOut(
         id=t.id,
         pga_tour_id=t.pga_tour_id,
@@ -946,7 +953,7 @@ def _build_league_tournament_out(
         status=t.status,
         is_team_event=t.is_team_event,
         effective_multiplier=effective,
-        all_r1_teed_off=_all_r1_teed_off(db, t.id) if in_progress else False,
+        all_r1_teed_off=_all_r1_teed_off(db, t.id) if check_tee_times else False,
         is_playoff_round=t.id in playoff_ids,
     )
 

@@ -224,7 +224,7 @@ class PlayoffResultOverride(BaseModel):
 
 
 class PlayoffPickRevise(BaseModel):
-    golfer_id: uuid.UUID
+    golfer_id: uuid.UUID | None = None  # None = delete the pick (set to "No pick")
 
 
 class AdminPickCreate(BaseModel):

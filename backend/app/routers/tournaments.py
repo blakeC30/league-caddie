@@ -139,10 +139,26 @@ def get_leaderboard(
     if not tournament:
         raise HTTPException(status_code=404, detail="Tournament not found")
     if tournament.status == TournamentStatus.SCHEDULED.value:
-        raise HTTPException(
-            status_code=400,
-            detail="Leaderboard is not available for scheduled tournaments",
+        # Allow the leaderboard if at least one golfer's R1 tee time has passed —
+        # the scraper may not have flipped the status to in_progress yet.
+        from datetime import UTC
+        from datetime import datetime as dt
+
+        from sqlalchemy import func as sqlfunc
+
+        first_tee = (
+            db.query(sqlfunc.min(TournamentEntry.tee_time))
+            .filter(
+                TournamentEntry.tournament_id == tournament_id,
+                TournamentEntry.tee_time.isnot(None),
+            )
+            .scalar()
         )
+        if first_tee is None or first_tee > dt.now(UTC):
+            raise HTTPException(
+                status_code=400,
+                detail="Leaderboard is not available for scheduled tournaments",
+            )
 
     entries = (
         db.query(TournamentEntry)

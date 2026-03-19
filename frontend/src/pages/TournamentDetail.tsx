@@ -578,13 +578,24 @@ export function TournamentDetail() {
         const rd = e.rounds.find((x) => x.round_number === currentRoundNumber);
         return rd?.thru ?? -1;
       };
+      const getTeeTime = (e: typeof entries[0]): number => {
+        const rd = e.rounds.find((x) => x.round_number === currentRoundNumber);
+        return rd?.tee_time ? new Date(rd.tee_time).getTime() : Infinity;
+      };
       entries = [...entries].sort((a, b) => {
         const tierDiff = sortTier(a) - sortTier(b);
         if (tierDiff !== 0) return tierDiff;
+        // Golfers with no score (haven't teed off) sort after scored golfers, by tee time.
+        const aHasScore = a.total_score_to_par !== null;
+        const bHasScore = b.total_score_to_par !== null;
+        if (aHasScore !== bHasScore) return aHasScore ? -1 : 1;
+        if (!aHasScore && !bHasScore) {
+          const teeTimeDiff = getTeeTime(a) - getTeeTime(b);
+          if (teeTimeDiff !== 0) return teeTimeDiff;
+          return a.golfer_name.localeCompare(b.golfer_name);
+        }
         if (a.total_score_to_par !== b.total_score_to_par) {
-          if (a.total_score_to_par === null) return 1;
-          if (b.total_score_to_par === null) return -1;
-          return a.total_score_to_par - b.total_score_to_par;
+          return a.total_score_to_par! - b.total_score_to_par!;
         }
         const thruDiff = getThru(b) - getThru(a);
         if (thruDiff !== 0) return thruDiff;
@@ -802,13 +813,18 @@ export function TournamentDetail() {
                           const notStarted = currentRd === null || (currentRd.thru === null || currentRd.thru === 0);
                           const todayStp = !notStarted ? currentRd!.score_to_par : null;
                           const nextRd = entry.rounds.find((x) => x.round_number === currentRoundNumber + 1) ?? null;
+                          // Only show the next round's tee time if it's today — showing
+                          // tomorrow's tee time when the current round just finished is confusing.
+                          const nextRdIsToday = nextRd?.tee_time
+                            ? new Date(nextRd.tee_time).toDateString() === new Date().toDateString()
+                            : false;
                           const thruLabel = notStarted
                             ? currentRd?.tee_time
                                 ? new Date(currentRd.tee_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
                                   (currentRd.started_on_back ? "*" : "")
                                 : "—"
                             : currentRd!.thru === 18
-                            ? nextRd?.tee_time
+                            ? nextRd?.tee_time && nextRdIsToday
                                 ? new Date(nextRd.tee_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
                                   (nextRd.started_on_back ? "*" : "")
                                 : "F"

@@ -148,7 +148,7 @@ export function useOverridePlayoffResult(leagueId: string) {
 
 export function useRevisePlayoffPick(leagueId: string) {
   const qc = useQueryClient();
-  return useMutation<PlayoffPickOut, Error, { pickId: string; golferId: string }>({
+  return useMutation<PlayoffPickOut, Error, { pickId: string; golferId: string | null }>({
     mutationFn: ({ pickId, golferId }) => playoffApi.revisePick(leagueId, pickId, golferId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["playoffBracket", leagueId] }),
   });

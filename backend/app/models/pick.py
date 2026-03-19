@@ -156,6 +156,14 @@ class Pick(Base):
             if self.entry.tee_time is None:
                 return True  # belt-and-suspenders: no tee_time when in_progress = locked
             return self.entry.tee_time <= datetime.now(UTC)
+        if self.tournament.status == TournamentStatus.SCHEDULED.value:
+            # The scraper may not have flipped the status to in_progress yet.
+            # Lock the pick if the golfer's tee time has already passed.
+            if self.entry is None:
+                return False  # no field data yet — keep unlocked
+            if self.entry.tee_time is None:
+                return False  # tee times not assigned yet — keep unlocked
+            return self.entry.tee_time <= datetime.now(UTC)
         return False
 
     def __repr__(self) -> str:

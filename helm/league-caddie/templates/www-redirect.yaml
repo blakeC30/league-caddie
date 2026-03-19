@@ -1,0 +1,48 @@
+{{- if .Values.ingress.tlsEnabled }}
+---
+# Traefik Middleware — 301 redirect from www to bare domain.
+# Applied only to the www Ingress below, so the main Ingress is unaffected.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: {{ include "league-caddie.fullname" . }}-www-redirect
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+spec:
+  redirectRegex:
+    regex: "^https?://www\\.(.+)"
+    replacement: "https://${1}"
+    permanent: true
+---
+# Separate Ingress for www — uses its own TLS secret so a cert failure
+# here never takes down the main domain.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "league-caddie.fullname" . }}-www
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "league-caddie.labels" . | nindent 4 }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "league-caddie.fullname" . }}-www-redirect@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - "www.{{ .Values.ingress.host }}"
+      secretName: www-{{ .Values.ingress.host | replace "." "-" }}-tls
+  rules:
+    - host: "www.{{ .Values.ingress.host }}"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "league-caddie.fullname" . }}-frontend
+                port:
+                  name: http
+{{- end }}

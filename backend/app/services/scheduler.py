@@ -256,6 +256,11 @@ def _run_live_score_sync() -> None:
     Every 5 minutes: sync live scores for any in_progress tournament,
     but only if the current time falls within the computed play window.
 
+    Also picks up scheduled tournaments whose start_date <= today — the
+    scraper may not have flipped the status to in_progress yet, but ESPN
+    already has live data. sync_tournament() will update the status as
+    part of its normal flow.
+
     No day-of-week restriction — if a tournament is in_progress on Monday
     due to a weather delay or playoff carryover, this job continues running.
 
@@ -272,15 +277,31 @@ def _run_live_score_sync() -> None:
 
     db = SessionLocal()
     try:
+        today_utc = datetime.now(tz=UTC).date()
+
+        # In-progress tournaments — the standard case.
         active_tournaments = (
             db.query(Tournament).filter_by(status=TournamentStatus.IN_PROGRESS.value).all()
         )
-        if not active_tournaments:
-            return  # Nothing to do — skip silently (fires every 10 min)
 
-        today_utc = datetime.now(tz=UTC).date()
+        # Scheduled tournaments whose start_date <= today — ESPN may already
+        # have live data even though the scraper hasn't flipped the status yet.
+        # sync_tournament() will update the status to in_progress as part of
+        # its normal flow.
+        starting_today = (
+            db.query(Tournament)
+            .filter(
+                Tournament.status == TournamentStatus.SCHEDULED.value,
+                Tournament.start_date <= today_utc,
+            )
+            .all()
+        )
 
-        for tournament in active_tournaments:
+        all_tournaments = active_tournaments + starting_today
+        if not all_tournaments:
+            return  # Nothing to do — skip silently
+
+        for tournament in all_tournaments:
             # Safety guard: skip tournaments whose end_date is stale.
             if tournament.end_date and (today_utc - tournament.end_date).days > 3:
                 log.warning(
@@ -295,7 +316,9 @@ def _run_live_score_sync() -> None:
             if not _is_within_play_window(db, tournament):
                 log.debug("Live sync: outside play window for '%s', skipping", tournament.name)
                 continue
-            log.info("Live sync: syncing scores for in_progress '%s'", tournament.name)
+            log.info(
+                "Live sync: syncing scores for '%s' (status=%s)", tournament.name, tournament.status
+            )
             sync_tournament(db, tournament.pga_tour_id)
     except Exception as exc:
         log.error("Live score sync failed: %s", exc, exc_info=True)

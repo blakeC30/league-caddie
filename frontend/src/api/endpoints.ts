@@ -672,7 +672,7 @@ export const playoffApi = {
   overrideResult: (leagueId: string, data: { pod_id: number; winner_user_id: string }) =>
     api.post<{ detail: string }>(`/leagues/${leagueId}/playoff/override`, data).then((r) => r.data),
 
-  revisePick: (leagueId: string, pickId: string, golferId: string) =>
+  revisePick: (leagueId: string, pickId: string, golferId: string | null) =>
     api.patch<PlayoffPickOut>(`/leagues/${leagueId}/playoff/picks/${pickId}`, { golfer_id: golferId }).then((r) => r.data),
 
   adminCreatePick: (leagueId: string, podId: number, userId: string, draftSlot: number, golferId: string) =>

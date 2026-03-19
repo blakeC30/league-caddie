@@ -31,7 +31,6 @@ spec:
   tls:
     - hosts:
         - {{ .Values.ingress.host | quote }}
-        - "www.{{ .Values.ingress.host }}"
       # cert-manager stores the issued certificate in this Secret.
       secretName: {{ .Values.ingress.host | replace "." "-" }}-tls
   {{- end }}
@@ -48,17 +47,6 @@ spec:
                 port:
                   name: http
           # Frontend SPA — catches everything else, including deep React Router paths.
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "league-caddie.fullname" . }}-frontend
-                port:
-                  name: http
-    # www → bare domain: same routes, nginx handles the 301 redirect.
-    - host: "www.{{ .Values.ingress.host }}"
-      http:
-        paths:
           - path: /
             pathType: Prefix
             backend:

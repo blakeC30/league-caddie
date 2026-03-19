@@ -884,11 +884,21 @@ export function Leaderboard() {
   const isManager = members?.some((m) => m.user_id === currentUserId && m.role === "manager") ?? false;
   const { data: purchase, isLoading: purchaseLoading } = useLeaguePurchase(leagueId ?? "");
   const [expanded, setExpanded] = useState(() => searchParams.get("expand") === "1");
-  const [pageView, setPageView] = useState<"standings" | "bracket">(
-    () => searchParams.get("view") === "bracket" ? "bracket" : "standings"
-  );
-
   const hasPlayoffs = !!bracket;
+  // Default to bracket view when the playoff is active (regular season ended).
+  const playoffActive = bracket?.playoff_config?.status === "active" || bracket?.playoff_config?.status === "completed";
+  const [pageView, setPageView] = useState<"standings" | "bracket">(
+    () => searchParams.get("view") === "bracket" ? "bracket"
+      : searchParams.get("view") === "standings" ? "standings"
+      : "standings" // initial default; updated below once bracket loads
+  );
+  const defaultedRef = useRef(false);
+  useEffect(() => {
+    if (!defaultedRef.current && playoffActive && !searchParams.get("view")) {
+      setPageView("bracket");
+      defaultedRef.current = true;
+    }
+  }, [playoffActive, searchParams]);
   const totalRows = standings?.rows.length ?? 0;
   const showToggle = totalRows > 5;
 

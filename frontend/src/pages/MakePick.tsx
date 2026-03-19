@@ -473,6 +473,40 @@ export function MakePick() {
     );
   }
 
+  // Pick is locked when:
+  // 1. The user's golfer has teed off (is_locked = true), OR
+  // 2. All R1 tee times have passed and the user has no pick (window permanently closed)
+  const pickLocked = existingPick?.is_locked || (tournament.all_r1_teed_off && !existingPick);
+
+  if (pickLocked) {
+    const hasExisting = !!existingPick;
+    return (
+      <div className="max-w-lg mx-auto">
+        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-16 text-center space-y-3">
+          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${hasExisting ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-500"}`}>
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+            </svg>
+          </div>
+          <p className="font-semibold text-gray-700">
+            {hasExisting ? "Pick locked" : "Pick window closed"}
+          </p>
+          <p className="text-sm text-gray-400 max-w-xs mx-auto">
+            {hasExisting
+              ? "Your golfer has teed off — your pick is locked for this tournament."
+              : "All Round 1 tee times have passed. This tournament will count as a no-pick."}
+          </p>
+          <Link
+            to={`/leagues/${leagueId}`}
+            className="inline-block text-sm font-semibold text-green-700 hover:text-green-900 mt-2 transition-colors"
+          >
+            Back to dashboard →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Still loading: field query hasn't resolved yet, or pre-field golfers haven't loaded.
   if (field === undefined || (fieldNotReleased && allGolfers === undefined)) {
     return (

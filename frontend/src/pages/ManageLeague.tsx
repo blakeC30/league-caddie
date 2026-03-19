@@ -685,14 +685,29 @@ export function ManageLeague() {
     const picksPerRound = bracket?.playoff_config?.picks_per_round ?? [];
     const expectedSlots = picksPerRound[roundIdx] ?? 1;
 
-    // Build the full slot list: filled slots from existing picks, empty slots for the rest.
+    // Build the full slot list: filled slots from existing picks (sorted by draft_slot),
+    // then empty virtual slots for the rest. Draft slots may not be sequential (e.g. snake
+    // draft gives slots 1,4 to one member and 2,3 to another), so we match by index.
+    const sortedPicks = [...existingPicks].sort((a, b) => a.draft_slot - b.draft_slot);
+    const usedSlots = new Set(sortedPicks.map((p) => p.draft_slot));
+
+    // Collect all draft slots assigned to this member's pod (total slots = members × picksPerMember).
+    // The member's unassigned slots are those not in usedSlots and not taken by other members.
+    const allPodSlots = Array.from({ length: (poReviseRound.pods.find((p) => p.id === podId)?.members.length ?? 2) * expectedSlots }, (_, j) => j + 1);
+    const otherMemberSlots = new Set(
+      (poReviseRound.pods.find((p) => p.id === podId)?.picks ?? [])
+        .filter((p) => p.pod_member_id !== (poReviseRound.pods.find((pp) => pp.id === podId)?.members.find((m) => m.user_id === poReviseUserId)?.id))
+        .map((p) => p.draft_slot)
+    );
+    const availableSlots = allPodSlots.filter((s) => !usedSlots.has(s) && !otherMemberSlots.has(s));
+
     return Array.from({ length: expectedSlots }, (_, i) => {
-      const slot = i + 1;
-      const existing = existingPicks.find((p) => p.draft_slot === slot);
+      const existing = sortedPicks[i];
       if (existing) {
-        return { id: existing.id, draft_slot: slot, golfer_id: existing.golfer_id, golfer_name: existing.golfer_name, isVirtual: false };
+        return { id: existing.id, draft_slot: existing.draft_slot, golfer_id: existing.golfer_id, golfer_name: existing.golfer_name, isVirtual: false };
       }
-      return { id: `new:${podId}:${slot}`, draft_slot: slot, golfer_id: null as string | null, golfer_name: null as string | null, isVirtual: true };
+      const virtualSlot = availableSlots[i - sortedPicks.length] ?? (i + 1);
+      return { id: `new:${podId}:${virtualSlot}`, draft_slot: virtualSlot, golfer_id: null as string | null, golfer_name: null as string | null, isVirtual: true };
     });
   }, [poReviseRound, poReviseUserId, bracket]);
 
@@ -740,7 +755,9 @@ export function ManageLeague() {
   }, [poReviseRoundId, poReviseUserId]);
 
   async function handleSavePoRevisePick() {
-    if (!poRevisePickId || poReviseGolferId === "none") return;
+    if (!poRevisePickId) return;
+    // "none" on a virtual (new) slot = no-op; on an existing pick = delete it.
+    if (poReviseGolferId === "none" && poRevisePickId.startsWith("new:")) return;
     if (poRevisePickId.startsWith("new:")) {
       const [, podIdStr, draftSlotStr] = poRevisePickId.split(":");
       await adminCreatePlayoffPick.mutateAsync({
@@ -750,7 +767,7 @@ export function ManageLeague() {
         golferId: poReviseGolferId,
       });
     } else {
-      await revisePlayoffPick.mutateAsync({ pickId: poRevisePickId, golferId: poReviseGolferId });
+      await revisePlayoffPick.mutateAsync({ pickId: poRevisePickId, golferId: poReviseGolferId === "none" ? null : poReviseGolferId });
     }
     setPoReviseSaved(true);
     setTimeout(() => setPoReviseSaved(false), 4000);
@@ -1615,7 +1632,7 @@ export function ManageLeague() {
                     {poInProgressRound.tournament_name && (
                       <><span className="text-gray-300">—</span><span>{poInProgressRound.tournament_name}</span></>
                     )}
-                    <span className="rounded-full bg-green-100 text-green-700 text-xs font-semibold px-2 py-0.5">In Progress</span>
+                    <span className="rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5">Live</span>
                   </div>
 
                   <div className="grid sm:grid-cols-3 gap-3">
@@ -1637,9 +1654,9 @@ export function ManageLeague() {
                         value={poRevisePickId ?? ""}
                         onChange={(val) => setPoRevisePickId(val || null)}
                         placeholder="Select pick…"
-                        options={poRevisePickOptions.map((p) => ({
+                        options={poRevisePickOptions.map((p, i) => ({
                           value: p.id,
-                          label: p.golfer_name ? `Pick ${p.draft_slot} — ${p.golfer_name}` : `Pick ${p.draft_slot} — (empty)`,
+                          label: p.golfer_name ? `Pick ${i + 1} — ${p.golfer_name}` : `Pick ${i + 1} — (empty)`,
                         }))}
                       />
                     </div>
@@ -1669,7 +1686,7 @@ export function ManageLeague() {
                       onClick={handleSavePoRevisePick}
                       disabled={
                         !poRevisePickId ||
-                        poReviseGolferId === "none" ||
+                        (poReviseGolferId === "none" && poRevisePickId.startsWith("new:")) ||
                         revisePlayoffPick.isPending ||
                         adminCreatePlayoffPick.isPending ||
                         (!poRevisePickId?.startsWith("new:") &&
@@ -1757,7 +1774,7 @@ export function ManageLeague() {
                         label: fmtTournamentName(t.name),
                         badge: t.status === "in_progress" ? "Live" : "Final",
                         badgeColor: t.status === "in_progress"
-                          ? "bg-green-100 text-green-700"
+                          ? "bg-yellow-100 text-yellow-800"
                           : "bg-gray-100 text-gray-500",
                       })) ?? []
                   }

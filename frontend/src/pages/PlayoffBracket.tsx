@@ -216,15 +216,20 @@ function BracketGrid({
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending:   "bg-gray-100 text-gray-500",
+    pending:   "bg-blue-100 text-blue-700",
     drafting:  "bg-amber-100 text-amber-700",
-    locked:    "bg-purple-100 text-purple-700",
+    locked:    "bg-yellow-100 text-yellow-800",
     scoring:   "bg-orange-100 text-orange-700",
     completed: "bg-green-100 text-green-700",
   };
+  const label: Record<string, string> = {
+    pending: "Upcoming",
+    locked: "Live",
+    completed: "Final",
+  };
   return (
     <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${map[status] ?? "bg-gray-100 text-gray-500"}`}>
-      {status}
+      {label[status] ?? status}
     </span>
   );
 }
@@ -234,7 +239,7 @@ function StatusPill({ status }: { status: string }) {
 // ---------------------------------------------------------------------------
 
 type SelectedPod =
-  | { kind: "live"; pod: PlayoffPodOut; roundStatus: string; tournamentId: string | null; tournamentName: string | null }
+  | { kind: "live"; pod: PlayoffPodOut; roundStatus: string; roundNumber: number; tournamentId: string | null; tournamentName: string | null }
   | { kind: "projected"; position: number; members: ProjectedMember[]; tournamentName: string | null }
   | { kind: "pending"; position: number; tournamentName: string | null };
 
@@ -242,11 +247,13 @@ function PodModal({
   selected,
   leagueId,
   currentUserId,
+  picksPerRound,
   onClose,
 }: {
   selected: SelectedPod;
   leagueId: string;
   currentUserId: string | null;
+  picksPerRound?: number[];
   onClose: () => void;
 }) {
   // Extract live-pod fields before any early returns (Rules of Hooks).
@@ -361,6 +368,18 @@ function PodModal({
   const isInPod     = pod.members.some((m) => m.user_id === currentUserId);
   const haspicks    = pod.picks.length > 0;
   const sortedMembers = [...pod.members].sort((a, b) => a.seed - b.seed);
+  // Determine expected picks per member for this round.
+  // Primary: picks_per_round config array. Fallback: max picks any member has, or 1.
+  const expectedPicksPerMember = (() => {
+    if (selected.kind === "live" && picksPerRound && picksPerRound.length > 0) {
+      return picksPerRound[selected.roundNumber - 1] ?? 1;
+    }
+    // Fallback: infer from actual pick data (max draft_slot across all picks in this pod).
+    if (pod && pod.picks.length > 0) {
+      return Math.max(...pod.picks.map((p) => p.draft_slot), 1);
+    }
+    return 1;
+  })();
 
   return (
     <div
@@ -390,21 +409,18 @@ function PodModal({
 
         {/* Body */}
         <div className="max-h-[65vh] overflow-y-auto divide-y divide-gray-100">
-          {!haspicks ? (
+          {isDrafting && !haspicks ? (
             <div className="px-5 py-10 text-center space-y-2">
               <p className="text-sm text-gray-400">
-                {isDrafting
-                  ? "Rankings are being collected — picks will be assigned automatically once the tournament begins."
-                  : "No picks yet."}
+                Rankings are being collected — picks will be assigned automatically once the tournament begins.
               </p>
-              {isDrafting && isInPod && (
+              {isInPod && (
                 <Link
                   to={`/leagues/${leagueId}/pick`}
                   className="inline-block text-sm font-semibold text-green-700 hover:text-green-900"
                 >
                   Submit your rankings →
                 </Link>
-
               )}
             </div>
           ) : (
@@ -438,13 +454,10 @@ function PodModal({
                     )}
                   </div>
 
-                  {/* Pick rows */}
-                  {picks.length === 0 ? (
-                    <div className="px-5 pl-12 py-2 bg-gray-50">
-                      <span className="text-xs text-gray-400 italic">No picks</span>
-                    </div>
-                  ) : (
-                    picks.map((pick) => {
+                  {/* Pick rows — show actual picks first, then "No pick" for missing slots */}
+                  {Array.from({ length: expectedPicksPerMember }, (_, i) => {
+                    const pick = picks[i];
+                    if (pick) {
                       const position = positionMap.get(pick.golfer_id);
                       return (
                         <div key={pick.id} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-gray-50">
@@ -458,8 +471,13 @@ function PodModal({
                           ) : null}
                         </div>
                       );
-                    })
-                  )}
+                    }
+                    return (
+                      <div key={`no-pick-${member.user_id}-${i}`} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-gray-50">
+                        <span className="flex-1 text-xs font-medium text-red-400">No pick</span>
+                      </div>
+                    );
+                  })}
                 </div>
               );
             })
@@ -769,6 +787,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
             selected={selectedPod}
             leagueId={leagueId!}
             currentUserId={currentUser?.id ?? null}
+            picksPerRound={config.picks_per_round}
             onClose={() => setSelectedPod(null)}
           />
         )}
@@ -817,6 +836,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
               kind: "live",
               pod,
               roundStatus: round.status,
+              roundNumber: round.round_number,
               tournamentId: round.tournament_id ?? null,
               tournamentName: round.tournament_name ?? null,
             })}
@@ -869,6 +889,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
           selected={selectedPod}
           leagueId={leagueId!}
           currentUserId={currentUser?.id ?? null}
+          picksPerRound={config.picks_per_round}
           onClose={() => setSelectedPod(null)}
         />
       )}

@@ -1245,6 +1245,12 @@ def revise_playoff_pick(
             detail="Picks can only be revised while the playoff tournament is in progress.",
         )
 
+    # golfer_id = None means "delete this pick" (set to no pick).
+    if body.golfer_id is None:
+        db.delete(pick)
+        db.commit()
+        return _build_pick_out(pick)
+
     golfer = db.query(Golfer).filter_by(id=body.golfer_id).first()
     if not golfer:
         raise HTTPException(status_code=404, detail="Golfer not found")
@@ -1286,9 +1292,10 @@ def admin_create_pod_pick(
     Manager: directly create a playoff pick for a pod member, bypassing the
     preference list / draft resolution flow.
 
-    Only available when round.status == 'drafting' (before the draft is resolved).
-    The slot must not already have a pick — use PATCH /playoff/picks/{id} to revise
-    an existing one.
+    Available when round.status is 'drafting' or 'locked' — allows managers to
+    assign picks for members who didn't submit preferences even after the draft
+    has resolved. The slot must not already have a pick — use PATCH
+    /playoff/picks/{id} to revise an existing one.
     """
     from app.models import Golfer
 
@@ -1298,12 +1305,12 @@ def admin_create_pod_pick(
     if pod.playoff_round.playoff_config.league_id != league.id:
         raise HTTPException(status_code=403, detail="Pod does not belong to this league")
 
-    if pod.playoff_round.status != "drafting":
+    if pod.playoff_round.status not in ("drafting", "locked"):
         raise HTTPException(
             status_code=422,
             detail=(
-                "Picks can only be directly created when the round is in drafting status. "
-                "Use PATCH /playoff/picks/{pick_id} to revise a pick after the draft is resolved."
+                "Picks can only be created when the round is in drafting or locked status. "
+                "Use PATCH /playoff/picks/{pick_id} to revise an existing pick."
             ),
         )
 
