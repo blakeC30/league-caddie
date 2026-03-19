@@ -17,7 +17,7 @@ export function Welcome() {
   if (token) return <Navigate to="/leagues" replace />;
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 antialiased">
+    <div className="min-h-screen bg-white text-gray-900 antialiased overflow-x-hidden">
       {/* ── Sticky nav ── */}
       <header className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-sm border-b border-gray-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
