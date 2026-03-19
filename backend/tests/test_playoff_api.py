@@ -2015,11 +2015,11 @@ class TestRevisePlayoffPick:
 
 
 class TestAdminCreatePodPick:
-    def _seeded_with_open_draft(self, db, client, suffix=""):
+    def _seeded_with_open_draft(self, db, client, suffix="", status="drafting"):
         """
-        Return a seeded league whose round is in 'drafting' status (no picks yet).
-        The seed endpoint leaves rounds as 'drafting' by default, so this is the
-        starting state right after seeding.
+        Return a seeded league whose round starts in the given status (default: drafting).
+        The seed endpoint leaves rounds as 'drafting' by default; pass status='locked'
+        for tests that require the round to be in locked (post-resolve) state.
         """
         (
             league,
@@ -2033,6 +2033,12 @@ class TestAdminCreatePodPick:
             round_id,
             pod_id,
         ) = _setup_seeded_league(db, client, suffix=suffix)
+        if status != "drafting":
+            from app.models.playoff import PlayoffRound
+
+            round_obj = db.query(PlayoffRound).filter_by(id=round_id).first()
+            round_obj.status = status
+            db.commit()
         return league, manager, player, tournament, golfer1, golfer2, mgr_headers, round_id, pod_id
 
     def test_pod_not_in_league_returns_403(self, client, db):
@@ -2123,12 +2129,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             round_id,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acplk")
-
-        # Lock the round to simulate post-resolve state
-        round_obj = db.query(PlayoffRound).filter_by(id=round_id).first()
-        round_obj.status = "locked"
-        db.commit()
+        ) = self._seeded_with_open_draft(db, client, suffix="_acplk", status="locked")
 
         resp = client.post(
             f"/api/v1/leagues/{league.id}/playoff/pods/{pod_id}/admin-pick",
@@ -2153,7 +2154,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             _,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acpnp")
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpnp", status="locked")
 
         outsider = _make_user(db, "outsider_acp@test.com")
         resp = client.post(
@@ -2179,7 +2180,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             _,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acpor")
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpor", status="locked")
 
         resp = client.post(
             f"/api/v1/leagues/{league.id}/playoff/pods/{pod_id}/admin-pick",
@@ -2205,7 +2206,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             _,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acpsf")
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpsf", status="locked")
 
         # Create the first pick
         client.post(
@@ -2243,7 +2244,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             _,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acpgf")
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpgf", status="locked")
 
         resp = client.post(
             f"/api/v1/leagues/{league.id}/playoff/pods/{pod_id}/admin-pick",
@@ -2268,7 +2269,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             _,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acpga")
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpga", status="locked")
 
         # Create first pick (manager gets golfer1, draft_slot=1)
         first_resp = client.post(
@@ -2307,7 +2308,7 @@ class TestAdminCreatePodPick:
             mgr_headers,
             _,
             pod_id,
-        ) = self._seeded_with_open_draft(db, client, suffix="_acpsuc")
+        ) = self._seeded_with_open_draft(db, client, suffix="_acpsuc", status="locked")
 
         resp = client.post(
             f"/api/v1/leagues/{league.id}/playoff/pods/{pod_id}/admin-pick",
