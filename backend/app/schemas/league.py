@@ -13,7 +13,7 @@ class LeagueCreate(BaseModel):
     # Default matches the house rule; league manager can override on creation.
     # Accepts positive values for convenience (frontend sends display value);
     # the validator auto-negates them so the DB always stores non-positive.
-    no_pick_penalty: int = 50_000
+    no_pick_penalty: int = -50_000
 
     @field_validator("no_pick_penalty")
     @classmethod
