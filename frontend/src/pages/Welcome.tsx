@@ -60,8 +60,7 @@ export function Welcome() {
             </span>
           </h1>
           <p className="text-lg sm:text-xl text-green-100 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Pick one PGA Tour golfer each week. Your points are based on what
-            they actually win on Tour — real earnings, tracked automatically.
+            The modern way to run a One-and-Done fantasy golf league. Pick one PGA Tour golfer each week — your points are based on what they actually earn on Tour, tracked automatically.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
