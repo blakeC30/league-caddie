@@ -25,6 +25,7 @@ import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, field_validator
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.config import settings
@@ -297,6 +298,10 @@ def request_to_join(
             detail="This league is not currently accepting new join requests.",
         )
 
+    # Lock the league row to serialize concurrent join requests. This prevents
+    # TOCTOU races on the member limit, pending cap, and user league cap checks.
+    db.query(League).filter_by(id=league.id).with_for_update().first()
+
     # Guard: per-user league cap — count both approved memberships and pending requests
     # so a user can't submit unlimited requests that would exceed the cap if all approved.
     user_league_count = (
@@ -373,7 +378,14 @@ def request_to_join(
         status=initial_status,
     )
     db.add(membership)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a pending or approved membership for this league.",
+        )
     db.refresh(membership)
     membership.user = current_user
     return membership
