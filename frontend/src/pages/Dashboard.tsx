@@ -89,6 +89,7 @@ export function Dashboard() {
   const { data: tournaments } = useLeagueTournaments(leagueId!);
   const { data: globalScheduled } = useTournaments("scheduled");
   const { data: globalInProgress } = useTournaments("in_progress");
+  const { data: allGlobalTournaments } = useTournaments();
   const { data: myPicks } = useMyPicks(leagueId!);
   const { data: standings } = useStandings(leagueId!);
   const { data: playoffConfig } = usePlayoffConfig(leagueId!);
@@ -387,7 +388,14 @@ export function Dashboard() {
                 );
               }
               if (!pickWindowOpen) {
-                const blockingTournament = globalInProgress?.[0];
+                // Find the PGA tournament immediately before the league's first scheduled tournament.
+                const firstLeagueScheduled = active;
+                const precedingTournament = firstLeagueScheduled && allGlobalTournaments
+                  ? allGlobalTournaments
+                      .filter((t) => t.start_date < firstLeagueScheduled.start_date && t.status !== "completed")
+                      .sort((a, b) => b.start_date.localeCompare(a.start_date))[0]
+                    ?? globalInProgress?.[0]
+                  : globalInProgress?.[0];
                 return (
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center flex-shrink-0">
@@ -397,9 +405,9 @@ export function Dashboard() {
                     </div>
                     <div>
                       <p className="text-base font-semibold text-gray-400">Picks not open yet</p>
-                      {blockingTournament && (
+                      {precedingTournament && (
                         <p className="text-xs text-gray-400">
-                          Opens after {fmtTournamentName(blockingTournament.name)} completes
+                          Picks open after {fmtTournamentName(precedingTournament.name)} completes
                         </p>
                       )}
                     </div>

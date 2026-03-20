@@ -80,6 +80,7 @@ tests/
 ├── test_scraper.py                   # ESPN API parsing, upsert logic (unit, no HTTP)
 ├── test_password_reset.py            # forgot-password + reset-password flow (SES mocked)
 ├── test_accepting_requests.py        # leagues.accepting_requests flag enforcement
+├── test_auto_accept.py               # leagues.auto_accept_requests toggle, batch-accept, join auto-approval
 ├── test_tournaments.py               # GET /tournaments, /field, /leaderboard, /sync-status
 ├── test_google_auth.py               # POST /auth/google (verify_google_id_token mocked)
 ├── test_league_ordering_and_caps.py  # League ordering, caps, request cancel/approve/deny, leave
@@ -206,7 +207,7 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 |-------|-------------|
 | `users` | id (UUID), email (unique), password_hash (nullable), google_id (nullable), display_name, is_platform_admin |
 | `password_reset_tokens` | id (UUID), user_id (FK→users, CASCADE), token_hash (SHA-256 hex, indexed), expires_at, used_at (nullable — set on redemption), created_at |
-| `leagues` | id (UUID), name, invite_code (unique, 16-char token), is_public, no_pick_penalty (default=-50000) — no description column |
+| `leagues` | id (UUID), name, invite_code (unique, 16-char token), is_public, accepting_requests, auto_accept_requests, no_pick_penalty (default=-50000) — no description column |
 | `league_members` | league_id, user_id, role ("manager"\|"member"), status ("pending"\|"approved") |
 | `seasons` | league_id, year (int), is_active; UNIQUE(league_id, year) |
 | `tournaments` | pga_tour_id (unique), name, start_date, end_date, multiplier (float, default=1.0), status, competition_id (nullable), is_team_event (bool) |
@@ -272,6 +273,7 @@ Existing migration files (in order):
 22. `m9n1o3p5q7r9` — add `leagues.accepting_requests` (BOOLEAN NOT NULL DEFAULT TRUE); when False, new join requests are blocked at the API level
 23. `n0o2p4q6r8s0` — add `stripe_customers`, `league_purchases`, `league_purchase_events` tables; data migration backfills all existing leagues as Elite tier for 2026 at no cost
 24. `o1p3q5r7s9t1` — preserve financial records on league deletion: add `deleted_leagues` audit table; `league_purchases.league_id` + `league_purchase_events.league_id` changed to nullable with `ON DELETE SET NULL`; `deleted_league_id` FK column added to both tables
+25. `p2q4r6s8t0u2` — add `leagues.auto_accept_requests` (BOOLEAN NOT NULL DEFAULT FALSE); when True, join requests are auto-approved subject to member-limit checks
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)

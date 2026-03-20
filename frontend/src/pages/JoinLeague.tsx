@@ -254,8 +254,9 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
           /* Confirm state */
           <div className="space-y-3">
             <p className="text-sm text-gray-500 text-center">
-              Joining requires manager approval. Your request will be reviewed before
-              you get access.
+              {preview.auto_accept_requests
+                ? "You'll be added to this league immediately."
+                : "Joining requires manager approval. Your request will be reviewed before you get access."}
             </p>
             {joinError && (
               <p className="text-xs text-red-600 text-center">{joinError}</p>
@@ -265,7 +266,7 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
               disabled={joinByCode.isPending}
               className="w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
             >
-              {joinByCode.isPending ? "Submitting…" : "Request to Join"}
+              {joinByCode.isPending ? "Joining…" : preview.auto_accept_requests ? "Join League" : "Request to Join"}
             </button>
             <button
               onClick={() => navigate("/leagues")}

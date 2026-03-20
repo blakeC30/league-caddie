@@ -24,11 +24,12 @@ export function useLeague(leagueId: string) {
 export function useUpdateLeague(leagueId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name?: string; no_pick_penalty?: number; accepting_requests?: boolean }) =>
+    mutationFn: (data: { name?: string; no_pick_penalty?: number; accepting_requests?: boolean; auto_accept_requests?: boolean }) =>
       leaguesApi.update(leagueId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["league", leagueId] });
       qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["pendingRequests", leagueId] });
     },
   });
 }

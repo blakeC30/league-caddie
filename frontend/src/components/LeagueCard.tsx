@@ -62,6 +62,7 @@ export function LeagueCard({ league }: { league: League }) {
   const { data: myPlayoffPicks } = useMyPlayoffPicks(league.id);
   const { data: globalScheduled } = useTournaments("scheduled");
   const { data: globalInProgress } = useTournaments("in_progress");
+  const { data: allGlobalTournaments } = useTournaments();
 
   const myRow = standings?.rows.find((r) => r.user_id === currentUser?.id);
   const isManager = members?.find((m) => m.user_id === currentUser?.id)?.role === "manager";
@@ -185,11 +186,19 @@ export function LeagueCard({ league }: { league: League }) {
                   )}
                 </p>
               ) : !pickWindowOpen && current.status === "scheduled" ? (
-                globalInProgress && globalInProgress.length > 0 ? (
-                  <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-                    Opens after {fmtTournamentName(globalInProgress[0].name)} completes
-                  </p>
-                ) : null
+                (() => {
+                  const preceding = allGlobalTournaments
+                    ? allGlobalTournaments
+                        .filter((t) => t.start_date < current.start_date && t.status !== "completed")
+                        .sort((a, b) => b.start_date.localeCompare(a.start_date))[0]
+                      ?? globalInProgress?.[0]
+                    : globalInProgress?.[0];
+                  return preceding ? (
+                    <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                      Picks open after {fmtTournamentName(preceding.name)} completes
+                    </p>
+                  ) : null;
+                })()
               ) : current.status === "scheduled" || (current.status === "in_progress" && !current.all_r1_teed_off) ? (
                 <p className="text-[11px] text-amber-600 font-medium mt-0.5 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 inline-block" />

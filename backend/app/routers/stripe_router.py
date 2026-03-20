@@ -297,6 +297,7 @@ def create_league_checkout(
             "pending_league_id": str(pending_league_id),
             "league_name": body.name,
             "no_pick_penalty": str(body.no_pick_penalty),
+            "auto_accept_requests": str(body.auto_accept_requests).lower(),
             "user_id": str(current_user.id),
             "tier": body.tier,
             "season_year": str(current_year),
@@ -459,6 +460,7 @@ def _handle_checkout_complete(session: dict, db: Session) -> None:
         league_name = metadata.get("league_name")
         user_id_str = metadata.get("user_id")
         no_pick_penalty_str = metadata.get("no_pick_penalty", "0")
+        auto_accept_str = metadata.get("auto_accept_requests", "false")
 
         if not all([pending_league_id_str, league_name, user_id_str]):
             raise ValueError(f"Stripe webhook create_league missing metadata: {metadata}")
@@ -503,7 +505,11 @@ def _handle_checkout_complete(session: dict, db: Session) -> None:
 
         db.add(
             League(
-                id=league_id, name=league_name, created_by=user_id, no_pick_penalty=no_pick_penalty
+                id=league_id,
+                name=league_name,
+                created_by=user_id,
+                no_pick_penalty=no_pick_penalty,
+                auto_accept_requests=auto_accept_str == "true",
             )
         )
         db.add(Season(league_id=league_id, year=season_year, is_active=True))
@@ -659,7 +665,27 @@ def get_league_purchase(
     purchase = (
         db.query(LeaguePurchase).filter_by(league_id=league.id, season_year=current_year).first()
     )
-    return purchase
+    if not purchase:
+        return None
+
+    # Resolve the email of the user who paid via StripeCustomer join.
+    paid_by_email = None
+    if purchase.stripe_customer_id:
+        sc = (
+            db.query(StripeCustomer)
+            .filter_by(stripe_customer_id=purchase.stripe_customer_id)
+            .first()
+        )
+        if sc:
+            from app.models.user import User
+
+            payer = db.query(User).filter_by(id=sc.user_id).first()
+            if payer:
+                paid_by_email = payer.email
+
+    result = LeaguePurchaseOut.model_validate(purchase)
+    result.paid_by_email = paid_by_email
+    return result
 
 
 # ---------------------------------------------------------------------------

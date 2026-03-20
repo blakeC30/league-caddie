@@ -151,6 +151,9 @@ export function Layout() {
             League Caddie
           </span>
           <span>© {new Date().getFullYear()} · League Caddie</span>
+          <a href="mailto:support@league-caddie.com" className="hover:text-green-400 transition-colors">
+            Contact Us
+          </a>
           <Link to="/leagues" className="hover:text-green-400 transition-colors">
             My Leagues
           </Link>

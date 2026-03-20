@@ -50,6 +50,7 @@ class NewLeagueCheckoutCreate(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     no_pick_penalty: int = Field(default=0, ge=0)
     tier: str
+    auto_accept_requests: bool = False
 
     @field_validator("name", mode="before")
     @classmethod
@@ -64,6 +65,7 @@ class LeaguePurchaseOut(BaseModel):
     member_limit: int | None
     amount_cents: int | None
     paid_at: datetime | None
+    paid_by_email: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

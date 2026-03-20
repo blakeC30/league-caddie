@@ -14,6 +14,7 @@ class LeagueCreate(BaseModel):
     # Accepts positive values for convenience (frontend sends display value);
     # the validator auto-negates them so the DB always stores non-positive.
     no_pick_penalty: int = -50_000
+    auto_accept_requests: bool = False
 
     @field_validator("no_pick_penalty")
     @classmethod
@@ -31,6 +32,7 @@ class LeagueUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=60)
     no_pick_penalty: int | None = None
     accepting_requests: bool | None = None
+    auto_accept_requests: bool | None = None
 
     @field_validator("no_pick_penalty")
     @classmethod
@@ -49,6 +51,7 @@ class LeagueOut(BaseModel):
     invite_code: str
     is_public: bool
     accepting_requests: bool
+    auto_accept_requests: bool
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -83,6 +86,8 @@ class LeagueJoinPreview(BaseModel):
     user_status: str | None
     # False when the manager has paused new join requests
     accepting_requests: bool
+    # True when the league auto-accepts join requests (no pending state)
+    auto_accept_requests: bool
 
 
 class LeagueRequestOut(BaseModel):

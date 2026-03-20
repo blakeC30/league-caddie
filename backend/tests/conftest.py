@@ -37,6 +37,9 @@ import os
 
 # Ensure league creation is unrestricted in tests regardless of local .env settings.
 os.environ.setdefault("LEAGUE_CREATION_RESTRICTED", "false")
+# Set ENVIRONMENT=test so the rate limiter uses a unique key per request,
+# preventing rate-limit exhaustion from cascading across tests.
+os.environ.setdefault("ENVIRONMENT", "test")
 
 import pytest
 from fastapi.testclient import TestClient

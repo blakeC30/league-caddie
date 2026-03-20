@@ -124,6 +124,16 @@ class League(Base):
         server_default="true",
     )
 
+    # When True, incoming join requests are automatically approved without
+    # manager intervention (subject to member-limit checks). When False (default),
+    # requests remain pending until a manager explicitly approves them.
+    auto_accept_requests: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+    )
+
     # Points applied to a user's season total when they miss a week (no pick
     # submitted before the tournament starts). Negative by convention.
     # Stored as an integer because earnings are in whole dollars.

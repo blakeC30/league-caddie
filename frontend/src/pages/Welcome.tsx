@@ -300,18 +300,18 @@ export function Welcome() {
             </div>
             <div className="space-y-4">
               {/* Standard event card */}
-              <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 shadow-sm">
                 <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-3">
                   Standard tournament
                 </p>
-                <div className="flex items-end justify-between">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-sm text-gray-500 mb-1">Golfer earns</p>
-                    <p className="text-3xl font-bold text-gray-900 tabular-nums">$1,620,000</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1">Golfer earns</p>
+                    <p className="text-xl sm:text-3xl font-bold text-gray-900 tabular-nums">$1,620,000</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-gray-500 mb-1">You earn</p>
-                    <p className="text-3xl font-bold text-green-700 tabular-nums">1,620,000 pts</p>
+                    <p className="text-xs sm:text-sm text-gray-500 mb-1">You earn</p>
+                    <p className="text-xl sm:text-3xl font-bold text-green-700 tabular-nums">1,620,000 pts</p>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between text-sm text-gray-400">
@@ -320,18 +320,18 @@ export function Welcome() {
                 </div>
               </div>
               {/* Major card */}
-              <div className="bg-green-900 rounded-2xl p-6 shadow-lg shadow-green-900/30">
+              <div className="bg-green-900 rounded-2xl p-5 sm:p-6 shadow-lg shadow-green-900/30">
                 <p className="text-xs text-green-300 uppercase tracking-wider font-semibold mb-3">
                   Major championship
                 </p>
-                <div className="flex items-end justify-between">
+                <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-sm text-green-400 mb-1">Golfer earns</p>
-                    <p className="text-3xl font-bold text-white tabular-nums">$3,600,000</p>
+                    <p className="text-xs sm:text-sm text-green-400 mb-1">Golfer earns</p>
+                    <p className="text-xl sm:text-3xl font-bold text-white tabular-nums">$3,600,000</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm text-green-400 mb-1">You earn</p>
-                    <p className="text-3xl font-bold text-green-300 tabular-nums">7,200,000 pts</p>
+                    <p className="text-xs sm:text-sm text-green-400 mb-1">You earn</p>
+                    <p className="text-xl sm:text-3xl font-bold text-green-300 tabular-nums">7,200,000 pts</p>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-green-800 flex items-center justify-between text-sm text-green-400">
@@ -477,6 +477,9 @@ export function Welcome() {
           </span>
           <span>© {new Date().getFullYear()} · League Caddie</span>
           <div className="flex gap-4">
+            <a href="mailto:support@league-caddie.com" className="hover:text-green-400 transition-colors">
+              Contact Us
+            </a>
             <Link to="/register" className="hover:text-green-400 transition-colors">
               Create account
             </Link>

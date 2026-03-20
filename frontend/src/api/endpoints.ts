@@ -22,6 +22,7 @@ export interface League {
   invite_code: string;
   is_public: boolean;
   accepting_requests: boolean;
+  auto_accept_requests: boolean;
   created_at: string;
 }
 
@@ -106,6 +107,8 @@ export interface LeagueJoinPreview {
   user_status: "pending" | "approved" | null;
   /** false when the manager has paused new join requests */
   accepting_requests: boolean;
+  /** true when the league auto-accepts join requests */
+  auto_accept_requests: boolean;
 }
 
 export interface LeagueRequestOut {
@@ -261,6 +264,7 @@ export interface LeaguePurchaseStatus {
   member_limit: number | null;
   amount_cents: number | null;
   paid_at: string | null;
+  paid_by_email: string | null;
 }
 
 export interface LeaguePurchaseEvent {
@@ -330,13 +334,13 @@ export const usersApi = {
 // ---------------------------------------------------------------------------
 
 export const leaguesApi = {
-  create: (name: string, no_pick_penalty?: number) =>
-    api.post<League>("/leagues", { name, no_pick_penalty }).then((r) => r.data),
+  create: (name: string, no_pick_penalty?: number, auto_accept_requests?: boolean) =>
+    api.post<League>("/leagues", { name, no_pick_penalty, auto_accept_requests }).then((r) => r.data),
 
   get: (leagueId: string) =>
     api.get<League>(`/leagues/${leagueId}`).then((r) => r.data),
 
-  update: (leagueId: string, data: { name?: string; no_pick_penalty?: number; accepting_requests?: boolean }) =>
+  update: (leagueId: string, data: { name?: string; no_pick_penalty?: number; accepting_requests?: boolean; auto_accept_requests?: boolean }) =>
     api.patch<League>(`/leagues/${leagueId}`, data).then((r) => r.data),
 
   leave: (leagueId: string) =>
@@ -475,9 +479,9 @@ export const stripeApi = {
       .post<{ url: string }>("/stripe/create-checkout-session", { league_id, tier, upgrade })
       .then((r) => r.data),
 
-  createLeagueCheckout: (name: string, no_pick_penalty: number, tier: string) =>
+  createLeagueCheckout: (name: string, no_pick_penalty: number, tier: string, auto_accept_requests?: boolean) =>
     api
-      .post<{ url: string }>("/stripe/create-league-checkout", { name, no_pick_penalty, tier })
+      .post<{ url: string }>("/stripe/create-league-checkout", { name, no_pick_penalty, tier, auto_accept_requests })
       .then((r) => r.data),
 };
 

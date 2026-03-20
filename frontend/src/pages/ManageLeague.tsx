@@ -252,11 +252,14 @@ export function ManageLeague() {
   const [settingsEditing, setSettingsEditing] = useState(false);
   const [settingsName, setSettingsName] = useState("");
   const [settingsNoPick, setSettingsNoPick] = useState("50000");
+  const [settingsAutoAccept, setSettingsAutoAccept] = useState(false);
+  const [autoAcceptError, setAutoAcceptError] = useState("");
 
   useEffect(() => {
     if (league) {
       setSettingsName(league.name);
       setSettingsNoPick(String(Math.abs(league.no_pick_penalty)));
+      setSettingsAutoAccept(league.auto_accept_requests);
     }
   }, [league]);
 
@@ -264,16 +267,25 @@ export function ManageLeague() {
     if (league) {
       setSettingsName(league.name);
       setSettingsNoPick(String(Math.abs(league.no_pick_penalty)));
+      setSettingsAutoAccept(league.auto_accept_requests);
     }
+    setAutoAcceptError("");
     setSettingsEditing(false);
   }
 
   async function handleSaveSettings() {
-    await updateLeague.mutateAsync({
-      name: settingsName,
-      no_pick_penalty: parseInt(settingsNoPick, 10) || 0,
-    });
-    setSettingsEditing(false);
+    try {
+      setAutoAcceptError("");
+      await updateLeague.mutateAsync({
+        name: settingsName,
+        no_pick_penalty: parseInt(settingsNoPick, 10) || 0,
+        auto_accept_requests: settingsAutoAccept,
+      });
+      setSettingsEditing(false);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ?? "Failed to save settings";
+      setAutoAcceptError(msg);
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -946,6 +958,37 @@ export function ManageLeague() {
                 </span>
               )}
             </div>
+            {/* Auto-accept join requests */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
+              <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">Auto-accept requests</span>
+              {settingsEditing ? (
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={settingsAutoAccept}
+                    onClick={() => setSettingsAutoAccept(!settingsAutoAccept)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
+                      settingsAutoAccept ? "bg-green-700" : "bg-gray-200"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        settingsAutoAccept ? "translate-x-5" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                  <span className="text-xs text-gray-400">Automatically accept new members when they request to join</span>
+                </div>
+              ) : (
+                <span className={`text-sm font-medium ${league?.auto_accept_requests ? "text-green-700" : "text-gray-400"}`}>
+                  {league?.auto_accept_requests ? "On" : "Off"}
+                </span>
+              )}
+            </div>
+            {autoAcceptError && (
+              <p className="text-sm text-red-600 px-4 pb-2">{autoAcceptError}</p>
+            )}
           </div>
           {settingsEditing && (
             <div className="flex items-center gap-3">
@@ -1003,6 +1046,17 @@ export function ManageLeague() {
               </button>
             )}
           </div>
+          {/* Auto-accept info banner */}
+          {league?.auto_accept_requests && (
+            <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <svg className="w-4 h-4 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+              <p className="text-xs text-green-700">
+                Join requests are automatically accepted. New members are added as soon as they request to join.
+              </p>
+            </div>
+          )}
           {/* Paused banner */}
           {league && !league.accepting_requests && (
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
@@ -1010,7 +1064,9 @@ export function ManageLeague() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
               </svg>
               <p className="text-xs text-gray-500">
-                New join requests are paused. Anyone with the invite link will see a message that the league is not accepting requests. Existing pending requests can still be approved or denied.
+                {league.auto_accept_requests
+                  ? "New join requests are paused. Anyone with the invite link will see a message that the league is not accepting requests."
+                  : "New join requests are paused. Anyone with the invite link will see a message that the league is not accepting requests. Existing pending requests can still be approved or denied."}
               </p>
             </div>
           )}
@@ -1868,9 +1924,9 @@ export function ManageLeague() {
 
       {/* League Plan — manager only, edit-gated */}
       {isManager && (
-        <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+        <section className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 space-y-5 overflow-hidden">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               <SectionIcon>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
@@ -1919,7 +1975,7 @@ export function ManageLeague() {
             /* Has active purchase */
             <div className="space-y-5">
               {/* Plan summary — always visible */}
-              <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+              <div className="bg-gray-50 rounded-xl p-3 sm:p-4 space-y-3 overflow-hidden">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className={`text-xs font-bold px-2.5 py-1 rounded-full ${
@@ -1935,7 +1991,7 @@ export function ManageLeague() {
                     {purchase.tier ? purchase.tier.charAt(0).toUpperCase() + purchase.tier.slice(1) : "—"}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <p className="text-xs text-gray-400 font-medium">Member limit</p>
                     <p className="font-semibold text-gray-800">
@@ -1963,6 +2019,12 @@ export function ManageLeague() {
                         : "—"}
                     </p>
                   </div>
+                  {purchase.paid_by_email && (
+                    <div>
+                      <p className="text-xs text-gray-400 font-medium">Paid by</p>
+                      <p className="font-semibold text-gray-800 break-all">{purchase.paid_by_email}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2049,18 +2111,35 @@ export function ManageLeague() {
                     const currentTierFullPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents ?? 0;
                     const chargeCents = Math.max(0, (selected?.amount_cents ?? 0) - currentTierFullPrice);
                     return (
-                      <p className="text-xs text-gray-500">
-                        You'll be charged{" "}
-                        <span className="font-semibold text-gray-700">${(chargeCents / 100).toFixed(2)}</span>
-                        {" "}— the difference between your current League Plan and the{" "}
-                        <span className="font-semibold text-gray-700 capitalize">{upgradeSelectedTier}</span> League Plan.
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-xs text-gray-500">
+                          You'll be charged{" "}
+                          <span className="font-semibold text-gray-700">${(chargeCents / 100).toFixed(2)}</span>
+                          {" "}— the difference between your current League Plan and the{" "}
+                          <span className="font-semibold text-gray-700 capitalize">{upgradeSelectedTier}</span> League Plan.
+                        </p>
+                        <p className="text-xs text-amber-600">
+                          This is a personal payment charged to your card, not the original purchaser's.
+                        </p>
+                      </div>
                     );
                   })()}
                   <button
                     type="button"
                     disabled={!upgradeSelectedTier || billingLoading}
-                    onClick={() => upgradeSelectedTier && handleQuickPurchase(upgradeSelectedTier, true)}
+                    onClick={() => {
+                      if (!upgradeSelectedTier) return;
+                      const selected = pricingTiers.find((t) => t.tier === upgradeSelectedTier);
+                      const currentTierFullPrice = pricingTiers.find((p) => p.tier === purchase.tier)?.amount_cents ?? 0;
+                      const chargeCents = Math.max(0, (selected?.amount_cents ?? 0) - currentTierFullPrice);
+                      const tierLabel = upgradeSelectedTier.charAt(0).toUpperCase() + upgradeSelectedTier.slice(1);
+                      setConfirmModal({
+                        title: `Upgrade to ${tierLabel}?`,
+                        message: `You will be charged $${(chargeCents / 100).toFixed(2)} to your personal card. This upgrades the league to the ${tierLabel} plan (up to ${selected?.member_limit?.toLocaleString()} members).`,
+                        confirmLabel: `Pay $${(chargeCents / 100).toFixed(2)} & Upgrade`,
+                        onConfirm: () => handleQuickPurchase(upgradeSelectedTier, true),
+                      });
+                    }}
                     className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-4 py-2 rounded-xl transition-colors shadow-sm disabled:opacity-40 flex items-center gap-2"
                   >
                     {billingLoading ? <Spinner /> : null}
