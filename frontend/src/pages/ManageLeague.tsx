@@ -1071,7 +1071,7 @@ export function ManageLeague() {
             </div>
           )}
           {!pendingRequests || pendingRequests.length === 0 ? (
-            <p className="text-sm text-gray-400">No pending requests.</p>
+            !league?.auto_accept_requests && <p className="text-sm text-gray-400">No pending requests.</p>
           ) : (
             <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
               {pendingRequests.map((r) => (
