@@ -384,7 +384,7 @@ export function Welcome() {
               One season, one price
             </h2>
             <p className="text-gray-500 text-lg max-w-xl mx-auto">
-              Every League Plan includes all features. The only difference is how many members your league can have.
+              One payment per league, per season. Members join for free — every plan includes all features. Upgrade at any time.
             </p>
           </div>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -415,7 +415,7 @@ export function Welcome() {
                   {price}
                 </p>
                 <p className={`text-xs mb-1 ${popular ? "text-green-300" : "text-gray-400"}`}>
-                  per season
+                  per league / season
                 </p>
                 <p className={`text-xs mb-6 ${popular ? "text-green-400" : "text-gray-400"}`}>
                   {perMember}
@@ -431,7 +431,7 @@ export function Welcome() {
             })}
           </div>
           <p className="text-center text-sm text-gray-400 mt-8">
-            All League Plans include live scoring, playoffs, custom schedules, and more. Upgrade your plan at any time.
+            All League Plans include live scoring, playoffs, custom schedules, and more.
           </p>
         </div>
       </section>
