@@ -617,8 +617,10 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
             )
             claimed.add(picked_golfer_id)
 
-        db.commit()
-
+    # Single atomic commit for all pods + status change. This ensures a crash
+    # mid-loop rolls back everything rather than leaving partial picks committed
+    # with the round still in "drafting" (which would cause a unique constraint
+    # violation on retry).
     playoff_round.draft_resolved_at = datetime.now(UTC)
     playoff_round.status = "locked"
     db.commit()
