@@ -15,10 +15,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 # ---------------------------------------------------------------------------
 
 PRICING_TIERS: dict[str, dict] = {
-    "starter": {"member_limit": 20, "amount_cents": 4999},
-    "standard": {"member_limit": 50, "amount_cents": 8999},
-    "pro": {"member_limit": 150, "amount_cents": 14999},
-    "elite": {"member_limit": 500, "amount_cents": 24999},
+    "starter": {"member_limit": 20, "amount_cents": 2999},
+    "standard": {"member_limit": 50, "amount_cents": 4999},
+    "pro": {"member_limit": 150, "amount_cents": 9999},
+    "elite": {"member_limit": 500, "amount_cents": 14999},
 }
 
 # Ordered from cheapest to most expensive — used for upgrade validation.

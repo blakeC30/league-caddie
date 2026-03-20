@@ -960,17 +960,17 @@ The commissioner (league manager) makes the purchase. All features are available
 
 | Tier | Members included | Price/season | Effective per-member |
 |---|---|---|---|
-| **Starter** | Up to 20 | $49.99 | ~$2.50 |
-| **Standard** | Up to 50 | $89.99 | ~$1.80 |
-| **Pro** | Up to 150 | $149.99 | ~$1.00 |
-| **Elite** | Up to 500 | $249.99 | ~$0.50 |
+| **Starter** | Up to 20 | $29.99 | ~$1.50 |
+| **Standard** | Up to 50 | $49.99 | ~$1.00 |
+| **Pro** | Up to 150 | $99.99 | ~$0.67 |
+| **Elite** | Up to 500 | $149.99 | ~$0.30 |
 
 **Rationale:**
-- Most private leagues are 8–20 people — $49.99 is an easy sell (~$2.50/person for a full season)
+- Most private leagues are 8–20 people — $29.99 is an easy sell (~$1.50/person for a full season)
 - Per-member cost drops at scale, which feels fair to commissioners of larger leagues
 - Charging the **commissioner**, not each member, means one purchase per league regardless of size
 - Fantasy golf is seasonal — a one-time per-season purchase aligns cost with when the product is valuable
-- No free tier: the app requires ESPN data, AWS infrastructure, and SES email — these are real costs. The $49.99 entry point is low enough to not need a free tier.
+- No free tier: the app requires ESPN data, AWS infrastructure, and SES email — these are real costs. The $29.99 entry point is low enough to not need a free tier.
 
 **Upgrading mid-season:** Commissioners can upgrade to a higher tier at any time during the season — for example when their league grows past the current member limit or they just want more capacity. Upgrades cost the full price of the new tier (no credit for what was already paid — proration adds complexity not worth it at this stage). Downgrading is not allowed mid-season; a commissioner can choose a lower tier when they renew next year.
 
@@ -998,10 +998,10 @@ Create four separate **one-time Prices** under a single Product ("League Caddie 
 
 | Tier | Member limit | Price | Config key |
 |---|---|---|---|
-| Starter | 20 | $49.99 | `STRIPE_PRICE_ID_STARTER` |
-| Standard | 50 | $89.99 | `STRIPE_PRICE_ID_STANDARD` |
-| Pro | 150 | $149.99 | `STRIPE_PRICE_ID_PRO` |
-| Elite | 500 | $249.99 | `STRIPE_PRICE_ID_ELITE` |
+| Starter | 20 | $29.99 | `STRIPE_PRICE_ID_STARTER` |
+| Standard | 50 | $49.99 | `STRIPE_PRICE_ID_STANDARD` |
+| Pro | 150 | $99.99 | `STRIPE_PRICE_ID_PRO` |
+| Elite | 500 | $149.99 | `STRIPE_PRICE_ID_ELITE` |
 
 #### New DB Tables
 
@@ -1065,10 +1065,10 @@ The new `member_limit` takes effect immediately after the UPDATE — pending mem
 STRIPE_SECRET_KEY: str = ""
 STRIPE_PUBLISHABLE_KEY: str = ""
 STRIPE_WEBHOOK_SECRET: str = ""
-STRIPE_PRICE_ID_STARTER: str = ""    # price_... ($49.99, up to 20 members)
-STRIPE_PRICE_ID_STANDARD: str = ""   # price_... ($89.99, up to 50 members)
-STRIPE_PRICE_ID_PRO: str = ""        # price_... ($149.99, up to 150 members)
-STRIPE_PRICE_ID_ELITE: str = ""      # price_... ($249.99, up to 500 members)
+STRIPE_PRICE_ID_STARTER: str = ""    # price_... ($29.99, up to 20 members)
+STRIPE_PRICE_ID_STANDARD: str = ""   # price_... ($49.99, up to 50 members)
+STRIPE_PRICE_ID_PRO: str = ""        # price_... ($99.99, up to 150 members)
+STRIPE_PRICE_ID_ELITE: str = ""      # price_... ($149.99, up to 500 members)
 ```
 
 **Tier metadata (hardcoded constant, not in DB):**
@@ -1269,7 +1269,7 @@ Fantasy sports with money prizes exist in a legal gray area in the US. The short
 
 #### Stripe (technical — do before launch)
 - [ ] Create Stripe account, complete business verification
-- [ ] Create one Product ("League Caddie Season Pass") with four **one-time Prices** in Stripe dashboard: Starter $49.99, Standard $89.99, Pro $149.99, Elite $249.99
+- [ ] Create one Product ("League Caddie Season Pass") with four **one-time Prices** in Stripe dashboard: Starter $29.99, Standard $49.99, Pro $99.99, Elite $149.99
 - [ ] Add `stripe` to `pyproject.toml` and `uv.lock`
 - [ ] Add `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, and `STRIPE_PRICE_ID_STARTER/STANDARD/PRO/ELITE` to `app/config.py`
 - [ ] Write Alembic migration #19 (`stripe_customers`, `league_purchases`, `league_purchase_events` tables)
