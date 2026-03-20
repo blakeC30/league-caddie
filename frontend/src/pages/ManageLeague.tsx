@@ -2097,10 +2097,10 @@ export function ManageLeague() {
                               ${upgradeDollars}
                             </span>
                             <span className="text-xs text-gray-500">upgrade cost</span>
-                            <span className="mt-2 text-xs text-gray-400">Supports up to {t.member_limit.toLocaleString()} members</span>
+                            <span className="mt-2 text-xs text-gray-400">Up to {t.member_limit.toLocaleString()} members</span>
                             <span className="text-xs text-gray-400">{perMember}</span>
-                            <span className="text-xs text-gray-400">
-                              Full plan price: ${totalDollars}
+                            <span className="text-xs text-gray-400 mt-1">
+                              Full plan price: ${totalDollars}/season
                             </span>
                           </button>
                         );

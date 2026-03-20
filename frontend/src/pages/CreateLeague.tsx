@@ -405,7 +405,8 @@ export function CreateLeague() {
                   <span className={`text-lg font-extrabold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
                     {price}
                   </span>
-                  <span className="text-xs text-gray-500">{members}</span>
+                  <span className="text-[10px] text-gray-400">per league / season</span>
+                  <span className="text-xs text-gray-500 mt-1">{members}</span>
                   <span className="text-[10px] text-gray-400">{perMember}</span>
                 </button>
               );
