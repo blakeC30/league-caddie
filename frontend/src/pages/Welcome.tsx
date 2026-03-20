@@ -431,7 +431,7 @@ export function Welcome() {
             })}
           </div>
           <p className="text-center text-sm text-gray-400 mt-8">
-            All League Plans include live scoring, playoffs, custom schedules, and more.
+            All League Plans include live scoring, playoffs, custom schedules, and more. Upgrade your plan at any time.
           </p>
         </div>
       </section>

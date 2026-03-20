@@ -374,7 +374,7 @@ export function CreateLeague() {
             </div>
             <h2 className="text-base font-bold text-gray-900">League Plan</h2>
           </div>
-          <p className="text-sm text-gray-500">Select the League Plan that fits your league size. You can upgrade later.</p>
+          <p className="text-sm text-gray-500">Select the League Plan that fits your league size. You can upgrade your plan at any time from the Manage page.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {pricingTiers.map((tier) => {
               const isSelected = selectedTier === tier.tier;
