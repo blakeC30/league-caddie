@@ -19,9 +19,9 @@ export function PlayoffRoundBreakdown({ round }: PlayoffRoundBreakdownProps) {
 
   if (round.status === "drafting") {
     return (
-      <div className="bg-purple-50 border border-purple-200 rounded-xl p-6 text-center space-y-1">
-        <p className="text-sm font-semibold text-purple-800">Draft is open</p>
-        <p className="text-xs text-purple-600">
+      <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-center space-y-1">
+        <p className="text-sm font-semibold text-green-800">Draft is open</p>
+        <p className="text-xs text-green-600">
           Picks will be revealed after the tournament begins and all golfers have teed off.
         </p>
       </div>
@@ -60,7 +60,7 @@ export function PlayoffRoundBreakdown({ round }: PlayoffRoundBreakdownProps) {
 
         return (
           <div key={pod.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-2.5 bg-gradient-to-r from-purple-900 to-purple-700 flex items-center justify-between">
+            <div className="px-4 py-2.5 bg-gradient-to-r from-green-900 to-green-700 flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-white">
                 Pod {pod.bracket_position}
               </span>

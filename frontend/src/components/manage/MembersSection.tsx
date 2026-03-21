@@ -10,7 +10,7 @@ export interface MembersSectionProps {
   isLoading: boolean;
   isManager: boolean;
   currentUser: User | null;
-  purchase: LeaguePurchaseStatus | undefined;
+  purchase: LeaguePurchaseStatus | null | undefined;
   onConfirm: (modal: ConfirmModalState) => void;
 }
 

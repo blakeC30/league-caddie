@@ -6,7 +6,7 @@ import { SectionIcon, TIER_ORDER, type ConfirmModalState } from "./shared";
 
 export interface LeaguePlanSectionProps {
   leagueId: string;
-  purchase: LeaguePurchaseStatus | undefined;
+  purchase: LeaguePurchaseStatus | null | undefined;
   pricingTiers: PricingTier[];
   purchaseEvents: LeaguePurchaseEvent[];
   onConfirm: (modal: ConfirmModalState) => void;

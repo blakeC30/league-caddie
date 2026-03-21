@@ -260,7 +260,10 @@ export function LeagueRules() {
               You pick <strong>one individual golfer</strong> from the field — you do not pick a team. Either partner from a team can be selected independently, and they will each score based on the team's total earnings.
             </Bullet>
             <Bullet>
-              <strong>The no-repeat rule applies to team events.</strong> If you use a golfer who played in a team tournament, that golfer is unavailable to you for the rest of the regular season — the same as any individual event.
+              <strong>Only the golfer you pick is burned.</strong> The no-repeat rule applies to the golfer you select, not their partner. If you pick Golfer A from Team A/B, only Golfer A is unavailable for the rest of the season — Golfer B remains available for a future week.
+            </Bullet>
+            <Bullet>
+              You <strong>can</strong> pick a golfer whose partner you've already used in a previous week. For example, if you used Golfer A earlier in the season and Golfer A is now teamed with Golfer B, you can still pick Golfer B.
             </Bullet>
           </RuleSection>
 

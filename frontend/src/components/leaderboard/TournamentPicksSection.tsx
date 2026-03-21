@@ -194,7 +194,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                       <span className="truncate">{fmtTournamentName(t.name)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {playoffRoundByTournamentId.has(t.id) && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500 text-white">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-700 text-white">
                             PO
                           </span>
                         )}
