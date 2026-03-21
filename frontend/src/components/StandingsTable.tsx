@@ -46,7 +46,8 @@ export function StandingsTable({ rows, limit }: Props) {
                   {row.display_name}
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums font-medium">
-                  {formatPoints(row.total_points)}
+                  <span className="sm:hidden">{formatPoints(row.total_points)}</span>
+                  <span className="hidden sm:inline">{formatPoints(row.total_points, false)}</span>
                 </td>
               </tr>
             );

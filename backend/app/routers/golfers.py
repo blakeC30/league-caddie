@@ -9,6 +9,7 @@ Endpoints:
   GET /golfers/{id}          Get a single golfer
 """
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Query
@@ -18,6 +19,8 @@ from app.database import get_db
 from app.dependencies import get_current_user
 from app.models import Golfer, User
 from app.schemas.golfer import GolferOut
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/golfers", tags=["golfers"])
 
@@ -38,6 +41,7 @@ def list_golfers(
     """
     query = db.query(Golfer)
     if search:
+        log.debug("Golfer search: q=%s", search)
         query = query.filter(Golfer.name.ilike(f"%{search}%"))
     return query.order_by(Golfer.world_ranking.asc().nulls_last()).all()
 

@@ -57,6 +57,21 @@ export function Leaderboard() {
   }, [playoffActive, searchParams]);
   const totalRows = standings?.rows.length ?? 0;
   const showToggle = totalRows > 5;
+  const PAGE_SIZE = 50;
+  const [page, setPage] = useState(0);
+  const [standingsSearch, setStandingsSearch] = useState("");
+  const showStandingsSearch = totalRows > PAGE_SIZE;
+
+  // Filter standings by search when expanded
+  const filteredRows = (() => {
+    if (!standings) return [];
+    if (!expanded || !standingsSearch.trim()) return standings.rows;
+    const q = standingsSearch.trim().toLowerCase();
+    return standings.rows.filter((r) => r.display_name.toLowerCase().includes(q));
+  })();
+
+  const totalFiltered = expanded ? filteredRows.length : totalRows;
+  const totalPages = Math.ceil(totalFiltered / PAGE_SIZE);
 
   // Compute which rows to display
   let displayedRows: StandingsRow[] = [];
@@ -64,7 +79,8 @@ export function Leaderboard() {
 
   if (standings) {
     if (expanded) {
-      displayedRows = standings.rows;
+      const start = page * PAGE_SIZE;
+      displayedRows = filteredRows.slice(start, start + PAGE_SIZE);
     } else {
       const top5 = standings.rows.slice(0, 5);
       const meInTop5 = top5.some((r) => r.user_id === currentUserId);
@@ -156,6 +172,15 @@ export function Leaderboard() {
         <div className="flex justify-center py-8"><Spinner /></div>
       ) : pageView === "standings" && standings ? (
         <div className="space-y-3">
+          {expanded && showStandingsSearch && (
+            <input
+              type="text"
+              placeholder="Search members…"
+              value={standingsSearch}
+              onChange={(e) => { setStandingsSearch(e.target.value); setPage(0); }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            />
+          )}
           <div className="overflow-x-auto rounded-xl border border-gray-200">
             <table className="min-w-full text-sm">
               <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
@@ -169,7 +194,7 @@ export function Leaderboard() {
                 {displayedRows.length === 0 ? (
                   <tr>
                     <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">
-                      No standings yet — picks will appear after tournaments complete.
+                      {standingsSearch ? "No members match your search." : "No standings yet — picks will appear after tournaments complete."}
                     </td>
                   </tr>
                 ) : (
@@ -197,18 +222,65 @@ export function Leaderboard() {
             </table>
           </div>
 
-          {showToggle && (
+          {showToggle && !expanded && (
             <button
               type="button"
-              onClick={() => setExpanded((e) => !e)}
+              onClick={() => { setExpanded(true); setPage(0); }}
               className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-900"
             >
-              {expanded ? "Show less" : `Show all ${totalRows} members`}
+              Show all {totalRows} members
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                {expanded
-                  ? <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
-                  : <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />}
+                <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
               </svg>
+            </button>
+          )}
+
+          {expanded && totalPages > 1 && (
+            <div className="flex items-center justify-between gap-4">
+              <button
+                type="button"
+                onClick={() => { setExpanded(false); setPage(0); }}
+                className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-900"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+                </svg>
+                Show less
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                  disabled={page === 0}
+                  className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  ← Prev
+                </button>
+                <span className="text-xs text-gray-400 tabular-nums">
+                  {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalFiltered)} of {totalFiltered}{standingsSearch ? " results" : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                  disabled={page >= totalPages - 1}
+                  className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Next →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {expanded && totalPages <= 1 && (
+            <button
+              type="button"
+              onClick={() => { setExpanded(false); setPage(0); }}
+              className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-900"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
+              </svg>
+              Show less
             </button>
           )}
         </div>

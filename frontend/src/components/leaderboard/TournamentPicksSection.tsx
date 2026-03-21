@@ -50,6 +50,11 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
   const [sortField, setSortField] = useState<BreakdownSortField>("member");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [memberSearch, setMemberSearch] = useState("");
+  const [breakdownPage, setBreakdownPage] = useState(0);
+  const BREAKDOWN_PAGE_SIZE = 50;
+
+  // Reset pagination when tournament changes
+  useEffect(() => { setBreakdownPage(0); setMemberSearch(""); }, [selectedId]);
 
   // Reset sort and search when the selected tournament changes.
   useEffect(() => {
@@ -392,22 +397,30 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
               );
             }
 
-            const visibleRows = memberSearch.trim()
+            const filteredRows = memberSearch.trim()
               ? allRows.filter((r) => r.displayName.toLowerCase().includes(memberSearch.toLowerCase()))
               : allRows;
 
+            const breakdownTotalPages = Math.ceil(filteredRows.length / BREAKDOWN_PAGE_SIZE);
+            const visibleRows = filteredRows.slice(
+              breakdownPage * BREAKDOWN_PAGE_SIZE,
+              (breakdownPage + 1) * BREAKDOWN_PAGE_SIZE,
+            );
+
             return (
               <div className="rounded-xl border border-gray-200 overflow-hidden">
-                {/* Member search */}
+                {/* Member search — shown when there are enough members */}
+                {allRows.length > BREAKDOWN_PAGE_SIZE && (
                 <div className="px-3 py-2 border-b border-gray-100 bg-white">
                   <input
                     type="text"
                     value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
+                    onChange={(e) => { setMemberSearch(e.target.value); setBreakdownPage(0); }}
                     placeholder="Search members…"
                     className="w-full text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600"
                   />
                 </div>
+                )}
                 <div className="relative">
                 <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
@@ -483,6 +496,31 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
               </div>
               <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-white to-transparent sm:hidden" />
               </div>
+              {breakdownTotalPages > 1 && (
+                <div className="flex items-center justify-between gap-4 px-4 py-2 border-t border-gray-100 bg-white">
+                  <span className="text-xs text-gray-400 tabular-nums">
+                    {breakdownPage * BREAKDOWN_PAGE_SIZE + 1}–{Math.min((breakdownPage + 1) * BREAKDOWN_PAGE_SIZE, filteredRows.length)} of {filteredRows.length}{memberSearch ? " results" : ""}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownPage((p) => Math.max(0, p - 1))}
+                      disabled={breakdownPage === 0}
+                      className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      ← Prev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownPage((p) => Math.min(breakdownTotalPages - 1, p + 1))}
+                      disabled={breakdownPage >= breakdownTotalPages - 1}
+                      className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             );
           })()}

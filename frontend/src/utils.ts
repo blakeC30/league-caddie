@@ -36,15 +36,20 @@ export function formatDateLong(iso: string): string {
 }
 
 /**
- * Formats a point/dollar amount with sign, abbreviation (M/K), and $ prefix.
+ * Formats a point/dollar amount with sign and $ prefix.
  * Returns "—" for null values.
+ *
+ * abbreviated=true (default): uses M/K shorthand (e.g. "$2.50M", "$150.0K")
+ * abbreviated=false: full number with commas (e.g. "$2,500,000")
  */
-export function formatPoints(pts: number | null): string {
+export function formatPoints(pts: number | null, abbreviated = true): string {
   if (pts === null) return "—";
   const sign = pts < 0 ? "-" : "";
   const abs = Math.abs(pts);
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
+  if (abbreviated) {
+    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+    if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
+  }
   return `${sign}$${abs.toLocaleString()}`;
 }
 

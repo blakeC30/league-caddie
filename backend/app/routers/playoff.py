@@ -20,6 +20,7 @@ Endpoints:
   PATCH  /leagues/{league_id}/playoff/picks/{pick_id}           Revise golfer on a pick (manager)
 """
 
+import logging
 import math
 import uuid
 
@@ -87,6 +88,8 @@ from app.services.playoff import (
     submit_preferences,
 )
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/leagues", tags=["playoff"])
 
 
@@ -98,6 +101,11 @@ router = APIRouter(prefix="/leagues", tags=["playoff"])
 def _get_config_or_404(league_id: uuid.UUID, season_id: int, db: Session) -> PlayoffConfig:
     config = db.query(PlayoffConfig).filter_by(league_id=league_id, season_id=season_id).first()
     if not config:
+        log.warning(
+            "Playoff config not found: league=%s season=%s",
+            str(league_id),
+            season_id,
+        )
         raise HTTPException(
             status_code=404, detail="Playoff config not found for this league/season"
         )
@@ -116,6 +124,7 @@ def _get_pod_or_404(pod_id: int, db: Session) -> PlayoffPod:
         .first()
     )
     if not pod:
+        log.warning("Playoff pod not found: pod_id=%s", pod_id)
         raise HTTPException(status_code=404, detail="Pod not found")
     return pod
 
@@ -137,6 +146,7 @@ def _get_round_or_404(round_id: int, db: Session) -> PlayoffRound:
         .first()
     )
     if not round_obj:
+        log.warning("Playoff round not found: round_id=%s", round_id)
         raise HTTPException(status_code=404, detail="Round not found")
     return round_obj
 
@@ -346,6 +356,7 @@ def create_playoff_config(
 
     existing = db.query(PlayoffConfig).filter_by(league_id=league.id, season_id=season.id).first()
     if existing:
+        log.warning("Playoff config already exists: league=%s season=%s", str(league.id), season.id)
         raise HTTPException(status_code=409, detail="Playoff config already exists for this season")
 
     # Validate that playoff_size fits within the league's member count and schedule.
@@ -373,6 +384,12 @@ def create_playoff_config(
     db.add(config)
     db.commit()
     db.refresh(config)
+    log.info(
+        "Playoff config created: league=%s size=%d style=%s",
+        str(league.id),
+        body.playoff_size,
+        body.draft_style,
+    )
     return config
 
 
@@ -467,6 +484,7 @@ def update_playoff_config(
 
     db.commit()
     db.refresh(config)
+    log.info("Playoff config updated: league=%s config=%s", str(league.id), str(config.id))
     return config
 
 
@@ -628,6 +646,7 @@ def seed_bracket(
         )
 
     seed_playoff(db, config)
+    log.info("Bracket seeded: league=%s config=%s", str(league.id), str(config.id))
 
     # Return the freshly seeded bracket so the manager can see the result.
     config_loaded = (
@@ -696,6 +715,12 @@ def open_draft(
         raise HTTPException(status_code=403, detail="Round does not belong to this league")
 
     open_round_draft(db, round_obj)
+    log.info(
+        "Playoff round opened: league=%s round_id=%s round_number=%d",
+        str(league.id),
+        round_obj.id,
+        round_obj.round_number,
+    )
     db.refresh(round_obj)
     return round_obj
 
@@ -718,6 +743,12 @@ def resolve_round_draft(
         raise HTTPException(status_code=403, detail="Round does not belong to this league")
 
     resolve_draft(db, round_obj)
+    log.info(
+        "Playoff round resolved: league=%s round_id=%s round_number=%d",
+        str(league.id),
+        round_obj.id,
+        round_obj.round_number,
+    )
     db.refresh(round_obj)
     return round_obj
 
@@ -740,6 +771,12 @@ def score_playoff_round(
         raise HTTPException(status_code=403, detail="Round does not belong to this league")
 
     score_round(db, round_obj)
+    log.info(
+        "Playoff round scored: league=%s round_id=%s round_number=%d",
+        str(league.id),
+        round_obj.id,
+        round_obj.round_number,
+    )
     db.refresh(round_obj)
     return round_obj
 
@@ -762,6 +799,12 @@ def advance_playoff_bracket(
         raise HTTPException(status_code=403, detail="Round does not belong to this league")
 
     advance_bracket(db, round_obj)
+    log.info(
+        "Playoff round advanced: league=%s round_id=%s round_number=%d",
+        str(league.id),
+        round_obj.id,
+        round_obj.round_number,
+    )
     db.refresh(round_obj)
     return round_obj
 
@@ -996,6 +1039,12 @@ def override_pod_result(
         raise HTTPException(status_code=403, detail="Pod does not belong to this league")
 
     override_result(db, pod, body.winner_user_id)
+    log.info(
+        "Playoff manual override: league=%s pod_id=%s winner=%s",
+        str(league.id),
+        pod.id,
+        str(body.winner_user_id),
+    )
     return {"detail": "Override applied"}
 
 

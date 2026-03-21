@@ -8,6 +8,7 @@ Endpoints:
   GET   /users/me/league-summaries Batch league summaries for Leagues page
 """
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends
@@ -43,6 +44,8 @@ from app.schemas.user import (
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
 from app.services.scoring import calculate_standings
 
+log = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -63,6 +66,7 @@ def update_me(
         current_user.pick_reminders_enabled = body.pick_reminders_enabled
     db.commit()
     db.refresh(current_user)
+    log.info("User profile updated: user=%s", current_user.id)
     return current_user
 
 
@@ -91,6 +95,7 @@ def get_league_summaries(
 
     Replaces 9 independent API calls per LeagueCard with a single request.
     """
+    log.debug("League summaries requested: user=%s", current_user.id)
     # 1. Get all approved memberships
     memberships = (
         db.query(LeagueMember)
@@ -197,7 +202,7 @@ def get_league_summaries(
             standings = calculate_standings(db, league, season)
             member_count = len(standings)
             for i, row in enumerate(standings):
-                if row["user_id"] == current_user.id:
+                if str(row["user_id"]) == str(current_user.id):
                     # Compute rank (1-based) and detect ties
                     r = i + 1
                     pts = row["total_points"]

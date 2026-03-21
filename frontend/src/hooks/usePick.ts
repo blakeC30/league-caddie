@@ -37,11 +37,23 @@ export function useMyPicks(leagueId: string) {
   });
 }
 
-export function useAllPicks(leagueId: string) {
+export function useAllPicks(leagueId: string, userId?: string) {
   return useQuery({
-    queryKey: ["allPicks", leagueId],
-    queryFn: () => picksApi.all(leagueId),
+    queryKey: ["allPicks", leagueId, userId ?? "all"],
+    queryFn: () => picksApi.all(leagueId, userId),
     enabled: !!leagueId,
+  });
+}
+
+export function useMemberPickContext(
+  leagueId: string,
+  userId: string | null,
+  tournamentId: string | null,
+) {
+  return useQuery({
+    queryKey: ["memberPickContext", leagueId, userId, tournamentId],
+    queryFn: () => picksApi.memberContext(leagueId, userId!, tournamentId!),
+    enabled: !!leagueId && !!userId && !!tournamentId,
   });
 }
 
@@ -151,6 +163,7 @@ export function useAdminOverridePick(leagueId: string) {
       picksApi.adminOverride(leagueId, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["allPicks", leagueId] });
+      qc.invalidateQueries({ queryKey: ["memberPickContext", leagueId] });
       qc.invalidateQueries({ queryKey: ["myPicks", leagueId] });
       qc.invalidateQueries({ queryKey: ["standings", leagueId] });
       qc.invalidateQueries({ queryKey: ["tournamentPicksSummary", leagueId] });

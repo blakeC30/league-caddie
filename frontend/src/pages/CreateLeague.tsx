@@ -173,7 +173,7 @@ export function CreateLeague() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Friday Night Golf"
+                placeholder="Enter league name"
                 maxLength={60}
                 className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
               />

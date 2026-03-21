@@ -12,6 +12,7 @@ Endpoints:
   POST /admin/stripe/webhook-failures/{id}/retry     Retry a failed webhook event
 """
 
+import logging
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
@@ -37,6 +38,8 @@ from app.models import (
 )
 from app.models.deleted_league import DeletedLeague
 from app.services.scraper import full_sync, sync_tournament
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -205,7 +208,7 @@ def trigger_full_sync(
         False,
         description="When true, delete all existing round data before re-syncing each tournament",
     ),
-    _: User = Depends(require_platform_admin),
+    admin_user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -224,11 +227,14 @@ def trigger_full_sync(
     at any time. All upserts are idempotent.
     """
     target_year = year or date.today().year
+    log.info("Admin full sync triggered by user=%s year=%d", str(admin_user.id), target_year)
     try:
         result = full_sync(db, target_year, force=force)
     except Exception as exc:
+        log.warning("Admin full sync failed: user=%s error=%s", str(admin_user.id), str(exc))
         raise HTTPException(status_code=502, detail=f"Sync failed: {exc}") from exc
 
+    log.info("Admin full sync completed: user=%s year=%d", str(admin_user.id), target_year)
     return result
 
 
@@ -240,7 +246,7 @@ def trigger_tournament_sync(
     force: bool = Query(
         False, description="When true, delete all existing round data before re-syncing"
     ),
-    _: User = Depends(require_platform_admin),
+    admin_user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -250,8 +256,14 @@ def trigger_tournament_sync(
     force=true: delete all TournamentEntryRound rows for this tournament first,
     then re-fetch everything from ESPN. Use this when cached data is stale or wrong.
     """
+    log.info(
+        "Admin single tournament sync: pga_tour_id=%s triggered by user=%s",
+        pga_tour_id,
+        str(admin_user.id),
+    )
     tournament = db.query(Tournament).filter_by(pga_tour_id=pga_tour_id).first()
     if not tournament:
+        log.warning("Admin sync: tournament not found: pga_tour_id=%s", pga_tour_id)
         raise HTTPException(
             status_code=404,
             detail=(
@@ -263,8 +275,14 @@ def trigger_tournament_sync(
     try:
         result = sync_tournament(db, pga_tour_id, force=force)
     except Exception as exc:
+        log.warning(
+            "Admin single tournament sync failed: pga_tour_id=%s error=%s",
+            pga_tour_id,
+            str(exc),
+        )
         raise HTTPException(status_code=502, detail=f"Sync failed: {exc}") from exc
 
+    log.info("Admin single tournament sync completed: pga_tour_id=%s", pga_tour_id)
     return result
 
 
@@ -301,7 +319,7 @@ def list_webhook_failures(
 @router.post("/stripe/webhook-failures/{failure_id}/retry")
 def retry_webhook_failure(
     failure_id: uuid.UUID,
-    _: User = Depends(require_platform_admin),
+    admin_user: User = Depends(require_platform_admin),
     db: Session = Depends(get_db),
 ):
     """
@@ -313,10 +331,17 @@ def retry_webhook_failure(
     """
     from app.routers.stripe_router import _handle_checkout_complete
 
+    log.info(
+        "Admin webhook retry: failure_id=%s triggered by user=%s",
+        str(failure_id),
+        str(admin_user.id),
+    )
     failure = db.query(StripeWebhookFailure).filter_by(id=failure_id).first()
     if not failure:
+        log.warning("Admin webhook retry: failure not found: failure_id=%s", str(failure_id))
         raise HTTPException(status_code=404, detail="Webhook failure not found")
     if failure.resolved_at is not None:
+        log.warning("Admin webhook retry: already resolved: failure_id=%s", str(failure_id))
         raise HTTPException(status_code=409, detail="Already resolved")
 
     try:
@@ -325,6 +350,12 @@ def retry_webhook_failure(
         db.commit()
     except Exception as exc:
         db.rollback()
+        log.warning(
+            "Admin webhook retry failed: failure_id=%s error=%s",
+            str(failure_id),
+            str(exc),
+        )
         raise HTTPException(status_code=502, detail=f"Retry failed: {exc}") from exc
 
+    log.info("Admin webhook retry resolved: failure_id=%s", str(failure_id))
     return {"resolved": True}

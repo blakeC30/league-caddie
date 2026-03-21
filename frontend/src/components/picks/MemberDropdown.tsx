@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useMemo } from "react";
 import { useDropdownDirection } from "../../hooks/useDropdownDirection";
 import type { LeagueMember } from "../../api/endpoints";
 
@@ -8,12 +8,16 @@ export interface MemberDropdownProps {
   onSelectUser: (userId: string) => void;
 }
 
+const VISIBLE_LIMIT = 50;
+
 export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }: MemberDropdownProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const dropDir = useDropdownDirection(dropdownRef, open);
 
   useEffect(() => {
@@ -21,6 +25,7 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setOpen(false);
         setSearch("");
+        setDebouncedSearch("");
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -31,15 +36,37 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
     if (open) inputRef.current?.focus();
   }, [open]);
 
-  const sortedMembers = [...approvedMembers].sort((a, b) =>
-    a.user.display_name.localeCompare(b.user.display_name)
+  // Debounce search input — avoids filtering 500 members on every keystroke
+  useEffect(() => {
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedSearch(search), 150);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
+
+  const sortedMembers = useMemo(
+    () => [...approvedMembers].sort((a, b) =>
+      a.user.display_name.localeCompare(b.user.display_name)
+    ),
+    [approvedMembers],
   );
+
   const viewingMember = sortedMembers.find((m) => m.user_id === viewingUserId);
-  const filteredMembers = search
-    ? sortedMembers.filter((m) =>
-        m.user.display_name.toLowerCase().includes(search.toLowerCase())
-      )
-    : sortedMembers;
+
+  const filteredMembers = useMemo(() => {
+    const filtered = debouncedSearch
+      ? sortedMembers.filter((m) =>
+          m.user.display_name.toLowerCase().includes(debouncedSearch.toLowerCase())
+        )
+      : sortedMembers;
+    return filtered.slice(0, VISIBLE_LIMIT);
+  }, [sortedMembers, debouncedSearch]);
+
+  const totalMatches = useMemo(() => {
+    if (!debouncedSearch) return sortedMembers.length;
+    return sortedMembers.filter((m) =>
+      m.user.display_name.toLowerCase().includes(debouncedSearch.toLowerCase())
+    ).length;
+  }, [sortedMembers, debouncedSearch]);
 
   return (
     <div
@@ -49,6 +76,7 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
         if (e.key === "Escape") {
           setOpen(false);
           setSearch("");
+          setDebouncedSearch("");
           triggerRef.current?.focus();
         }
       }}
@@ -56,7 +84,7 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => { setOpen((o) => !o); setSearch(""); }}
+        onClick={() => { setOpen((o) => !o); setSearch(""); setDebouncedSearch(""); }}
         className="min-w-[180px] flex items-center gap-2 text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 hover:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-700 transition-colors"
       >
         <span className="flex-1 text-left truncate">
@@ -85,22 +113,30 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
             {filteredMembers.length === 0 ? (
               <p className="px-4 py-3 text-sm text-gray-400">No results.</p>
             ) : (
-              filteredMembers.map((m) => (
-                <button
-                  key={m.user_id}
-                  type="button"
-                  onClick={() => {
-                    onSelectUser(m.user_id);
-                    setOpen(false);
-                    setSearch("");
-                  }}
-                  className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition-colors ${
-                    m.user_id === viewingUserId ? "bg-green-50 text-green-900" : "hover:bg-gray-50 text-gray-700"
-                  }`}
-                >
-                  <span className="truncate">{m.user.display_name}</span>
-                </button>
-              ))
+              <>
+                {filteredMembers.map((m) => (
+                  <button
+                    key={m.user_id}
+                    type="button"
+                    onClick={() => {
+                      onSelectUser(m.user_id);
+                      setOpen(false);
+                      setSearch("");
+                      setDebouncedSearch("");
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition-colors ${
+                      m.user_id === viewingUserId ? "bg-green-50 text-green-900" : "hover:bg-gray-50 text-gray-700"
+                    }`}
+                  >
+                    <span className="truncate">{m.user.display_name}</span>
+                  </button>
+                ))}
+                {totalMatches > VISIBLE_LIMIT && (
+                  <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
+                    Showing {VISIBLE_LIMIT} of {totalMatches} — type to narrow results
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>

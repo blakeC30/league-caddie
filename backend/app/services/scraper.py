@@ -84,6 +84,7 @@ from app.models import (
     Golfer,
     LeagueTournament,
     Pick,
+    Season,
     Tournament,
     TournamentEntry,
     TournamentEntryRound,
@@ -1405,6 +1406,14 @@ def score_picks(db: Session, tournament: Tournament) -> int:
         )
         pick.points_earned = (earnings or 0.0) * effective_multiplier
         count += 1
+
+    # Invalidate standings cache for all seasons that had picks scored.
+    if count > 0:
+        from app.services.scoring import invalidate_standings_cache
+
+        scored_season_ids = {p.season_id for p in picks if p.points_earned is not None}
+        for season in db.query(Season).filter(Season.id.in_(scored_season_ids)).all():
+            invalidate_standings_cache(db, season)
 
     db.commit()
     log.info("Scored %d picks for '%s'", count, tournament.name)

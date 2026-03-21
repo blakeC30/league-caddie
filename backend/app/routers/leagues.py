@@ -70,6 +70,7 @@ from app.schemas.league import (
 )
 from app.schemas.tournament import LeagueTournamentOut
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
+from app.services.scoring import invalidate_standings_cache_for_league
 from app.services.scraper import score_picks
 
 log = logging.getLogger(__name__)
@@ -724,6 +725,7 @@ def leave_league(
     log.info("Member left: league_id=%s user_id=%s", league.id, membership.user_id)
     _remove_member_picks_and_playoff(db, league, membership.user_id)
     db.delete(membership)
+    invalidate_standings_cache_for_league(db, league.id)
     db.commit()
 
 
@@ -760,6 +762,7 @@ def remove_member(
 
     _remove_member_picks_and_playoff(db, league, user_id)
     db.delete(membership)
+    invalidate_standings_cache_for_league(db, league.id)
     db.commit()
 
 
@@ -849,6 +852,7 @@ def approve_join_request(
         )
 
     membership.status = LeagueMemberStatus.APPROVED.value
+    invalidate_standings_cache_for_league(db, league.id)
     db.commit()
     db.refresh(membership)
     return membership
@@ -1219,6 +1223,8 @@ def update_league_tournaments(
             )
         )
     db.commit()
+
+    invalidate_standings_cache_for_league(db, league.id)
 
     # Re-score all completed tournament picks.
     # score_picks uses cached TournamentEntry.earnings_usd — no ESPN API calls.

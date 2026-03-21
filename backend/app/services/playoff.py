@@ -13,6 +13,7 @@ Key functions:
   override_result(db, pod, winner_user_id)  → Manager manual result override
 """
 
+import logging
 import math
 import uuid
 from datetime import UTC, datetime
@@ -34,6 +35,8 @@ from app.models import (
     TournamentEntry,
 )
 from app.services.scoring import calculate_standings
+
+log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Draft order generation
@@ -168,8 +171,15 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
 
     Raises HTTPException if already seeded or if conditions are not met.
     """
+    log.info(
+        "seed_playoff: league=%s config=%s size=%d",
+        str(config.league_id),
+        str(config.id),
+        config.playoff_size,
+    )
     existing_rounds = db.query(PlayoffRound).filter_by(playoff_config_id=config.id).count()
     if existing_rounds > 0:
+        log.warning("seed_playoff: bracket already seeded: config=%s", str(config.id))
         raise HTTPException(status_code=422, detail="Playoff bracket is already seeded")
 
     from app.models import League, LeagueTournament, Season
@@ -288,6 +298,12 @@ def seed_playoff(db: Session, config: PlayoffConfig) -> None:
     config.seeded_at = datetime.now(UTC)
     config.is_enabled = True
     db.commit()
+    log.info(
+        "seed_playoff complete: league=%s config=%s pods=%d",
+        str(config.league_id),
+        str(config.id),
+        num_pods_round1,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +543,17 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
     silently skipped. If all of a member's preferences are ineligible, they
     receive no pick for that slot and earn $0.
     """
+    log.info(
+        "resolve_draft: round=%d config=%s",
+        playoff_round.round_number,
+        str(playoff_round.playoff_config_id),
+    )
     if playoff_round.status != "drafting":
+        log.warning(
+            "resolve_draft: round not in drafting status: round_id=%s status=%s",
+            playoff_round.id,
+            playoff_round.status,
+        )
         raise HTTPException(
             status_code=422,
             detail="Round is not in drafting status",
@@ -624,6 +650,11 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
     playoff_round.draft_resolved_at = datetime.now(UTC)
     playoff_round.status = "locked"
     db.commit()
+    log.info(
+        "resolve_draft complete: round=%d pods=%d",
+        playoff_round.round_number,
+        len(playoff_round.pods),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -641,7 +672,17 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
     minus actual assigned picks). Uses league.no_pick_penalty — the same value
     as the regular season penalty, configurable by the league manager.
     """
+    log.info(
+        "score_round: round=%d config=%s",
+        playoff_round.round_number,
+        str(playoff_round.playoff_config_id),
+    )
     if playoff_round.status != "locked":
+        log.warning(
+            "score_round: round not locked: round_id=%s status=%s",
+            playoff_round.id,
+            playoff_round.status,
+        )
         raise HTTPException(
             status_code=422,
             detail=(
@@ -738,6 +779,12 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
             member.total_points = total
 
     db.commit()
+    picks_scored = sum(len(pod.picks) for pod in playoff_round.pods)
+    log.info(
+        "score_round complete: round=%d picks_scored=%d",
+        playoff_round.round_number,
+        picks_scored,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -778,7 +825,17 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
     After scoring is complete for a round, determine winners and populate
     the next round's pods.
     """
+    log.info(
+        "advance_bracket: round=%d config=%s",
+        playoff_round.round_number,
+        str(playoff_round.playoff_config_id),
+    )
     if playoff_round.status != "locked":
+        log.warning(
+            "advance_bracket: round not locked: round_id=%s status=%s",
+            playoff_round.id,
+            playoff_round.status,
+        )
         raise HTTPException(
             status_code=422,
             detail=(
@@ -867,6 +924,7 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
 
     playoff_round.status = "completed"
 
+    winners = [pod.winner_user_id for pod in playoff_round.pods]
     if next_round:
         # Flush so the new pod members are visible for re-sort
         db.flush()
@@ -875,6 +933,11 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
         next_round.status = "drafting"
 
     db.commit()
+    log.info(
+        "advance_bracket complete: round=%d winners=%d",
+        playoff_round.round_number,
+        len(winners),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -895,6 +958,11 @@ def override_result(db: Session, pod: PlayoffPod, winner_user_id: uuid.UUID) -> 
     be overridden. Use the individual pick-revision endpoint (PATCH /picks/{id})
     to correct golfer assignments while the tournament is still in_progress.
     """
+    log.info(
+        "override_result: pod_id=%s winner=%s",
+        pod.id,
+        str(winner_user_id),
+    )
     playoff_round = pod.playoff_round
 
     # Rule: override only after the tournament has completed.
@@ -957,3 +1025,4 @@ def override_result(db: Session, pod: PlayoffPod, winner_user_id: uuid.UUID) -> 
             member.is_eliminated = True
 
     db.commit()
+    log.info("override_result complete: pod_id=%s winner=%s", pod.id, str(winner_user_id))

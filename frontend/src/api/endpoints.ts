@@ -89,6 +89,17 @@ export interface Pick {
   tournament: Tournament;
 }
 
+export interface UsedGolferInfo {
+  golfer_id: string;
+  golfer_name: string;
+  tournament_name: string;
+}
+
+export interface MemberPickContext {
+  existing_golfer_id: string | null;
+  used_golfers: UsedGolferInfo[];
+}
+
 export interface StandingsRow {
   rank: number;
   is_tied: boolean; // true when two or more players share this rank
@@ -484,8 +495,8 @@ export const picksApi = {
   mine: (leagueId: string) =>
     api.get<Pick[]>(`/leagues/${leagueId}/picks/mine`).then((r) => r.data),
 
-  all: (leagueId: string) =>
-    api.get<Pick[]>(`/leagues/${leagueId}/picks`).then((r) => r.data),
+  all: (leagueId: string, userId?: string) =>
+    api.get<Pick[]>(`/leagues/${leagueId}/picks`, { params: userId ? { user_id: userId } : undefined }).then((r) => r.data),
 
   tournamentSummary: (leagueId: string, tournamentId: string) =>
     api
@@ -496,6 +507,12 @@ export const picksApi = {
   // golfer_id = null removes the pick entirely.
   adminOverride: (leagueId: string, data: { user_id: string; tournament_id: string; golfer_id: string | null }) =>
     api.put<Pick | null>(`/leagues/${leagueId}/picks/admin-override`, data).then((r) => r.data),
+
+  // Lightweight context for the revise-pick form: existing pick + used golfers for one member.
+  memberContext: (leagueId: string, userId: string, tournamentId: string) =>
+    api.get<MemberPickContext>(`/leagues/${leagueId}/picks/member-context`, {
+      params: { user_id: userId, tournament_id: tournamentId },
+    }).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

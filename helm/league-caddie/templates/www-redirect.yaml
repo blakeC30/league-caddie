@@ -26,7 +26,7 @@ metadata:
     {{- include "league-caddie.labels" . | nindent 4 }}
   annotations:
     cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
-    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-{{ include "league-caddie.fullname" . }}-www-redirect@kubernetescrd
 spec:
   ingressClassName: traefik

@@ -12,6 +12,7 @@ Endpoints:
   GET /tournaments/{id}/golfers/{gid}/scorecard  Hole-by-hole scorecard (ESPN on-demand)
 """
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -29,6 +30,8 @@ from app.schemas.tournament import (
     TournamentOut,
     TournamentSyncStatusOut,
 )
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
@@ -52,6 +55,7 @@ def list_tournaments(
     if status is not None:
         valid = {s.value for s in TournamentStatus}
         if status not in valid:
+            log.warning("Invalid tournament status filter: %s", status)
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid status '{status}'. Must be one of: {', '.join(valid)}",
@@ -69,6 +73,7 @@ def get_tournament(
 ):
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
+        log.warning("Tournament not found: %s", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
     return tournament
 
@@ -95,6 +100,7 @@ def get_tournament_field(
     """
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
+        log.warning("Tournament field requested for unknown tournament: %s", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     entries = (
@@ -137,6 +143,7 @@ def get_leaderboard(
     """
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
+        log.warning("Leaderboard requested for unknown tournament: %s", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
     if tournament.status == TournamentStatus.SCHEDULED.value:
         # Allow the leaderboard if at least one golfer's R1 tee time has passed —
@@ -155,6 +162,10 @@ def get_leaderboard(
             .scalar()
         )
         if first_tee is None or first_tee > dt.now(UTC):
+            log.warning(
+                "Leaderboard not available: tournament=%s is still scheduled",
+                str(tournament_id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Leaderboard is not available for scheduled tournaments",
@@ -341,6 +352,7 @@ def get_sync_status(
     """
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
+        log.warning("Sync status requested for unknown tournament: %s", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
     return TournamentSyncStatusOut(
         tournament_id=str(tournament_id),
@@ -365,12 +377,21 @@ def get_scorecard(
     """
     from app.services.scraper import fetch_golfer_scorecard
 
+    log.info(
+        "Scorecard requested: tournament=%s golfer=%s round=%d",
+        str(tournament_id),
+        str(golfer_id),
+        round,
+    )
+
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
+        log.warning("Scorecard failed: tournament=%s not found", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     golfer = db.query(Golfer).filter_by(id=golfer_id).first()
     if not golfer:
+        log.warning("Scorecard failed: golfer=%s not found", str(golfer_id))
         raise HTTPException(status_code=404, detail="Golfer not found")
 
     result = fetch_golfer_scorecard(tournament, golfer, round)

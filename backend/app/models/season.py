@@ -23,6 +23,7 @@ from sqlalchemy import (
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -64,6 +65,13 @@ class Season(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Cached standings — avoids recomputing O(N×M) on every page load.
+    # Invalidated (set to NULL) when picks, members, or scores change.
+    standings_cache: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    standings_cached_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
     # --- Relationships ---

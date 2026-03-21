@@ -23,6 +23,7 @@ Rules enforced:
      exists in the league's schedule (previous tournament must complete first).
 """
 
+import logging
 import uuid
 from datetime import UTC, date, datetime
 
@@ -42,6 +43,8 @@ from app.models import (
     TournamentStatus,
 )
 
+log = logging.getLogger(__name__)
+
 
 def validate_new_pick(
     db: Session,
@@ -57,6 +60,7 @@ def validate_new_pick(
     """
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
+        log.warning("Pick validation failed: tournament=%s not found", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
 
     # League schedule check: the admin must have explicitly added this tournament.
@@ -66,6 +70,11 @@ def validate_new_pick(
         .first()
     )
     if not in_schedule:
+        log.warning(
+            "Pick validation failed: tournament=%s not in league=%s schedule",
+            str(tournament_id),
+            str(league_id),
+        )
         raise HTTPException(
             status_code=422,
             detail="This tournament is not in your league's schedule",
@@ -85,6 +94,11 @@ def validate_new_pick(
         .first()
     )
     if playoff_round:
+        log.warning(
+            "Pick validation failed: tournament=%s is a playoff tournament in league=%s",
+            str(tournament_id),
+            str(league_id),
+        )
         raise HTTPException(
             status_code=422,
             detail=(
@@ -94,6 +108,11 @@ def validate_new_pick(
         )
 
     if tournament.status == TournamentStatus.COMPLETED.value:
+        log.warning(
+            "Pick validation failed: tournament=%s already completed, user=%s",
+            str(tournament_id),
+            str(user_id),
+        )
         raise HTTPException(status_code=400, detail="Tournament is already completed")
 
     # Picks for a scheduled (upcoming) tournament are only allowed once the global
@@ -109,6 +128,11 @@ def validate_new_pick(
             .first()
         )
         if active:
+            log.warning(
+                "Pick validation failed: tournament=%s blocked, in-progress tournament=%s exists",
+                str(tournament_id),
+                str(active.id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -126,6 +150,11 @@ def validate_new_pick(
             .first()
         )
         if globally_next and tournament.id != globally_next.id:
+            log.warning(
+                "Pick validation failed: tournament=%s not globally next, next=%s",
+                str(tournament_id),
+                str(globally_next.id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -159,6 +188,10 @@ def validate_new_pick(
                 .first()
             )
             if entries_exist and not any_earnings:
+                log.warning(
+                    "Pick validation failed: earnings not published for completed tournament=%s",
+                    str(last_completed.id),
+                )
                 raise HTTPException(
                     status_code=400,
                     detail=(
@@ -171,6 +204,12 @@ def validate_new_pick(
         TournamentStatus.SCHEDULED.value,
         TournamentStatus.IN_PROGRESS.value,
     ):
+        log.warning(
+            "Pick validation failed: tournament=%s has invalid status=%s, user=%s",
+            str(tournament_id),
+            tournament.status,
+            str(user_id),
+        )
         raise HTTPException(
             status_code=400,
             detail="Picks can only be submitted for upcoming or live tournaments",
@@ -178,6 +217,7 @@ def validate_new_pick(
 
     golfer = db.query(Golfer).filter_by(id=golfer_id).first()
     if not golfer:
+        log.warning("Pick validation failed: golfer=%s not found", str(golfer_id))
         raise HTTPException(status_code=404, detail="Golfer not found")
 
     # Determine whether the official field has been released for this tournament.
@@ -195,6 +235,11 @@ def validate_new_pick(
             .first()
         )
         if not entry:
+            log.warning(
+                "Pick validation failed: golfer=%s not in tournament=%s field",
+                str(golfer_id),
+                str(tournament_id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Golfer is not entered in this tournament",
@@ -208,6 +253,12 @@ def validate_new_pick(
             # golfer's Round 1 tee time passes." This unblocks late picks on
             # tournament day when the scraper hasn't yet flipped status to IN_PROGRESS.
             if entry.tee_time <= now:
+                log.warning(
+                    "Pick validation failed: golfer=%s already teed off, user=%s tournament=%s",
+                    str(golfer_id),
+                    str(user_id),
+                    str(tournament_id),
+                )
                 raise HTTPException(
                     status_code=400,
                     detail="Pick deadline has passed — golfer has already teed off",
@@ -219,6 +270,11 @@ def validate_new_pick(
             # picks are blocked until tee times are synced and the specific golfer's
             # time can be checked.
             if tournament.start_date <= date.today():
+                log.warning(
+                    "Pick validation failed: tournament=%s already started, user=%s",
+                    str(tournament_id),
+                    str(user_id),
+                )
                 raise HTTPException(
                     status_code=400,
                     detail="Pick deadline has passed — the tournament has already started",
@@ -227,6 +283,12 @@ def validate_new_pick(
         # IN_PROGRESS: field must be released and the golfer must not have teed off.
         now = datetime.now(UTC)
         if not field_released or entry is None or entry.tee_time is None or entry.tee_time <= now:
+            log.warning(
+                "Pick validation failed: deadline passed, golfer=%s user=%s tournament=%s",
+                str(golfer_id),
+                str(user_id),
+                str(tournament_id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -247,6 +309,12 @@ def validate_new_pick(
         .first()
     )
     if repeated:
+        log.warning(
+            "Pick validation failed: user=%s already picked golfer=%s this season in league=%s",
+            str(user_id),
+            str(golfer_id),
+            str(league_id),
+        )
         raise HTTPException(
             status_code=400,
             detail=f"You have already picked {golfer.name} this season",
@@ -264,6 +332,12 @@ def validate_new_pick(
         .first()
     )
     if duplicate:
+        log.warning(
+            "Pick validation failed: user=%s already has pick for tournament=%s in league=%s",
+            str(user_id),
+            str(tournament_id),
+            str(league_id),
+        )
         raise HTTPException(
             status_code=400,
             detail="You have already submitted a pick for this tournament",
@@ -285,6 +359,11 @@ def validate_pick_change(
     tournament = pick.tournament
 
     if tournament.status == TournamentStatus.COMPLETED.value:
+        log.warning(
+            "Pick change failed: tournament=%s already completed, user=%s",
+            str(tournament.id),
+            str(user_id),
+        )
         raise HTTPException(
             status_code=400,
             detail="Tournament is already completed — pick cannot be changed",
@@ -300,6 +379,11 @@ def validate_pick_change(
         # pick.is_locked returns False when the current golfer withdrew before tee-off,
         # which is the exception that allows a swap even during an in-progress tournament.
         if pick.is_locked:
+            log.warning(
+                "Pick change failed: pick locked, golfer already teed off, user=%s tournament=%s",
+                str(user_id),
+                str(tournament.id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Pick is locked — your golfer has already teed off",
@@ -312,10 +396,20 @@ def validate_pick_change(
             .first()
         )
         if not entry:
+            log.warning(
+                "Pick change failed: golfer=%s not in tournament=%s field",
+                str(new_golfer_id),
+                str(tournament.id),
+            )
             raise HTTPException(status_code=400, detail="Golfer is not entered in this tournament")
 
         now = datetime.now(UTC)
         if entry.tee_time is None or entry.tee_time <= now:
+            log.warning(
+                "Pick change failed: golfer=%s tee time passed or unavailable, user=%s",
+                str(new_golfer_id),
+                str(user_id),
+            )
             raise HTTPException(
                 status_code=400,
                 detail="Pick is locked — golfer has already teed off or tee time is unavailable",
@@ -323,6 +417,11 @@ def validate_pick_change(
     else:
         # SCHEDULED: apply the same start_date deadline as a new pick.
         if tournament.start_date <= date.today():
+            log.warning(
+                "Pick change failed: tournament=%s deadline passed, user=%s",
+                str(tournament.id),
+                str(user_id),
+            )
             raise HTTPException(status_code=400, detail="Pick deadline has passed")
 
         # Only enforce the field check if entries have been released.
@@ -333,6 +432,11 @@ def validate_pick_change(
                 .first()
             )
             if not entry:
+                log.warning(
+                    "Pick change failed: golfer=%s not in tournament=%s field",
+                    str(new_golfer_id),
+                    str(tournament.id),
+                )
                 raise HTTPException(
                     status_code=400, detail="Golfer is not entered in this tournament"
                 )
@@ -350,6 +454,12 @@ def validate_pick_change(
         .first()
     )
     if existing:
+        log.warning(
+            "Pick change failed: user=%s already picked golfer=%s this season in league=%s",
+            str(user_id),
+            str(new_golfer_id),
+            str(league_id),
+        )
         raise HTTPException(
             status_code=400,
             detail="You have already picked this golfer this season",

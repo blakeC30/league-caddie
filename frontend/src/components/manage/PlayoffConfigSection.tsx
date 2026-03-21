@@ -91,6 +91,10 @@ export function PlayoffConfigSection({
       setPlayoffSize(playoffConfig.playoff_size);
       setDraftStyle(playoffConfig.draft_style as "snake" | "linear" | "top_seed_priority");
       setPicksPerRound(playoffConfig.picks_per_round);
+    } else {
+      setPlayoffSize(0);
+      setDraftStyle("snake");
+      setPicksPerRound([]);
     }
     setPlayoffSaveError("");
     setPlayoffEditing(false);
@@ -223,13 +227,13 @@ export function PlayoffConfigSection({
     return new Set<string>();
   }, [poReviseRound, poReviseUserId]);
 
-  // Pre-fill golfer dropdown when pick changes
+  // Pre-fill golfer dropdown when pick selection changes (not after save)
   useEffect(() => {
+    if (poReviseSaved) return; // Don't reset after a successful save
     const currentPick = poRevisePickOptions.find((p) => p.id === poRevisePickId);
     setPoReviseGolferId(currentPick ? (currentPick.golfer_id ?? "none") : "none");
     revisePlayoffPick.reset();
     adminCreatePlayoffPick.reset();
-    setPoReviseSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [poRevisePickId]);
 

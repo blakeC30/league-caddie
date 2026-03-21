@@ -5,6 +5,8 @@ Endpoints:
   GET /leagues/{league_id}/standings   Current season standings for the league
 """
 
+import logging
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -13,6 +15,8 @@ from app.dependencies import get_active_season, require_active_purchase, require
 from app.models import League, LeagueMember, LeaguePurchase, Season
 from app.schemas.standings import StandingsResponse, StandingsRow
 from app.services.scoring import calculate_standings
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/leagues/{league_id}/standings", tags=["standings"])
 
@@ -32,6 +36,7 @@ def get_standings(
     Rows are sorted best-to-worst (highest total_points first).
     """
     league, _ = league_and_member
+    log.debug("Standings requested: league=%s season=%d", str(league.id), season.year)
     raw_rows = calculate_standings(db, league, season)
 
     # Competition ranking (golf-style) — single-pass O(N) algorithm.

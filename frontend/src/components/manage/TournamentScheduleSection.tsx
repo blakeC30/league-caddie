@@ -80,6 +80,11 @@ export function TournamentScheduleSection({
       setMultipliers(mults);
       onSelectedIdsChange(ids);
       onMultipliersChange(mults);
+    } else {
+      setSelectedIds(new Set());
+      setMultipliers({});
+      onSelectedIdsChange(new Set());
+      onMultipliersChange({});
     }
     setScheduleSaved(false);
     setScheduleEditing(false);

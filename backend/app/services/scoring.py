@@ -18,6 +18,8 @@ called from both the standings router and the scraper (when finalizing results).
 """
 
 import datetime
+import logging
+from datetime import UTC
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -34,6 +36,24 @@ from app.models import (
     TournamentStatus,
 )
 
+log = logging.getLogger(__name__)
+
+_STANDINGS_CACHE_TTL = datetime.timedelta(minutes=5)
+
+
+def invalidate_standings_cache(db: Session, season: Season) -> None:
+    """Clear the cached standings so the next request recomputes them."""
+    season.standings_cache = None
+    season.standings_cached_at = None
+    db.flush()
+
+
+def invalidate_standings_cache_for_league(db: Session, league_id) -> None:
+    """Find the active season for a league and clear its standings cache."""
+    season = db.query(Season).filter_by(league_id=league_id, is_active=True).first()
+    if season:
+        invalidate_standings_cache(db, season)
+
 
 def calculate_standings(db: Session, league: League, season: Season) -> list[dict]:
     """
@@ -41,7 +61,25 @@ def calculate_standings(db: Session, league: League, season: Season) -> list[dic
 
     Each row is a dict with:
       user_id, display_name, total_points, pick_count, missed_count
+
+    Results are cached on the Season row for up to 5 minutes to avoid
+    recomputing O(N×M) on every page load. The cache is explicitly
+    invalidated when picks, members, or scores change.
     """
+    # Return cached result if still fresh
+    if (
+        season.standings_cache is not None
+        and season.standings_cached_at is not None
+        and datetime.datetime.now(UTC) - season.standings_cached_at < _STANDINGS_CACHE_TTL
+    ):
+        log.debug(
+            "Standings cache hit: league=%s season=%d",
+            str(league.id),
+            season.year,
+        )
+        return season.standings_cache
+
+    log.info("Calculating standings: league=%s season=%d", str(league.id), season.year)
     # Only count tournaments the league admin explicitly added to the schedule
     # AND that have completed. This lets leagues start mid-season and handles
     # weeks with multiple simultaneous events.
@@ -152,4 +190,26 @@ def calculate_standings(db: Session, league: League, season: Season) -> list[dic
             x["joined_at"],
         )
     )
+    log.debug(
+        "Standings calculated: league=%s members=%d completed_tournaments=%d",
+        str(league.id),
+        len(standings),
+        len(completed_ids),
+    )
+
+    # Cache the result. Convert non-JSON-serializable fields (UUID, datetime)
+    # to strings for storage; callers consume dicts so string user_id is fine
+    # (Pydantic coerces it back to UUID in the schema).
+    cache_rows = [
+        {
+            **row,
+            "user_id": str(row["user_id"]),
+            "joined_at": row["joined_at"].isoformat() if row.get("joined_at") else None,
+        }
+        for row in standings
+    ]
+    season.standings_cache = cache_rows
+    season.standings_cached_at = datetime.datetime.now(UTC)
+    db.commit()
+
     return standings

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { LeagueMember, LeagueTournamentOut, PlayoffConfigOut } from "../../api/endpoints";
-import { useAdminOverridePick, useAllGolfers, useAllPicks } from "../../hooks/usePick";
+import { useAdminOverridePick, useAllGolfers, useMemberPickContext } from "../../hooks/usePick";
 import { fmtTournamentName } from "../../utils";
 import { DropdownSelect, SectionIcon } from "./shared";
 
@@ -17,7 +17,6 @@ export function RevisePickSection({
   leagueTournaments,
   playoffConfig,
 }: RevisePickSectionProps) {
-  const { data: allPicks } = useAllPicks(leagueId);
   const { data: allGolfers, isLoading: isLoadingGolfers } = useAllGolfers();
   const overridePick = useAdminOverridePick(leagueId);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -28,38 +27,44 @@ export function RevisePickSection({
   const [revisePickGolferId, setRevisePickGolferId] = useState<string>("none");
   const [reviseSaved, setReviseSaved] = useState(false);
 
-  // Pre-fill the golfer dropdown when tournament/member selection changes.
+  // Fetch lightweight context for the selected member + tournament.
+  // Returns the existing pick and used golfers — no need to load all 15,000 picks.
+  const { data: pickContext } = useMemberPickContext(
+    leagueId,
+    revisePickMemberId,
+    revisePickTournamentId,
+  );
+
+  // Reset state when the user changes tournament or member selection.
   useEffect(() => {
     if (!revisePickTournamentId || !revisePickMemberId) {
       setRevisePickGolferId("none");
       return;
-    }
-    if (allPicks) {
-      const existing = allPicks.find(
-        (p) => p.tournament_id === revisePickTournamentId && p.user_id === revisePickMemberId
-      );
-      setRevisePickGolferId(existing ? existing.golfer_id : "none");
     }
     overridePick.reset();
     setReviseSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revisePickTournamentId, revisePickMemberId]);
 
-  // Detect no-repeat violation
+  // Pre-fill the golfer dropdown when context loads (separate from reset).
+  useEffect(() => {
+    if (pickContext && !reviseSaved) {
+      setRevisePickGolferId(pickContext.existing_golfer_id ?? "none");
+    }
+  }, [pickContext?.existing_golfer_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Detect no-repeat violation using server-provided used golfers list.
   const duplicatePickConflict = (() => {
-    if (!revisePickMemberId || revisePickGolferId === "none" || !allPicks) return null;
-    const conflict = allPicks.find(
-      (p) =>
-        p.user_id === revisePickMemberId &&
-        p.golfer_id === revisePickGolferId &&
-        p.tournament_id !== revisePickTournamentId
+    if (!revisePickMemberId || revisePickGolferId === "none" || !pickContext) return null;
+    const conflict = pickContext.used_golfers.find(
+      (g) => g.golfer_id === revisePickGolferId,
     );
     if (!conflict) return null;
     const member = members?.find((m) => m.user_id === revisePickMemberId);
     return {
       memberName: member?.user.display_name ?? "This member",
-      golferName: conflict.golfer.name,
-      tournamentName: fmtTournamentName(conflict.tournament.name),
+      golferName: conflict.golfer_name,
+      tournamentName: fmtTournamentName(conflict.tournament_name),
     };
   })();
 
@@ -188,11 +193,7 @@ export function RevisePickSection({
               !revisePickMemberId ||
               overridePick.isPending ||
               !!duplicatePickConflict ||
-              revisePickGolferId === (
-                allPicks?.find(
-                  (p) => p.tournament_id === revisePickTournamentId && p.user_id === revisePickMemberId
-                )?.golfer_id ?? "none"
-              )
+              revisePickGolferId === (pickContext?.existing_golfer_id ?? "none")
             }
             className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
           >

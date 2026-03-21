@@ -23,8 +23,9 @@ metadata:
     # Use letsencrypt-staging first (no rate limits) then switch to letsencrypt-prod.
     cert-manager.io/cluster-issuer: {{ .Values.ingress.clusterIssuer | quote }}
     {{- end }}
-    # Traefik-specific: tell it to use the web (HTTP) or websecure (HTTPS) entrypoint.
-    traefik.ingress.kubernetes.io/router.entrypoints: {{ if .Values.ingress.tlsEnabled }}websecure{{ else }}web{{ end }}
+    # Traefik-specific: accept both HTTP and HTTPS traffic. Traefik's default
+    # middleware handles the HTTP→HTTPS redirect when TLS is enabled.
+    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
 spec:
   ingressClassName: traefik
   {{- if .Values.ingress.tlsEnabled }}

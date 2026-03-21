@@ -45,7 +45,8 @@ function StandingsTr({
         {row.display_name}
       </td>
       <td className="px-4 py-3 text-right tabular-nums font-medium">
-        {formatPoints(row.total_points)}
+        <span className="sm:hidden">{formatPoints(row.total_points)}</span>
+        <span className="hidden sm:inline">{formatPoints(row.total_points, false)}</span>
       </td>
     </tr>
   );
@@ -495,7 +496,7 @@ export function Dashboard() {
               </table>
               {standings.rows.length > 5 && (
                 <Link
-                  to={`/leagues/${leagueId}/leaderboard?view=standings`}
+                  to={`/leagues/${leagueId}/leaderboard?view=standings&expand=1`}
                   className="block text-center text-xs text-gray-400 hover:text-green-700 py-2 transition-colors"
                 >
                   View all {standings.rows.length} members →

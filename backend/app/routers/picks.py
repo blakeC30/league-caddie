@@ -10,6 +10,7 @@ Endpoints:
   PUT   /leagues/{league_id}/picks/admin-override  Manager: upsert or delete any member's pick
 """
 
+import logging
 import uuid
 from collections import defaultdict
 from datetime import UTC, datetime
@@ -49,6 +50,7 @@ from app.models import (
 from app.schemas.pick import PickCreate, PickOut, PickUpdate
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
 from app.services.picks import validate_new_pick, validate_pick_change
+from app.services.scoring import invalidate_standings_cache
 from app.services.scraper import score_picks
 
 # ---------------------------------------------------------------------------
@@ -87,6 +89,21 @@ class TournamentPicksSummary(BaseModel):
     no_pick_members: list[NoPicker]
     winner: WinnerInfo | None  # None for non-completed tournaments
 
+
+class UsedGolferInfo(BaseModel):
+    golfer_id: str
+    golfer_name: str
+    tournament_name: str
+
+
+class MemberPickContext(BaseModel):
+    """Lightweight context for the revise-pick form: existing pick + used golfers."""
+
+    existing_golfer_id: str | None  # current pick for this tournament, or None
+    used_golfers: list[UsedGolferInfo]  # golfers this member already used this season
+
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/leagues/{league_id}/picks", tags=["picks"])
 
@@ -143,12 +160,85 @@ def submit_pick(
         db.commit()
     except IntegrityError:
         db.rollback()
+        log.warning(
+            "Duplicate pick submission: user=%s league=%s tournament=%s",
+            str(current_user.id),
+            str(league.id),
+            str(body.tournament_id),
+        )
         raise HTTPException(
             status_code=409,
             detail="A pick for this tournament already exists. Refresh and try again.",
         )
 
+    invalidate_standings_cache(db, season)
+    db.commit()
+    log.info(
+        "Pick submitted: user=%s league=%s tournament=%s golfer=%s",
+        str(current_user.id),
+        str(league.id),
+        str(body.tournament_id),
+        str(body.golfer_id),
+    )
     return _picks_with_relations(db.query(Pick)).filter_by(id=pick.id).first()
+
+
+@router.get("/member-context", response_model=MemberPickContext)
+def get_member_pick_context(
+    user_id: uuid.UUID,
+    tournament_id: uuid.UUID,
+    league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
+    season: Season = Depends(get_active_season),
+    db: Session = Depends(get_db),
+):
+    """
+    Lightweight context for the revise-pick form.
+
+    Returns the member's existing pick for this tournament (if any) and
+    all golfers they've already used this season — enough for the frontend
+    to pre-fill the dropdown and show no-repeat warnings without loading
+    every pick in the league.
+    """
+    league, _ = league_and_manager
+
+    # Existing pick for this tournament
+    existing = (
+        db.query(Pick)
+        .filter_by(
+            league_id=league.id,
+            season_id=season.id,
+            user_id=user_id,
+            tournament_id=tournament_id,
+        )
+        .first()
+    )
+
+    # All golfers this member has used this season (excluding the current tournament)
+    used = (
+        db.query(Pick.golfer_id, Golfer.name, Tournament.name.label("tournament_name"))
+        .join(Pick.golfer)
+        .join(Pick.tournament)
+        .filter(
+            Pick.league_id == league.id,
+            Pick.season_id == season.id,
+            Pick.user_id == user_id,
+            Pick.tournament_id != tournament_id,
+        )
+        .all()
+    )
+
+    return MemberPickContext(
+        existing_golfer_id=str(existing.golfer_id) if existing else None,
+        used_golfers=[
+            UsedGolferInfo(
+                golfer_id=str(row.golfer_id),
+                golfer_name=row.name,
+                tournament_name=row.tournament_name,
+            )
+            for row in used
+        ],
+    )
 
 
 @router.get("/mine", response_model=list[PickOut])
@@ -180,6 +270,7 @@ def get_all_picks(
     purchase: LeaguePurchase | None = Depends(require_active_purchase),
     season: Season = Depends(get_active_season),
     db: Session = Depends(get_db),
+    user_id: uuid.UUID | None = None,
 ):
     """
     Return all picks for the active season that are safe to reveal.
@@ -190,6 +281,9 @@ def get_all_picks(
         (i.e. every golfer in the field has teed off and no one can copy picks).
 
     Picks for SCHEDULED tournaments are always withheld.
+
+    Optional query parameter ``user_id`` filters to a single member's picks.
+    When omitted, all members' picks are returned (backwards compatible).
     """
     league, _ = league_and_member
     scheduled_tournament_ids = (
@@ -209,11 +303,12 @@ def get_all_picks(
         .scalar_subquery()
     )
 
+    base_query = db.query(Pick).filter_by(league_id=league.id, season_id=season.id)
+    if user_id is not None:
+        base_query = base_query.filter(Pick.user_id == user_id)
+
     return _picks_with_relations(
-        db.query(Pick)
-        .filter_by(league_id=league.id, season_id=season.id)
-        .join(Pick.tournament)
-        .filter(
+        base_query.join(Pick.tournament).filter(
             Tournament.id.in_(scheduled_tournament_ids),
             or_(
                 Tournament.status == TournamentStatus.COMPLETED.value,
@@ -370,6 +465,12 @@ def change_pick(
         .first()
     )
     if not pick:
+        log.warning(
+            "Pick not found for change: pick_id=%s user=%s league=%s",
+            str(pick_id),
+            str(current_user.id),
+            str(league.id),
+        )
         raise HTTPException(status_code=404, detail="Pick not found")
 
     validate_pick_change(
@@ -382,8 +483,10 @@ def change_pick(
     )
 
     pick.golfer_id = body.golfer_id
+    invalidate_standings_cache(db, season)
     db.commit()
 
+    log.info("Pick changed: pick=%s new_golfer=%s", str(pick_id), str(body.golfer_id))
     return _picks_with_relations(db.query(Pick)).filter_by(id=pick.id).first()
 
 
@@ -422,6 +525,11 @@ def admin_override_pick(
         .first()
     )
     if not lt:
+        log.warning(
+            "Admin override: tournament not in schedule: league=%s tournament=%s",
+            str(league.id),
+            str(body.tournament_id),
+        )
         raise HTTPException(status_code=422, detail="Tournament is not in this league's schedule")
 
     # Block admin override for playoff-designated tournaments — those picks live in
@@ -485,6 +593,11 @@ def admin_override_pick(
         .first()
     )
     if not membership:
+        log.warning(
+            "Admin override: user not approved member: league=%s user=%s",
+            str(league.id),
+            str(body.user_id),
+        )
         raise HTTPException(status_code=404, detail="User is not an approved league member")
 
     # Find existing pick for this user + tournament in the active season
@@ -510,6 +623,11 @@ def admin_override_pick(
     # the manager can override before the official field is released).
     golfer = db.query(Golfer).filter_by(id=body.golfer_id).first()
     if not golfer:
+        log.warning(
+            "Admin override: golfer not found: league=%s golfer=%s",
+            str(league.id),
+            str(body.golfer_id),
+        )
         raise HTTPException(status_code=404, detail="Golfer not found")
 
     # No-repeat rule is enforced for admin overrides. A manager cannot assign a golfer
@@ -553,9 +671,20 @@ def admin_override_pick(
         db.commit()
         pick_id = pick.id
 
+    log.info(
+        "Admin pick override: league=%s user=%s tournament=%s golfer=%s",
+        str(league.id),
+        str(body.user_id),
+        str(body.tournament_id),
+        str(body.golfer_id),
+    )
+
     # If the tournament is already completed, score the pick immediately
     # so points_earned is populated without waiting for the next scheduled sync.
     if tournament and tournament.status == TournamentStatus.COMPLETED.value:
         score_picks(db, tournament)
+
+    invalidate_standings_cache(db, season)
+    db.commit()
 
     return _picks_with_relations(db.query(Pick)).filter_by(id=pick_id).first()

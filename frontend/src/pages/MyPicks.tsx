@@ -24,7 +24,6 @@ export function MyPicks() {
     document.title = "Picks — League Caddie";
   }, []);
 
-  const { data: allPicks } = useAllPicks(leagueId!);
   const { data: members } = useLeagueMembers(leagueId!);
   const { data: leagueTournaments, isLoading: tournamentsLoading } = useLeagueTournaments(leagueId!);
   const { data: league } = useLeague(leagueId!);
@@ -40,13 +39,17 @@ export function MyPicks() {
   const viewingUserId = selectedUserId ?? currentUser?.id ?? null;
   const isViewingSelf = !selectedUserId || selectedUserId === currentUser?.id;
 
+  // When viewing another member, fetch only their picks server-side (not the entire league).
+  const { data: allPicks } = useAllPicks(
+    leagueId!,
+    isViewingSelf ? undefined : (viewingUserId ?? undefined),
+  );
+
   // Current user always uses myPicksData (includes in-progress tournament picks).
-  // Other members use allPicks filtered by user — all-picks only exposes completed tournaments.
+  // Other members use allPicks — already filtered by user_id on the server.
   const picks = isViewingSelf
     ? myPicksData ?? null
-    : viewingUserId
-    ? (allPicks?.filter((p) => p.user_id === viewingUserId) ?? null)
-    : null;
+    : allPicks ?? null;
 
   const { data: globalScheduled } = useTournaments("scheduled");
   const { data: globalInProgress } = useTournaments("in_progress");

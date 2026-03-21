@@ -11,6 +11,7 @@ Keeping this in a service makes it easy to unit-test without starting a web serv
 """
 
 import hashlib
+import logging
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -20,6 +21,8 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.config import settings
+
+log = logging.getLogger(__name__)
 
 # Default cost factor is 12 (bcrypt recommendation for production).
 # Set BCRYPT_ROUNDS=4 in test environments to keep password hashing fast —
@@ -69,16 +72,26 @@ def decode_access_token(token: str) -> dict:
     Raises JWTError if the token is expired, malformed, or is not an access token.
     The caller (dependencies.py) converts JWTError into an HTTP 401 response.
     """
-    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError as exc:
+        log.warning("JWT decode failed: %s", exc)
+        raise
     if payload.get("type") != "access":
+        log.warning("JWT decode failed: token is not an access token")
         raise JWTError("Token is not an access token")
     return payload
 
 
 def decode_refresh_token(token: str) -> dict:
     """Decode and validate a JWT refresh token. Raises JWTError on failure."""
-    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError as exc:
+        log.warning("JWT decode failed: %s", exc)
+        raise
     if payload.get("type") != "refresh":
+        log.warning("JWT decode failed: token is not a refresh token")
         raise JWTError("Token is not a refresh token")
     return payload
 
@@ -107,6 +120,7 @@ def generate_reset_token(db: Session, user) -> str:
         )
     )
     db.commit()
+    log.info("Password reset token generated for user=%s", str(user.id))
     return raw
 
 
@@ -128,7 +142,14 @@ def validate_reset_token(db: Session, raw_token: str):
     token_hash = _hash_token(raw_token)  # always computed — no format-based early exit
     now = datetime.now(tz=UTC)  # captured before the query so all paths do the same work
     record = db.query(PasswordResetToken).filter_by(token_hash=token_hash).first()
-    if not record or record.used_at is not None or record.expires_at <= now:
+    if not record:
+        log.warning("Reset token validation failed: token not found")
+        return None
+    if record.used_at is not None:
+        log.warning("Reset token validation failed: token already used")
+        return None
+    if record.expires_at <= now:
+        log.warning("Reset token validation failed: token expired")
         return None
     return db.get(User, record.user_id)
 
@@ -159,8 +180,12 @@ def verify_google_id_token(id_token: str) -> dict:
     from google.auth.transport import requests as google_requests
     from google.oauth2 import id_token as google_id_token
 
-    return google_id_token.verify_oauth2_token(
-        id_token,
-        google_requests.Request(),
-        settings.GOOGLE_CLIENT_ID,
-    )
+    try:
+        return google_id_token.verify_oauth2_token(
+            id_token,
+            google_requests.Request(),
+            settings.GOOGLE_CLIENT_ID,
+        )
+    except Exception as exc:
+        log.warning("Google ID token verification failed: %s", exc)
+        raise
