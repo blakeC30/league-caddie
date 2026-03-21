@@ -52,7 +52,7 @@ export function PlayoffConfigSection({
   const [poRevisePickId, setPoRevisePickId] = useState<string | null>(null);
   const [poReviseGolferId, setPoReviseGolferId] = useState<string>("none");
   const [poReviseSaved, setPoReviseSaved] = useState(false);
-  const poSavedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const poSavedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(poSavedTimerRef.current), []);
 
   const playoffInitializedRef = useRef(false);

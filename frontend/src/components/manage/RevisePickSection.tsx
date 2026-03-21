@@ -20,7 +20,7 @@ export function RevisePickSection({
   const { data: allPicks } = useAllPicks(leagueId);
   const { data: allGolfers, isLoading: isLoadingGolfers } = useAllGolfers();
   const overridePick = useAdminOverridePick(leagueId);
-  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(savedTimerRef.current), []);
 
   const [revisePickTournamentId, setRevisePickTournamentId] = useState<string | null>(null);

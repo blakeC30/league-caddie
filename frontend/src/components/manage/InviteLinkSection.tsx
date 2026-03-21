@@ -8,7 +8,7 @@ export interface InviteLinkSectionProps {
 
 export function InviteLinkSection({ league }: InviteLinkSectionProps) {
   const [linkCopied, setLinkCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   function copyInviteLink() {
