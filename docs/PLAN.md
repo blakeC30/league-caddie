@@ -40,14 +40,21 @@ This separation means scraper failures cannot take down the API, and the three c
 |---|---|
 | LLC formation (state filing fee) | ~$300 (varies by state) |
 | EIN | FREE (IRS.gov) |
-| **Total** | **~$300 one-time** |
+| Claude one-time extra usage top-up | $20 |
+| **Total** | **~$320 one-time** |
+
+### Development Tools (ongoing during active development)
+| Tool | Cost | Notes |
+|---|---|---|
+| Claude Pro | $20/month | Day-to-day development and Claude Code |
+| Claude Max 5x | $100/month | Heavy development periods (temporary) |
+
+> **Note:** Claude Max ($100/month) is only needed during intensive build phases. Drop back to Claude Pro ($20/month) once the site is stable. Cancel entirely when active development ends.
 
 ### During AWS Free Tier (first 12 months after account creation)
 | Resource | Cost |
 |---|---|
-| EC2 t2.micro — dev (K3s, all dev services) | FREE (750 hrs/month) |
 | EC2 t3a.small — prod (K3s, all prod services) | ~$14/month |
-| EBS gp3 — dev (8 GB) | FREE (included in 30 GB free tier) |
 | EBS gp3 — prod (22 GB) | FREE (included in 30 GB free tier) |
 | EBS snapshots (Data Lifecycle Manager) | ~$0.05/GB/month (near $0 when DB is small) |
 | ECR (container registry) | FREE (500 MB storage) |
@@ -57,27 +64,78 @@ This separation means scraper failures cannot take down the API, and the three c
 | AWS Budgets | FREE (2 budgets free) |
 | Route 53 | ~$0.50/hosted zone/month + ~$12/year domain |
 | GitHub Actions (public repo) | FREE (unlimited minutes) |
-| **Total** | **~$16/month** |
+| **Total** | **~$15/month** |
 
 ### After Free Tier (month 13+)
 | Resource | Est. Cost |
 |---|---|
-| EC2 t2.micro — dev | ~$8.50/month |
 | EC2 t3a.small — prod | ~$14/month |
-| EBS gp3 — dev (8 GB) | ~$0.64/month |
 | EBS gp3 — prod (22 GB) | ~$1.76/month |
 | EBS snapshots | ~$0.50/month (small DB) |
 | SES | $0.10/1,000 emails (effectively $0 at this scale) |
 | SQS | $0.40/1M requests (effectively $0 at this scale) |
 | CloudWatch Logs | ~$0.50/month (low log volume) |
 | Route 53 | ~$0.50/month |
-| **Total** | **~$26.50/month** |
+| **Total** | **~$18/month** |
 
-> **Note:** Dev uses a t2.micro (free tier, 1 GB RAM, 1 vCPU). Prod uses a t3a.small (2 GB RAM, 2 vCPU, AMD EPYC — ~10% cheaper than t3.small for equivalent specs) for headroom running 2 backend replicas + scraper + worker + Postgres + Nginx simultaneously.
+### Annual Costs
+| Item | Cost | Notes |
+|---|---|---|
+| Domain renewal (Squarespace) | ~$20/year | First year was $14 |
+| Texas franchise tax report | $0/year | No fee to file; no tax due if revenue < $2.65M. Due May 15 each year. $50 late penalty if missed. |
+| **Total** | **~$20/year** | |
 
-> **Note:** The dev EC2 can be terminated later to cut costs — when ready, push directly to `main` and deploy to prod only.
+> **Note:** Prod uses a t3a.small (2 GB RAM, 2 vCPU, AMD EPYC — ~10% cheaper than t3.small for equivalent specs) for headroom running backend + scraper + worker + Postgres + Nginx simultaneously. No dev instance — development and testing done locally via docker-compose.
 
 > **Note:** EKS costs $0.10/hr for the control plane alone ($72/month). We use K3s on EC2 — identical Kubernetes experience at zero extra cost.
+
+### Cost Summary
+
+#### To Start the Business (one-time + first month)
+| Item | Cost |
+|---|---|
+| LLC formation (state filing fee) | ~$300 |
+| Claude one-time extra usage top-up | $20 |
+| Domain registration (~$12/year) | ~$12 |
+| Claude Max 5x (initial build month) | $100 |
+| AWS — first month (free tier active) | ~$15 |
+| **Total to launch** | **~$447** |
+
+#### Monthly After Launch (AWS free tier active, months 1–12)
+| Item | Cost |
+|---|---|
+| AWS infrastructure | ~$15/month |
+| Claude Pro (ongoing development) | $20/month |
+| **Total** | **~$35/month** |
+
+#### Monthly After Free Tier Expires (month 13+)
+| Item | Cost |
+|---|---|
+| AWS infrastructure | ~$18/month |
+| Claude Pro (ongoing development) | $20/month |
+| **Total** | **~$38/month** |
+
+> **Note:** Claude can be cancelled when active development ends, saving $20/month. Minimum steady-state cost: ~$15/month (free tier) or ~$18/month (post-free-tier).
+
+#### Yearly Total (AWS free tier active, months 1–12)
+| Item | Cost |
+|---|---|
+| AWS infrastructure (~$15/month × 12) | ~$180/year |
+| Claude Pro (~$20/month × 12) | ~$240/year |
+| Domain renewal | ~$20/year |
+| Texas franchise tax report | $0/year |
+| **Total** | **~$440/year** |
+| **Without Claude** | **~$200/year** |
+
+#### Yearly Total (after free tier, month 13+)
+| Item | Cost |
+|---|---|
+| AWS infrastructure (~$18/month × 12) | ~$216/year |
+| Claude Pro (~$20/month × 12) | ~$240/year |
+| Domain renewal | ~$20/year |
+| Texas franchise tax report | $0/year |
+| **Total** | **~$476/year** |
+| **Without Claude** | **~$236/year** |
 
 > **Note:** AWS credentials are empty on both instances — the EC2 IAM instance role automatically provides credentials for SES and SQS. Only `AWS_REGION` and `SES_FROM_EMAIL` need to be configured in the Helm chart secrets.
 
@@ -1074,10 +1132,10 @@ STRIPE_PRICE_ID_ELITE: str = ""      # price_... ($149.99, up to 500 members)
 **Tier metadata (hardcoded constant, not in DB):**
 ```python
 PRICING_TIERS = {
-    "starter":  {"price_id": settings.STRIPE_PRICE_ID_STARTER,  "member_limit": 20,  "amount_cents": 5000},
-    "standard": {"price_id": settings.STRIPE_PRICE_ID_STANDARD, "member_limit": 50,  "amount_cents": 9000},
-    "pro":      {"price_id": settings.STRIPE_PRICE_ID_PRO,      "member_limit": 150, "amount_cents": 15000},
-    "elite":    {"price_id": settings.STRIPE_PRICE_ID_ELITE,    "member_limit": 500, "amount_cents": 25000},
+    "starter":  {"price_id": settings.STRIPE_PRICE_ID_STARTER,  "member_limit": 20,  "amount_cents": 2999},
+    "standard": {"price_id": settings.STRIPE_PRICE_ID_STANDARD, "member_limit": 50,  "amount_cents": 4999},
+    "pro":      {"price_id": settings.STRIPE_PRICE_ID_PRO,      "member_limit": 150, "amount_cents": 9999},
+    "elite":    {"price_id": settings.STRIPE_PRICE_ID_ELITE,    "member_limit": 500, "amount_cents": 14999},
 }
 ```
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { GoogleLogin } from "@react-oauth/google";
 import { useAuth } from "../hooks/useAuth";
@@ -9,6 +9,10 @@ export function Register() {
   const [searchParams] = useSearchParams();
   const next = searchParams.get("next");
   const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    document.title = "Sign Up — League Caddie";
+  }, []);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [displayName, setDisplayName] = useState("");

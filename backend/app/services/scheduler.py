@@ -54,6 +54,16 @@ Jobs
     Tuesday finish is caught the next morning. Acts as a safety net if the
     SQS TOURNAMENT_COMPLETED pipeline missed anything.
 
+  webhook_failure_retry  (every 2 hours)
+    Retries unresolved Stripe webhook failures that are at least 1 hour old
+    (gives transient issues time to clear). Each failure is retried individually;
+    on success, resolved_at is set. On failure, the error is logged and the
+    row stays unresolved for the next cycle. Maximum 3 retry attempts per row
+    (tracked via retry_count column). The underlying _handle_checkout_complete
+    is fully idempotent (advisory lock + already_processed check), so retries
+    are always safe — a user can never be charged twice or granted duplicate
+    league access.
+
 Playoff automation (moved to SQS worker container)
 ----------------------------------------------------
   Playoff draft resolution and bracket advancement are handled by the SQS
@@ -418,6 +428,80 @@ def _run_results_finalization() -> None:
         db.close()
 
 
+_MAX_WEBHOOK_RETRIES = 3
+
+
+def _run_webhook_failure_retry() -> None:
+    """
+    Every 2 hours: retry unresolved Stripe webhook failures.
+
+    Only retries failures that are at least 1 hour old (to let transient issues
+    clear) and have not exceeded the maximum retry count. Each failure is
+    retried individually — one failure does not block others.
+
+    The underlying _handle_checkout_complete is fully idempotent: it acquires a
+    PostgreSQL advisory lock on the checkout session ID and checks whether the
+    event was already processed before doing any work. This means:
+    - A user can never be charged twice
+    - A league can never be created twice from the same payment
+    - Concurrent retries (admin + scheduler) are serialized safely
+    """
+    from app.database import SessionLocal
+    from app.models.league_purchase import StripeWebhookFailure
+    from app.routers.stripe_router import _handle_checkout_complete
+
+    db = SessionLocal()
+    try:
+        one_hour_ago = datetime.now(UTC) - timedelta(hours=1)
+        failures = (
+            db.query(StripeWebhookFailure)
+            .filter(
+                StripeWebhookFailure.resolved_at.is_(None),
+                StripeWebhookFailure.created_at <= one_hour_ago,
+                StripeWebhookFailure.retry_count < _MAX_WEBHOOK_RETRIES,
+            )
+            .order_by(StripeWebhookFailure.created_at.asc())
+            .all()
+        )
+
+        if not failures:
+            return
+
+        log.info("Webhook failure retry: %d unresolved failure(s) to retry", len(failures))
+
+        for failure in failures:
+            try:
+                _handle_checkout_complete(failure.raw_payload, db)
+                failure.resolved_at = datetime.now(UTC)
+                failure.retry_count += 1
+                db.commit()
+                log.info(
+                    "Webhook failure retry: resolved failure %s (session %s)",
+                    failure.id,
+                    failure.stripe_checkout_session_id,
+                )
+            except Exception as exc:
+                db.rollback()
+                # Update retry count even on failure so we don't retry forever
+                try:
+                    failure.retry_count += 1
+                    db.commit()
+                except Exception:
+                    db.rollback()
+                log.error(
+                    "Webhook failure retry: failed to resolve %s (attempt %d/%d): %s",
+                    failure.id,
+                    failure.retry_count,
+                    _MAX_WEBHOOK_RETRIES,
+                    exc,
+                    exc_info=True,
+                )
+    except Exception as exc:
+        log.error("Webhook failure retry job failed: %s", exc, exc_info=True)
+    finally:
+        db.close()
+
+
 # ---------------------------------------------------------------------------
 # Scheduler lifecycle
 # ---------------------------------------------------------------------------
@@ -511,6 +595,19 @@ def start_scheduler() -> None:
         _run_pick_reminder_send,
         CronTrigger(day_of_week="wed", hour=12, minute=0),
         id="pick_reminder_send",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    # ── 6. Webhook failure auto-retry ────────────────────────────────────
+    # Every 2 hours: retry unresolved Stripe webhook failures that are at
+    # least 1 hour old and have not exceeded 3 retry attempts. Idempotent
+    # — _handle_checkout_complete uses advisory locks so double-processing
+    # is impossible.
+    _scheduler.add_job(
+        _run_webhook_failure_retry,
+        CronTrigger(hour="*/2", minute=30),
+        id="webhook_failure_retry",
         replace_existing=True,
         misfire_grace_time=3600,
     )

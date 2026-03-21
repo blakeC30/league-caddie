@@ -4,22 +4,7 @@
 
 import type { StandingsRow } from "../api/endpoints";
 import { useAuthStore } from "../store/authStore";
-
-function formatPoints(pts: number): string {
-  return `$${Math.round(pts).toLocaleString()}`;
-}
-
-/** Golf-style rank label: "1", "T2", "T2", "4" */
-function formatRank(rank: number, isTied: boolean): string {
-  return isTied ? `T${rank}` : `${rank}`;
-}
-
-function rankClass(rank: number): string {
-  if (rank === 1) return "text-amber-500 font-bold";
-  if (rank === 2) return "text-slate-400 font-semibold";
-  if (rank === 3) return "text-orange-400 font-semibold";
-  return "text-gray-500";
-}
+import { formatPoints, formatRank, rankClass } from "../utils";
 
 interface Props {
   rows: StandingsRow[];

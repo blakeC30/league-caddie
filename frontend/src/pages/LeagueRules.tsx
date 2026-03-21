@@ -9,7 +9,8 @@
  *      Playoff rules are only shown when playoffs are enabled for this league.
  */
 
-import { useParams } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, useParams } from "react-router-dom";
 import { useLeague } from "../hooks/useLeague";
 import { usePlayoffConfig } from "../hooks/usePlayoff";
 
@@ -118,13 +119,26 @@ export function LeagueRules() {
   const { data: league } = useLeague(leagueId!);
   const { data: playoffConfig } = usePlayoffConfig(leagueId!);
 
+  useEffect(() => {
+    document.title = "League Rules — League Caddie";
+  }, []);
+
   const playoffsEnabled =
     playoffConfig && playoffConfig.is_enabled && playoffConfig.playoff_size > 0;
 
   return (
     <div className="space-y-10 pb-4">
-      {/* Page header */}
+      {/* Back link + page header */}
       <div>
+        <Link
+          to={`/leagues/${leagueId}`}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 mb-3 transition-colors"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+          Dashboard
+        </Link>
         <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700 mb-1">
           League Rules
         </p>

@@ -34,27 +34,44 @@ def get_standings(
     league, _ = league_and_member
     raw_rows = calculate_standings(db, league, season)
 
-    # Competition ranking (golf-style):
+    # Competition ranking (golf-style) — single-pass O(N) algorithm.
+    # raw_rows is already sorted by total_points descending from calculate_standings.
     #   Tied players share the rank of their group's first position, and the
     #   next rank skips over the tied spots.
     #   Example: scores [100, 80, 80, 60] → ranks [1, 2, 2, 4]
     #            is_tied                  → [F, T, T, F]
-    rows = []
-    for row in raw_rows:
-        pts = row["total_points"]
-        rank = sum(1 for r in raw_rows if r["total_points"] > pts) + 1
-        is_tied = sum(1 for r in raw_rows if r["total_points"] == pts) > 1
-        rows.append(
-            StandingsRow(
-                rank=rank,
-                is_tied=is_tied,
-                user_id=row["user_id"],
-                display_name=row["display_name"],
-                total_points=row["total_points"],
-                pick_count=row["pick_count"],
-                missed_count=row["missed_count"],
-            )
+    #
+    # First pass: assign ranks. When points match the previous row, reuse its
+    # rank; otherwise rank = position (1-indexed). This is O(N).
+    ranks = []
+    for i, row in enumerate(raw_rows):
+        if i == 0:
+            ranks.append(1)
+        elif row["total_points"] == raw_rows[i - 1]["total_points"]:
+            ranks.append(ranks[i - 1])
+        else:
+            ranks.append(i + 1)
+
+    # Second pass: mark ties. A row is tied if any adjacent row shares its rank.
+    tied = set()
+    for i in range(len(ranks)):
+        if (i > 0 and ranks[i] == ranks[i - 1]) or (
+            i < len(ranks) - 1 and ranks[i] == ranks[i + 1]
+        ):
+            tied.add(i)
+
+    rows = [
+        StandingsRow(
+            rank=ranks[i],
+            is_tied=i in tied,
+            user_id=row["user_id"],
+            display_name=row["display_name"],
+            total_points=row["total_points"],
+            pick_count=row["pick_count"],
+            missed_count=row["missed_count"],
         )
+        for i, row in enumerate(raw_rows)
+    ]
 
     return StandingsResponse(
         league_id=league.id,

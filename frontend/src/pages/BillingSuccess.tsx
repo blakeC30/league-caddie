@@ -124,6 +124,10 @@ export function BillingSuccess() {
   const queryClient = useQueryClient();
   const [scheduleWarning, setScheduleWarning] = useState(false);
 
+  useEffect(() => {
+    document.title = "Payment Successful — League Caddie";
+  }, []);
+
   // leagueReady: false while waiting for the webhook-created league to appear
   // in the database. Starts true if there is no league_id in the URL (e.g.
   // renewal flow where the league already exists).
@@ -152,6 +156,7 @@ export function BillingSuccess() {
         queryClient.invalidateQueries({ queryKey: ["league", leagueId] });
         queryClient.invalidateQueries({ queryKey: ["leagueMembers", leagueId] });
         queryClient.invalidateQueries({ queryKey: ["myLeagues"] });
+        queryClient.invalidateQueries({ queryKey: ["leagueSummaries"] });
       } else {
         setReadinessError(true);
       }

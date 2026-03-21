@@ -1,0 +1,21 @@
+{
+  "name": "League Caddie",
+  "short_name": "League Caddie",
+  "description": "Fantasy golf league management — picks, standings, and playoffs.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#065f46",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

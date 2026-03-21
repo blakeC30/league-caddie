@@ -2,7 +2,7 @@
  * MakePick — pick a golfer for the next scheduled tournament.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { PickForm } from "../components/PickForm";
 import { GolferAvatar } from "../components/GolferAvatar";
@@ -13,26 +13,16 @@ import { useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../ho
 import { useMyPicks, useSubmitPick, useTournamentField, useChangePick, useAllGolfers, useTournaments } from "../hooks/usePick";
 import { useAuthStore } from "../store/authStore";
 import { useMyPlayoffPod, useMyPreferences } from "../hooks/usePlayoff";
-import { fmtTournamentName } from "../utils";
+import { fmtTournamentName, formatDate, formatPurse } from "../utils";
 import { Spinner } from "../components/Spinner";
-
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatPurse(purse: number | null): string | null {
-  if (purse === null) return null;
-  if (purse >= 1_000_000) {
-    const m = purse / 1_000_000;
-    return `$${m % 1 === 0 ? m : m.toFixed(1)}M purse`;
-  }
-  return `$${Math.round(purse / 1000)}K purse`;
-}
 
 export function MakePick() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    document.title = "Make Pick — League Caddie";
+  }, []);
   const [confirmed, setConfirmed] = useState<{ golferName: string; pgaTourId: string; changed: boolean } | null>(null);
   const [confirmedPlayoff, setConfirmedPlayoff] = useState<{ count: number; wasUpdate: boolean; tournamentName: string } | null>(null);
 
@@ -41,7 +31,7 @@ export function MakePick() {
   const isManager = members?.some((m) => m.user_id === currentUserId && m.role === "manager") ?? false;
   const { data: purchase, isLoading: purchaseLoading } = useLeaguePurchase(leagueId ?? "");
 
-  const { data: leagueTournaments } = useLeagueTournaments(leagueId!);
+  const { data: leagueTournaments, isLoading: tournamentsLoading } = useLeagueTournaments(leagueId!);
   const { data: globalScheduled } = useTournaments("scheduled");
   const { data: globalInProgress } = useTournaments("in_progress");
   const { data: myPicks } = useMyPicks(leagueId!);
@@ -115,6 +105,15 @@ export function MakePick() {
       : []
   );
   const hasTeedOffGolfers = teedOffGolferIds.size > 0;
+
+  // Loading guard — prevent flash of "No upcoming tournaments" while data loads
+  if (tournamentsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Spinner className="w-8 h-8 text-green-600" />
+      </div>
+    );
+  }
 
   // Purchase gate
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
@@ -340,7 +339,7 @@ export function MakePick() {
                     {formatPurse(tournament.purse_usd) && (
                       <>
                         <span className="text-green-600">·</span>
-                        <span className="text-sm text-green-300">{formatPurse(tournament.purse_usd)}</span>
+                        <span className="text-sm text-green-300">{formatPurse(tournament.purse_usd)} purse</span>
                       </>
                     )}
                     {tournament.effective_multiplier >= 2 && (
@@ -534,7 +533,7 @@ export function MakePick() {
         {formatPurse(tournament.purse_usd) && (
           <>
             <span className="text-green-600">·</span>
-            <span>{formatPurse(tournament.purse_usd)}</span>
+            <span>{formatPurse(tournament.purse_usd)} purse</span>
           </>
         )}
         {tournament.effective_multiplier >= 2 && (

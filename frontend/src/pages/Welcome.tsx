@@ -5,6 +5,7 @@
  * redirected to /leagues.
  */
 
+import { useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useStripePricing } from "../hooks/useLeague";
@@ -13,6 +14,10 @@ import { FlagIcon } from "../components/FlagIcon";
 export function Welcome() {
   const token = useAuthStore((s) => s.token);
   const { data: pricingTiers = [] } = useStripePricing();
+
+  useEffect(() => {
+    document.title = "League Caddie";
+  }, []);
 
   if (token) return <Navigate to="/leagues" replace />;
 

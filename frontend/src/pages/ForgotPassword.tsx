@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { authApi } from "../api/endpoints";
 import { FlagIcon } from "../components/FlagIcon";
@@ -9,6 +9,10 @@ export function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    document.title = "Forgot Password — League Caddie";
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

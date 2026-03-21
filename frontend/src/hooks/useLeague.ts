@@ -6,6 +6,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { leaguesApi, stripeApi, usersApi } from "../api/endpoints";
 import type { LeaguePurchaseEvent, LeaguePurchaseStatus, PricingTier } from "../api/endpoints";
 
+export function useLeagueSummaries() {
+  return useQuery({
+    queryKey: ["leagueSummaries"],
+    queryFn: () => usersApi.leagueSummaries(),
+  });
+}
+
 export function useMyLeagues() {
   return useQuery({
     queryKey: ["myLeagues"],
@@ -29,6 +36,7 @@ export function useUpdateLeague(leagueId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["league", leagueId] });
       qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["leagueSummaries"] });
       qc.invalidateQueries({ queryKey: ["pendingRequests", leagueId] });
     },
   });
@@ -52,7 +60,10 @@ export function useCreateLeague() {
       name: string;
       no_pick_penalty?: number;
     }) => leaguesApi.create(name, no_pick_penalty),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["myLeagues"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["leagueSummaries"] });
+    },
   });
 }
 
@@ -71,6 +82,7 @@ export function useJoinByCode() {
     mutationFn: (inviteCode: string) => leaguesApi.joinByCode(inviteCode),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["leagueSummaries"] });
       qc.invalidateQueries({ queryKey: ["myRequests"] });
     },
   });
@@ -112,7 +124,10 @@ export function useLeaveLeague() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (leagueId: string) => leaguesApi.leave(leagueId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["myLeagues"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["leagueSummaries"] });
+    },
   });
 }
 
@@ -120,7 +135,10 @@ export function useDeleteLeague() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (leagueId: string) => leaguesApi.delete(leagueId),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["myLeagues"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["leagueSummaries"] });
+    },
   });
 }
 
@@ -146,6 +164,7 @@ export function useUpdateLeagueTournaments(leagueId: string) {
       qc.invalidateQueries({ queryKey: ["allPicks", leagueId] });
       qc.invalidateQueries({ queryKey: ["tournamentPicksSummary", leagueId] });
       qc.invalidateQueries({ queryKey: ["myLeagues"] });
+      qc.invalidateQueries({ queryKey: ["leagueSummaries"] });
     },
   });
 }

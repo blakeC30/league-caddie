@@ -18,6 +18,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import and_, or_
 from sqlalchemy import func as sqlfunc
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_db
@@ -138,7 +139,14 @@ def submit_pick(
         golfer_id=body.golfer_id,
     )
     db.add(pick)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="A pick for this tournament already exists. Refresh and try again.",
+        )
 
     return _picks_with_relations(db.query(Pick)).filter_by(id=pick.id).first()
 

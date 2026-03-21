@@ -6,34 +6,16 @@
  * are always shown beneath a visual separator so they can see their own rank.
  */
 
+import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
-import { fmtTournamentName } from "../utils";
+import { fmtTournamentName, formatDate, formatPurse, formatPoints, formatRank, rankClass } from "../utils";
 import { useMyPicks, useStandings, useTournaments } from "../hooks/usePick";
 import { useAuthStore } from "../store/authStore";
 import { GolferAvatar } from "../components/GolferAvatar";
 import { useBracket, usePlayoffConfig, useMyPlayoffPod, useMyPlayoffPicks } from "../hooks/usePlayoff";
 import { Spinner } from "../components/Spinner";
 import type { StandingsRow } from "../api/endpoints";
-
-// ---------------------------------------------------------------------------
-// Small helpers for the inline standings preview table
-// ---------------------------------------------------------------------------
-
-function fmtPoints(pts: number): string {
-  return `$${Math.round(pts).toLocaleString()}`;
-}
-
-function fmtRank(rank: number, isTied: boolean): string {
-  return isTied ? `T${rank}` : `${rank}`;
-}
-
-function rankCls(rank: number): string {
-  if (rank === 1) return "text-amber-500 font-bold";
-  if (rank === 2) return "text-slate-400 font-semibold";
-  if (rank === 3) return "text-orange-400 font-semibold";
-  return "text-gray-500";
-}
 
 function StandingsTr({
   row,
@@ -56,37 +38,28 @@ function StandingsTr({
           : "bg-white"
       }`}
     >
-      <td className={`px-4 py-3 tabular-nums ${rankCls(row.rank)}`}>
-        {fmtRank(row.rank, row.is_tied)}
+      <td className={`px-4 py-3 tabular-nums ${rankClass(row.rank)}`}>
+        {formatRank(row.rank, row.is_tied)}
       </td>
       <td className={`px-4 py-3 ${isMe ? "font-semibold" : ""}`}>
         {row.display_name}
       </td>
       <td className="px-4 py-3 text-right tabular-nums font-medium">
-        {fmtPoints(row.total_points)}
+        {formatPoints(row.total_points)}
       </td>
     </tr>
   );
 }
 
-function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatPurse(purse: number | null): string | null {
-  if (purse === null) return null;
-  if (purse >= 1_000_000) {
-    const m = purse / 1_000_000;
-    return `$${m % 1 === 0 ? m : m.toFixed(1)}M purse`;
-  }
-  return `$${Math.round(purse / 1000)}K purse`;
-}
-
 export function Dashboard() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const { data: league } = useLeague(leagueId!);
-  const { data: tournaments } = useLeagueTournaments(leagueId!);
+
+  useEffect(() => {
+    document.title = league ? `${league.name} — League Caddie` : "League Caddie";
+  }, [league]);
+
+  const { data: tournaments, isLoading: tournamentsLoading } = useLeagueTournaments(leagueId!);
   const { data: globalScheduled } = useTournaments("scheduled");
   const { data: globalInProgress } = useTournaments("in_progress");
   const { data: allGlobalTournaments } = useTournaments();
@@ -103,6 +76,15 @@ export function Dashboard() {
   const hasPlayoff = playoffConfig && playoffConfig.playoff_size > 0;
   // Only show the playoff button after the bracket is seeded (regular season complete + earnings published).
   const playoffSeeded = hasPlayoff && bracket && bracket.rounds.length > 0;
+
+  // Show spinner while core data is loading (prevents empty state flash on lazy load)
+  if (tournamentsLoading || !league) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Spinner className="w-8 h-8 text-green-600" />
+      </div>
+    );
+  }
 
   // Purchase gate — show before main content if no League Plan
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
@@ -191,7 +173,7 @@ export function Dashboard() {
                     {formatPurse(active.purse_usd) && (
                       <>
                         <span className="text-white/30">·</span>
-                        <span>{formatPurse(active.purse_usd)}</span>
+                        <span>{formatPurse(active.purse_usd)} purse</span>
                       </>
                     )}
                     {active.effective_multiplier >= 2 && (
@@ -228,7 +210,7 @@ export function Dashboard() {
                     {formatPurse(active.purse_usd) && (
                       <>
                         <span className="text-white/30">·</span>
-                        <span>{formatPurse(active.purse_usd)}</span>
+                        <span>{formatPurse(active.purse_usd)} purse</span>
                       </>
                     )}
                     {active.effective_multiplier >= 2 && (
@@ -363,7 +345,7 @@ export function Dashboard() {
                       ) : !myPickForActive.is_locked && pickWindowOpen ? (
                         <Link
                           to={`/leagues/${leagueId}/pick`}
-                          className="text-sm font-semibold text-green-700 hover:text-green-900 border border-green-200 hover:border-green-400 px-3 py-1.5 rounded-lg transition-colors"
+                          className="text-sm font-semibold text-green-700 hover:text-green-900 border border-green-200 hover:border-green-400 px-3 py-2.5 sm:py-1.5 rounded-lg transition-colors"
                         >
                           Change →
                         </Link>
@@ -426,7 +408,7 @@ export function Dashboard() {
                   </div>
                   <Link
                     to={`/leagues/${leagueId}/pick`}
-                    className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors"
+                    className="text-sm font-semibold text-white bg-green-800 hover:bg-green-700 px-3 py-2.5 sm:py-1.5 rounded-lg transition-colors"
                   >
                     Pick →
                   </Link>
@@ -455,22 +437,14 @@ export function Dashboard() {
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <h2 className="text-lg font-bold text-gray-900">Standings</h2>
-          <div className="flex items-center gap-2">
-            {playoffSeeded && (
-              <Link
-                to={`/leagues/${leagueId}/leaderboard?view=bracket`}
-                className="text-sm font-semibold text-green-700 hover:text-green-900 bg-green-50 hover:bg-green-100 px-4 py-1.5 rounded-lg transition-colors"
-              >
-                Playoff →
-              </Link>
-            )}
+          {playoffSeeded && (
             <Link
-              to={`/leagues/${leagueId}/leaderboard?expand=1`}
-              className="text-sm font-semibold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-4 py-1.5 rounded-lg transition-colors"
+              to={`/leagues/${leagueId}/leaderboard?view=bracket`}
+              className="text-sm font-semibold text-green-700 hover:text-green-900 bg-green-50 hover:bg-green-100 px-4 py-1.5 rounded-lg transition-colors"
             >
-              Full leaderboard →
+              Playoff →
             </Link>
-          </div>
+          )}
         </div>
         {standings ? (() => {
           const top5 = standings.rows.slice(0, 5);
@@ -519,6 +493,14 @@ export function Dashboard() {
                   )}
                 </tbody>
               </table>
+              {standings.rows.length > 5 && (
+                <Link
+                  to={`/leagues/${leagueId}/leaderboard?view=standings`}
+                  className="block text-center text-xs text-gray-400 hover:text-green-700 py-2 transition-colors"
+                >
+                  View all {standings.rows.length} members →
+                </Link>
+              )}
             </div>
           );
         })() : (

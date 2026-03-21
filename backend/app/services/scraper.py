@@ -886,6 +886,80 @@ def _map_espn_status(espn_status_name: str) -> str:
     }.get(espn_status_name, TournamentStatus.SCHEDULED.value)
 
 
+def _check_schema_health(
+    tournament_name: str,
+    tournament_status: str,
+    golfers: list[dict],
+    results: list[dict],
+) -> None:
+    """
+    Detect possible ESPN schema changes by checking for fields that are
+    universally missing across a full sync.
+
+    A few None values are normal (e.g. tee times not yet assigned for a
+    scheduled tournament). But if ALL entries lack a field that should be
+    populated for the tournament's status, ESPN likely renamed it. Log a
+    warning so the issue is visible in CloudWatch.
+    """
+    total = len(results)
+    if total < 10:
+        return  # Too few entries to draw conclusions
+
+    # Count how many entries have each key field populated.
+    has_tee_time = sum(1 for r in results if r.get("tee_time") is not None)
+    has_earnings = sum(1 for r in results if r.get("earnings_usd") is not None)
+    has_position = sum(1 for r in results if r.get("finish_position") is not None)
+    has_rounds = sum(1 for r in results if r.get("rounds"))
+    has_name = sum(1 for g in golfers if g.get("name") is not None)
+
+    # tee_time: expected for scheduled/in_progress tournaments (field release day+)
+    if tournament_status in ("scheduled", "in_progress") and has_tee_time == 0:
+        log.warning(
+            "ESPN SCHEMA CHECK — '%s': 0/%d entries have tee_time data "
+            "(status=%s). Possible field rename in ESPN API.",
+            tournament_name,
+            total,
+            tournament_status,
+        )
+
+    # earnings: expected for completed tournaments
+    if tournament_status == "completed" and has_earnings == 0:
+        log.warning(
+            "ESPN SCHEMA CHECK — '%s': 0/%d entries have earnings_usd "
+            "(status=completed). Possible field rename in ESPN API.",
+            tournament_name,
+            total,
+        )
+
+    # finish_position: expected for in_progress and completed tournaments
+    if tournament_status in ("in_progress", "completed") and has_position == 0:
+        log.warning(
+            "ESPN SCHEMA CHECK — '%s': 0/%d entries have finish_position "
+            "(status=%s). Possible field rename in ESPN API.",
+            tournament_name,
+            total,
+            tournament_status,
+        )
+
+    # rounds: expected for all statuses once fields are fetched
+    if has_rounds == 0:
+        log.warning(
+            "ESPN SCHEMA CHECK — '%s': 0/%d entries have round data. "
+            "Possible field rename in ESPN API /linescores endpoint.",
+            tournament_name,
+            total,
+        )
+
+    # golfer names: always expected
+    if has_name == 0:
+        log.warning(
+            "ESPN SCHEMA CHECK — '%s': 0/%d golfers have name data. "
+            "Possible field rename in ESPN API athlete endpoint.",
+            tournament_name,
+            len(golfers),
+        )
+
+
 def _parse_date(date_str: str | None) -> date | None:
     """Parse an ESPN ISO timestamp ('2025-04-10T10:00Z') to a Python date."""
     if not date_str:
@@ -1676,6 +1750,11 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
         raise
 
     golfers_synced, entries_synced = upsert_field(db, tournament, golfers, results)
+
+    # ESPN schema change detection — warn if key fields are consistently missing.
+    # A few None values are normal (e.g. tee times not yet assigned), but if ALL
+    # entries lack a field that should be populated, ESPN likely renamed it.
+    _check_schema_health(tournament.name, tournament.status, golfers, results)
 
     # Re-query to get the latest status after upsert.
     db.refresh(tournament)

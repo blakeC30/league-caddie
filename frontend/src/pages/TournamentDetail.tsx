@@ -14,7 +14,7 @@
  * - Earnings = raw prize money in USD, only shown when tournament is completed
  */
 
-import { useState, useRef, useLayoutEffect } from "react";
+import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { useMyPicks, useTournamentLeaderboard, useTournamentSyncStatus, useGolferScorecard, useTournamentField } from "../hooks/usePick";
 import { useLeagueMembers, useLeaguePurchase, useLeagueTournaments } from "../hooks/useLeague";
@@ -360,6 +360,10 @@ export function TournamentDetail() {
   const location = useLocation();
   const [expandedGolferId, setExpandedGolferId] = useState<string | null>(null);
 
+  useEffect(() => {
+    document.title = "Tournament — League Caddie";
+  }, []);
+
   const currentUserId = useAuthStore((s) => s.user?.id);
   const { data: members } = useLeagueMembers(leagueId ?? "");
   const isManager = members?.some((m) => m.user_id === currentUserId && m.role === "manager") ?? false;
@@ -426,11 +430,11 @@ export function TournamentDetail() {
     // Scheduled tournament: leaderboard returns 400 — show tee time view instead.
     if (isScheduledError) {
       const backLink = (
-        <Link to={`/leagues/${leagueId}/picks`} className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors">
+        <Link to={`/leagues/${leagueId}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
-          Back to Picks
+          Dashboard
         </Link>
       );
 
@@ -645,13 +649,13 @@ export function TournamentDetail() {
     <div className="max-w-4xl mx-auto space-y-5">
       {/* Back link */}
       <Link
-        to={`/leagues/${leagueId}/picks`}
-        className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors"
+        to={`/leagues/${leagueId}`}
+        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
         </svg>
-        Back to Picks
+        Dashboard
       </Link>
 
       {/* Tournament header */}

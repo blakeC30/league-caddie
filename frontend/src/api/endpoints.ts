@@ -318,6 +318,44 @@ export const authApi = {
 // Users
 // ---------------------------------------------------------------------------
 
+// League summary types (batch endpoint for Leagues page)
+export interface LeagueSummaryTournament {
+  id: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  purse_usd: number | null;
+  effective_multiplier: number;
+  all_r1_teed_off: boolean;
+}
+
+export interface LeagueSummaryPick {
+  golfer_name: string;
+  is_locked: boolean;
+}
+
+export interface LeagueSummaryPlayoffPick {
+  golfer_name: string;
+}
+
+export interface LeagueSummary {
+  league_id: string;
+  league_name: string;
+  rank: number | null;
+  is_tied: boolean;
+  total_points: number | null;
+  member_count: number;
+  is_manager: boolean;
+  current_tournament: LeagueSummaryTournament | null;
+  my_pick: LeagueSummaryPick | null;
+  is_playoff_week: boolean;
+  is_in_playoffs: boolean;
+  my_playoff_picks: LeagueSummaryPlayoffPick[];
+  pick_window_open: boolean;
+  preceding_tournament_name: string | null;
+}
+
 export const usersApi = {
   me: () =>
     api.get<User>("/users/me").then((r) => r.data),
@@ -327,6 +365,9 @@ export const usersApi = {
 
   myLeagues: () =>
     api.get<League[]>("/users/me/leagues").then((r) => r.data),
+
+  leagueSummaries: () =>
+    api.get<LeagueSummary[]>("/users/me/league-summaries").then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.json" />
     <title>League Caddie</title>
+    <meta name="theme-color" content="#065f46" />
 
     <!-- Open Graph — link previews in iMessage, Slack, Twitter, Facebook, etc. -->
     <meta property="og:title" content="League Caddie" />
@@ -14,6 +17,29 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="description" content="Fantasy golf league management — picks, standings, and playoffs." />
+
+    <!-- Structured data — helps Google understand the site -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "League Caddie",
+      "description": "Fantasy golf league management — picks, standings, and playoffs.",
+      "url": "https://league-caddie.com",
+      "applicationCategory": "SportsApplication",
+      "operatingSystem": "Web",
+      "offers": {
+        "@type": "Offer",
+        "price": "29.99",
+        "priceCurrency": "USD"
+      },
+      "creator": {
+        "@type": "Organization",
+        "name": "League Caddie LLC",
+        "url": "https://league-caddie.com"
+      }
+    }
+    </script>
   </head>
   <body>
     <div id="root"></div>

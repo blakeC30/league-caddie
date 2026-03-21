@@ -7,11 +7,16 @@
  * No charge was made — just let the user try again.
  */
 
+import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 export function BillingCanceled() {
   const [searchParams] = useSearchParams();
   const leagueId = searchParams.get("league_id");
+
+  useEffect(() => {
+    document.title = "Payment Canceled — League Caddie";
+  }, []);
 
   const manageHref = leagueId ? `/leagues/${leagueId}` : "/leagues";
 

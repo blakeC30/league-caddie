@@ -22,6 +22,10 @@ export function CreateLeague() {
   const { data: appConfig } = useAppConfig();
   const user = useAuthStore((s) => s.user);
 
+  useEffect(() => {
+    document.title = "Create League — League Caddie";
+  }, []);
+
   const [name, setName] = useState("");
   const [noPick, setNoPick] = useState("50000");
   const [autoAccept, setAutoAccept] = useState(false);

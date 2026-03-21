@@ -104,6 +104,7 @@ All routes are prefixed with `/api/v1`.
 | GET | `/users/me` | token | Current user profile |
 | PATCH | `/users/me` | token | Update display_name |
 | GET | `/users/me/leagues` | token | User's approved leagues |
+| GET | `/users/me/league-summaries` | token | Batch league summaries (rank, pick, tournament, playoff context) for Leagues page |
 | POST | `/leagues` | token | Create league (creator → manager) |
 | GET | `/leagues/join/{invite_code}` | token | Preview league (no side effects) |
 | GET | `/leagues/my-requests` | token | User's pending requests |

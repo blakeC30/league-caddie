@@ -12,14 +12,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useAuthStore } from "../store/authStore";
 import { useMyLeagues, useLeaveLeague, useLeagueMembers } from "../hooks/useLeague";
 import { Spinner } from "../components/Spinner";
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+import { formatDateLong as formatDate } from "../utils";
 
 // Extracted so each row can call useLeagueMembers independently (hook rules).
 function LeagueRow({
@@ -113,6 +106,10 @@ export function Settings() {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
+
+  useEffect(() => {
+    document.title = "Settings — League Caddie";
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);

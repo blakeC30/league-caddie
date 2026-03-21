@@ -281,6 +281,7 @@ class WebhookFailureOut(BaseModel):
     error_message: str
     created_at: datetime
     resolved_at: datetime | None
+    retry_count: int
 
 
 @router.get("/stripe/webhook-failures", response_model=list[WebhookFailureOut])

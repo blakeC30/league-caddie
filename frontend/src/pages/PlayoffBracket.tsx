@@ -8,7 +8,7 @@
  *   3. Seeded bracket → live bracket
  */
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../store/authStore";
@@ -644,6 +644,10 @@ function ProjectedPodCard({
 export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean }) {
   const { leagueId }    = useParams<{ leagueId: string }>();
   const currentUser     = useAuthStore((s) => s.user);
+
+  useEffect(() => {
+    document.title = "Playoff Bracket — League Caddie";
+  }, []);
   const { data: bracket, isLoading: bracketLoading } = useBracket(leagueId!);
   const { data: standingsData, isLoading: standingsLoading } = useStandings(leagueId!);
   const { data: leagueTournaments } = useLeagueTournaments(leagueId!);

@@ -16,6 +16,65 @@ export function fmtTournamentName(name: string): string {
 }
 
 /**
+ * Formats a YYYY-MM-DD date string as "Mar 16" (short month + day).
+ * Appends T12:00:00 to avoid UTC→local date shift on midnight boundaries.
+ */
+export function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+/**
+ * Formats an ISO datetime string as "March 16, 2025" (long month + day + year).
+ */
+export function formatDateLong(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+/**
+ * Formats a point/dollar amount with sign, abbreviation (M/K), and $ prefix.
+ * Returns "—" for null values.
+ */
+export function formatPoints(pts: number | null): string {
+  if (pts === null) return "—";
+  const sign = pts < 0 ? "-" : "";
+  const abs = Math.abs(pts);
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(2)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
+  return `${sign}$${abs.toLocaleString()}`;
+}
+
+/**
+ * Formats a purse/dollar amount with M/K abbreviation.
+ * Returns null when the input is null.
+ */
+export function formatPurse(purse: number | null): string | null {
+  if (purse === null) return null;
+  if (purse >= 1_000_000) {
+    const m = purse / 1_000_000;
+    return `$${m % 1 === 0 ? m : m.toFixed(1)}M`;
+  }
+  return `$${Math.round(purse / 1000)}K`;
+}
+
+/** Golf-style rank label: "1", "T2", "T2", "4" */
+export function formatRank(rank: number, isTied: boolean): string {
+  return isTied ? `T${rank}` : `${rank}`;
+}
+
+/** Returns a Tailwind text-color class based on podium position. */
+export function rankClass(rank: number): string {
+  if (rank === 1) return "text-amber-500 font-bold";
+  if (rank === 2) return "text-slate-400 font-semibold";
+  if (rank === 3) return "text-orange-400 font-semibold";
+  return "text-gray-500";
+}
+
+/**
  * Returns an ISO year-week key (e.g. "2025-W12") for a YYYY-MM-DD date string.
  * Used to detect schedule conflicts where two tournaments fall in the same week.
  */

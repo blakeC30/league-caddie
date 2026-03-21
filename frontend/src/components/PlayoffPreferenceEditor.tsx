@@ -182,6 +182,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                     disabled={idx === 0}
                     className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded-lg hover:bg-gray-200 transition-colors"
                     title="Move up"
+                    aria-label="Move up"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
@@ -192,6 +193,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                     disabled={idx === ranked.length - 1}
                     className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded-lg hover:bg-gray-200 transition-colors"
                     title="Move down"
+                    aria-label="Move down"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
@@ -201,6 +203,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                     onClick={() => removeGolfer(id)}
                     className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
                     title="Remove"
+                    aria-label="Remove golfer from preferences"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />

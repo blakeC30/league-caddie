@@ -5,10 +5,10 @@
  * Joining a league is done via an invite link shared by the league manager.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LeagueCard } from "../components/LeagueCard";
-import { useMyLeagues, useMyRequests, useCancelMyRequest } from "../hooks/useLeague";
+import { useLeagueSummaries, useMyRequests, useCancelMyRequest } from "../hooks/useLeague";
 import { useAppConfig } from "../hooks/useAppConfig";
 import { useAuthStore } from "../store/authStore";
 import { FlagIcon } from "../components/FlagIcon";
@@ -16,17 +16,21 @@ import { Spinner } from "../components/Spinner";
 
 export function Leagues() {
   const navigate = useNavigate();
-  const { data: leagues, isLoading } = useMyLeagues();
+  const { data: summaries, isLoading } = useLeagueSummaries();
   const { data: pendingRequests } = useMyRequests();
   const cancelRequest = useCancelMyRequest();
   const { data: appConfig } = useAppConfig();
   const user = useAuthStore((s) => s.user);
 
+  useEffect(() => {
+    document.title = "My Leagues — League Caddie";
+  }, []);
+
   const [joinCode, setJoinCode] = useState("");
   const [withdrawLeagueId, setWithdrawLeagueId] = useState<string | null>(null);
   const withdrawLeagueName = pendingRequests?.find((r) => String(r.league_id) === withdrawLeagueId)?.league_name;
 
-  const atLeagueCap = !!leagues && (leagues.length + (pendingRequests?.length ?? 0)) >= 5;
+  const atLeagueCap = !!summaries && (summaries.length + (pendingRequests?.length ?? 0)) >= 5;
   const createBlocked =
     !!appConfig?.league_creation_restricted && !user?.is_platform_admin;
 
@@ -51,10 +55,10 @@ export function Leagues() {
       {/* League list */}
       {isLoading ? (
         <div className="flex justify-center py-10"><Spinner /></div>
-      ) : leagues && leagues.length > 0 ? (
-        <div className={leagues.length === 1 ? "max-w-lg mx-auto" : "grid gap-4 sm:grid-cols-2"}>
-          {leagues.map((l) => (
-            <LeagueCard key={l.id} league={l} />
+      ) : summaries && summaries.length > 0 ? (
+        <div className={summaries.length === 1 ? "max-w-lg mx-auto" : "grid gap-4 sm:grid-cols-2"}>
+          {summaries.map((s) => (
+            <LeagueCard key={s.league_id} summary={s} />
           ))}
         </div>
       ) : (
@@ -175,6 +179,9 @@ export function Leagues() {
             <p className="text-sm text-gray-600">
               Are you sure you want to withdraw your join request for <span className="font-semibold">{withdrawLeagueName}</span>? You can request to join again later.
             </p>
+            {cancelRequest.isError && (
+              <p className="text-sm text-red-600">Failed to withdraw request. Please try again.</p>
+            )}
             <div className="flex justify-end gap-3 pt-1">
               <button
                 onClick={() => setWithdrawLeagueId(null)}

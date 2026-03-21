@@ -17,7 +17,7 @@
  *   - No relationship: show confirm/cancel form
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { useJoinByCode, useJoinPreview, useCancelMyRequest, useMyLeagues, useMyRequests } from "../hooks/useLeague";
@@ -40,6 +40,10 @@ function GradientShell({ children }: { children: React.ReactNode }) {
 export function JoinLeague() {
   const { inviteCode } = useParams<{ inviteCode: string }>();
   const { token, bootstrapping } = useAuth();
+
+  useEffect(() => {
+    document.title = "Join League — League Caddie";
+  }, []);
 
   if (bootstrapping) {
     return (
@@ -65,6 +69,7 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   const { data: pendingRequests } = useMyRequests();
   const [submitted, setSubmitted] = useState(false);
   const [joinError, setJoinError] = useState("");
+  const [showWithdrawConfirm, setShowWithdrawConfirm] = useState(false);
 
   const atLeagueCap = !!leagues && (leagues.length + (pendingRequests?.length ?? 0)) >= 5;
 
@@ -204,8 +209,12 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   }
 
   async function handleWithdraw() {
-    await cancelRequest.mutateAsync(String(preview!.league_id));
-    navigate("/leagues");
+    try {
+      await cancelRequest.mutateAsync(String(preview!.league_id));
+      navigate("/leagues");
+    } catch {
+      // Error is displayed inline via cancelRequest.isError
+    }
   }
 
   return (
@@ -243,12 +252,41 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
               Back to my leagues
             </button>
             <button
-              onClick={handleWithdraw}
-              disabled={cancelRequest.isPending}
-              className="w-full text-sm font-medium text-red-500 hover:text-red-700 disabled:opacity-40 transition-colors py-1"
+              onClick={() => setShowWithdrawConfirm(true)}
+              className="w-full text-sm font-medium text-red-500 hover:text-red-700 transition-colors py-1"
             >
-              {cancelRequest.isPending ? "Withdrawing…" : "Withdraw request"}
+              Withdraw request
             </button>
+
+            {showWithdrawConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                <div className="bg-white rounded-2xl shadow-lg p-6 max-w-sm w-full space-y-4">
+                  <h3 className="text-lg font-bold text-gray-900">Withdraw request?</h3>
+                  <p className="text-sm text-gray-600">
+                    Are you sure you want to withdraw your join request for{" "}
+                    <span className="font-semibold">{preview.name}</span>? You can request to join again later.
+                  </p>
+                  {cancelRequest.isError && (
+                    <p className="text-sm text-red-600">Failed to withdraw request. Please try again.</p>
+                  )}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowWithdrawConfirm(false)}
+                      className="flex-1 border border-gray-300 text-gray-700 text-sm font-semibold py-2.5 rounded-xl hover:border-green-400 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleWithdraw}
+                      disabled={cancelRequest.isPending}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40 transition-colors"
+                    >
+                      {cancelRequest.isPending ? "Withdrawing…" : "Withdraw"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           /* Confirm state */

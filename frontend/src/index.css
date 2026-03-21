@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
 /* Prevent horizontal scroll on mobile — keeps the page feeling solid. */
 body {
   overflow-x: hidden;

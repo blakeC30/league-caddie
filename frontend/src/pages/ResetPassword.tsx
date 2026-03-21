@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { authApi, usersApi } from "../api/endpoints";
 import { useAuthStore } from "../store/authStore";
@@ -11,6 +11,10 @@ export function ResetPassword() {
   const navigate = useNavigate();
 
   const [newPassword, setNewPassword] = useState("");
+
+  useEffect(() => {
+    document.title = "Reset Password — League Caddie";
+  }, []);
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

@@ -3,19 +3,7 @@
  */
 
 import type { Tournament } from "../api/endpoints";
-
-function fmt(dateStr: string): string {
-  return new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" });
-}
-
-function formatPurse(purse: number | null): string | null {
-  if (purse === null) return null;
-  if (purse >= 1_000_000) {
-    const m = purse / 1_000_000;
-    return `$${m % 1 === 0 ? m : m.toFixed(1)}M`;
-  }
-  return `$${Math.round(purse / 1000)}K`;
-}
+import { formatDate as fmt, formatPurse } from "../utils";
 
 const STATUS_STYLE: Record<Tournament["status"], string> = {
   scheduled: "bg-blue-100 text-blue-700",

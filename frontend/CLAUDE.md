@@ -96,6 +96,7 @@ Always use these exact key shapes — mismatches cause stale data:
 
 | Key | Hook |
 |-----|------|
+| `["leagueSummaries"]` | `useLeagueSummaries()` — batch summary for Leagues page; invalidated alongside `myLeagues` |
 | `["myLeagues"]` | `useMyLeagues()` |
 | `["league", leagueId]` | `useLeague(leagueId)` |
 | `["leagueMembers", leagueId]` | `useLeagueMembers(leagueId)` |
