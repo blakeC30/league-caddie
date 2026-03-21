@@ -10,7 +10,7 @@
  *   - Per-tournament sync: sync or force-sync individual tournaments
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { adminApi, type AdminStats } from "../api/endpoints";
@@ -28,6 +28,8 @@ export function PlatformAdmin() {
   }, []);
 
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+  useEffect(() => () => { timersRef.current.forEach(clearTimeout); }, []);
 
   const [syncStatus, setSyncStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [syncResult, setSyncResult] = useState<string>("");
@@ -72,10 +74,12 @@ export function PlatformAdmin() {
     try {
       await adminApi.syncTournamentForce(pgaTourId);
       setSyncState((s) => ({ ...s, [pgaTourId]: "done" }));
-      setTimeout(() => setSyncState((s) => ({ ...s, [pgaTourId]: "idle" })), 3000);
+      const t1 = setTimeout(() => setSyncState((s) => ({ ...s, [pgaTourId]: "idle" })), 3000);
+      timersRef.current.add(t1);
     } catch {
       setSyncState((s) => ({ ...s, [pgaTourId]: "error" }));
-      setTimeout(() => setSyncState((s) => ({ ...s, [pgaTourId]: "idle" })), 4000);
+      const t2 = setTimeout(() => setSyncState((s) => ({ ...s, [pgaTourId]: "idle" })), 4000);
+      timersRef.current.add(t2);
     }
   }
 
@@ -96,10 +100,11 @@ export function PlatformAdmin() {
       setBulkSyncProgress((p) => ({ ...p, done: p.done + 1 }));
     }
     setBulkSyncStatus(hadError ? "error" : "done");
-    setTimeout(() => {
+    const t3 = setTimeout(() => {
       setBulkSyncStatus("idle");
       setSyncState({});
     }, 4000);
+    timersRef.current.add(t3);
   }
 
   // Sort tournaments most-recent-first by start_date

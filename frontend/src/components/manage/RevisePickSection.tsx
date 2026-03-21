@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LeagueMember, LeagueTournamentOut, PlayoffConfigOut } from "../../api/endpoints";
 import { useAdminOverridePick, useAllGolfers, useAllPicks } from "../../hooks/usePick";
 import { fmtTournamentName } from "../../utils";
@@ -20,6 +20,8 @@ export function RevisePickSection({
   const { data: allPicks } = useAllPicks(leagueId);
   const { data: allGolfers, isLoading: isLoadingGolfers } = useAllGolfers();
   const overridePick = useAdminOverridePick(leagueId);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(savedTimerRef.current), []);
 
   const [revisePickTournamentId, setRevisePickTournamentId] = useState<string | null>(null);
   const [revisePickMemberId, setRevisePickMemberId] = useState<string | null>(null);
@@ -69,7 +71,8 @@ export function RevisePickSection({
       golfer_id: revisePickGolferId === "none" ? null : revisePickGolferId,
     });
     setReviseSaved(true);
-    setTimeout(() => setReviseSaved(false), 4000);
+    clearTimeout(savedTimerRef.current);
+    savedTimerRef.current = setTimeout(() => setReviseSaved(false), 4000);
   }
 
   return (

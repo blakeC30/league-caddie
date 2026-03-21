@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { League } from "../../api/endpoints";
 import { SectionIcon } from "./shared";
 
@@ -8,12 +8,15 @@ export interface InviteLinkSectionProps {
 
 export function InviteLinkSection({ league }: InviteLinkSectionProps) {
   const [linkCopied, setLinkCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(timerRef.current), []);
 
   function copyInviteLink() {
     const url = `${window.location.origin}/join/${league.invite_code}`;
     navigator.clipboard.writeText(url).then(() => {
       setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setLinkCopied(false), 2000);
     });
   }
 

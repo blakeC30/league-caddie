@@ -52,6 +52,8 @@ export function PlayoffConfigSection({
   const [poRevisePickId, setPoRevisePickId] = useState<string | null>(null);
   const [poReviseGolferId, setPoReviseGolferId] = useState<string>("none");
   const [poReviseSaved, setPoReviseSaved] = useState(false);
+  const poSavedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => () => clearTimeout(poSavedTimerRef.current), []);
 
   const playoffInitializedRef = useRef(false);
   useEffect(() => {
@@ -258,7 +260,8 @@ export function PlayoffConfigSection({
       await revisePlayoffPick.mutateAsync({ pickId: poRevisePickId, golferId: poReviseGolferId === "none" ? null : poReviseGolferId });
     }
     setPoReviseSaved(true);
-    setTimeout(() => setPoReviseSaved(false), 4000);
+    clearTimeout(poSavedTimerRef.current);
+    poSavedTimerRef.current = setTimeout(() => setPoReviseSaved(false), 4000);
   }
 
   return (
