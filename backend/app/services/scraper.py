@@ -1525,6 +1525,44 @@ def _trim_post_championship_tournaments(db: Session) -> int:
     return deleted
 
 
+def _backfill_purse(db: Session) -> int:
+    """
+    Fetch purse from the ESPN core event endpoint for tournaments that don't
+    have it yet. Returns the number of tournaments updated.
+
+    Only fetches for scheduled tournaments — in_progress and completed
+    tournaments already get purse from sync_tournament(). Failures are
+    logged and skipped so one bad event doesn't block the rest.
+    """
+    missing = (
+        db.query(Tournament)
+        .filter(
+            Tournament.purse_usd.is_(None),
+            Tournament.status == TournamentStatus.SCHEDULED.value,
+        )
+        .all()
+    )
+    if not missing:
+        return 0
+
+    count = 0
+    for t in missing:
+        try:
+            event_data = _get_json(f"{_CORE_API_BASE}/events/{t.pga_tour_id}")
+            raw_purse = event_data.get("purse")
+            if raw_purse is not None:
+                t.purse_usd = int(raw_purse)
+                count += 1
+        except Exception as exc:
+            log.warning("Purse backfill failed for %s: %s", t.pga_tour_id, exc)
+
+    if count:
+        db.commit()
+        log.info("Purse backfilled for %d tournament(s)", count)
+
+    return count
+
+
 def sync_schedule(db: Session, year: int) -> dict:
     """
     Fetch the PGA Tour schedule for a calendar year and upsert tournaments.
@@ -1552,6 +1590,13 @@ def sync_schedule(db: Session, year: int) -> dict:
 
     log.info("Schedule sync: %d created, %d updated, %d trimmed", created, updated, trimmed)
 
+    # Backfill purse for tournaments that don't have it yet.
+    # The scoreboard endpoint doesn't include purse — it's only on the core
+    # event endpoint. We fetch it individually for tournaments missing purse
+    # so users see purse info on upcoming tournaments without waiting for
+    # the field sync (which only runs 2 days before the start date).
+    purse_filled = _backfill_purse(db)
+
     # Publish SQS events for status transitions detected in this sync.
     # We only publish TOURNAMENT_COMPLETED here; TOURNAMENT_IN_PROGRESS is
     # published from sync_tournament() so it fires within 5 minutes of the
@@ -1563,6 +1608,7 @@ def sync_schedule(db: Session, year: int) -> dict:
         "tournaments_created": created,
         "tournaments_updated": updated,
         "tournaments_trimmed": trimmed,
+        "purse_backfilled": purse_filled,
     }
 
 
