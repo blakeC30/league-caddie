@@ -18,6 +18,7 @@ Usage (consuming, in worker_main.py):
 import json
 import logging
 import os
+import time
 from collections.abc import Callable
 
 log = logging.getLogger(__name__)
@@ -70,12 +71,17 @@ def consume(handler: Callable[[dict], None]) -> None:
     queue_url = get_queue_url()
     log.info("SQS consumer started on %s", queue_url)
     while True:
-        response = client.receive_message(
-            QueueUrl=queue_url,
-            MaxNumberOfMessages=10,
-            WaitTimeSeconds=20,  # long polling — wait up to 20s for messages
-            VisibilityTimeout=120,  # 2× max expected processing time
-        )
+        try:
+            response = client.receive_message(
+                QueueUrl=queue_url,
+                MaxNumberOfMessages=10,
+                WaitTimeSeconds=20,  # long polling — wait up to 20s for messages
+                VisibilityTimeout=120,  # 2× max expected processing time
+            )
+        except Exception as exc:
+            log.warning("SQS receive failed (will retry in 5s): %s", exc)
+            time.sleep(5)
+            continue
         for msg in response.get("Messages", []):
             body = json.loads(msg["Body"])
             receipt = msg["ReceiptHandle"]

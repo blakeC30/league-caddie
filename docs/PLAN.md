@@ -21,7 +21,7 @@ Browser → Nginx (frontend) → FastAPI (backend) → PostgreSQL
                (playoff automation)
 ```
 
-All components run in Docker (locally) and in K3s on EC2 (dev + prod). Dev and prod run on **separate EC2 instances** — a t2.micro (free tier) for dev and a t3a.small for prod. There are **three backend processes** — they share one codebase and Docker image but run different entrypoints:
+All components run in Docker (locally) and in K3s on EC2 (dev + prod). Dev and prod run on **separate EC2 instances** — a t2.micro (free tier) for dev and a t3a.medium for prod. There are **three backend processes** — they share one codebase and Docker image but run different entrypoints:
 
 | Container | Entrypoint | Purpose |
 |---|---|---|
@@ -54,7 +54,7 @@ This separation means scraper failures cannot take down the API, and the three c
 ### During AWS Free Tier (first 12 months after account creation)
 | Resource | Cost |
 |---|---|
-| EC2 t3a.small — prod (K3s, all prod services) | ~$14/month |
+| EC2 t3a.medium — prod (K3s, all prod services) | ~$27/month |
 | EBS gp3 — prod (22 GB) | FREE (included in 30 GB free tier) |
 | EBS snapshots (Data Lifecycle Manager) | ~$0.05/GB/month (near $0 when DB is small) |
 | ECR (container registry) | FREE (500 MB storage) |
@@ -64,19 +64,19 @@ This separation means scraper failures cannot take down the API, and the three c
 | AWS Budgets | FREE (2 budgets free) |
 | Route 53 | ~$0.50/hosted zone/month + ~$12/year domain |
 | GitHub Actions (public repo) | FREE (unlimited minutes) |
-| **Total** | **~$15/month** |
+| **Total** | **~$28/month** |
 
 ### After Free Tier (month 13+)
 | Resource | Est. Cost |
 |---|---|
-| EC2 t3a.small — prod | ~$14/month |
+| EC2 t3a.medium — prod | ~$27/month |
 | EBS gp3 — prod (22 GB) | ~$1.76/month |
 | EBS snapshots | ~$0.50/month (small DB) |
 | SES | $0.10/1,000 emails (effectively $0 at this scale) |
 | SQS | $0.40/1M requests (effectively $0 at this scale) |
 | CloudWatch Logs | ~$0.50/month (low log volume) |
 | Route 53 | ~$0.50/month |
-| **Total** | **~$18/month** |
+| **Total** | **~$31/month** |
 
 ### Annual Costs
 | Item | Cost | Notes |
@@ -85,7 +85,7 @@ This separation means scraper failures cannot take down the API, and the three c
 | Texas franchise tax report | $0/year | No fee to file; no tax due if revenue < $2.65M. Due May 15 each year. $50 late penalty if missed. |
 | **Total** | **~$20/year** | |
 
-> **Note:** Prod uses a t3a.small (2 GB RAM, 2 vCPU, AMD EPYC — ~10% cheaper than t3.small for equivalent specs) for headroom running backend + scraper + worker + Postgres + Nginx simultaneously. No dev instance — development and testing done locally via docker-compose.
+> **Note:** Prod uses a t3a.medium (4 GB RAM, 2 vCPU, AMD EPYC — ~10% cheaper than t3.medium for equivalent specs) for headroom running backend + scraper + worker + Postgres + Nginx simultaneously. No dev instance — development and testing done locally via docker-compose.
 
 > **Note:** EKS costs $0.10/hr for the control plane alone ($72/month). We use K3s on EC2 — identical Kubernetes experience at zero extra cost.
 
@@ -98,44 +98,44 @@ This separation means scraper failures cannot take down the API, and the three c
 | Claude one-time extra usage top-up | $20 |
 | Domain registration (~$12/year) | ~$12 |
 | Claude Max 5x (initial build month) | $100 |
-| AWS — first month (free tier active) | ~$15 |
-| **Total to launch** | **~$447** |
+| AWS — first month (free tier active) | ~$28 |
+| **Total to launch** | **~$460** |
 
 #### Monthly After Launch (AWS free tier active, months 1–12)
 | Item | Cost |
 |---|---|
-| AWS infrastructure | ~$15/month |
+| AWS infrastructure | ~$28/month |
 | Claude Pro (ongoing development) | $20/month |
-| **Total** | **~$35/month** |
+| **Total** | **~$48/month** |
 
 #### Monthly After Free Tier Expires (month 13+)
 | Item | Cost |
 |---|---|
-| AWS infrastructure | ~$18/month |
+| AWS infrastructure | ~$31/month |
 | Claude Pro (ongoing development) | $20/month |
-| **Total** | **~$38/month** |
+| **Total** | **~$51/month** |
 
-> **Note:** Claude can be cancelled when active development ends, saving $20/month. Minimum steady-state cost: ~$15/month (free tier) or ~$18/month (post-free-tier).
+> **Note:** Claude can be cancelled when active development ends, saving $20/month. Minimum steady-state cost: ~$28/month (free tier) or ~$31/month (post-free-tier).
 
 #### Yearly Total (AWS free tier active, months 1–12)
 | Item | Cost |
 |---|---|
-| AWS infrastructure (~$15/month × 12) | ~$180/year |
+| AWS infrastructure (~$28/month × 12) | ~$336/year |
 | Claude Pro (~$20/month × 12) | ~$240/year |
 | Domain renewal | ~$20/year |
 | Texas franchise tax report | $0/year |
-| **Total** | **~$440/year** |
-| **Without Claude** | **~$200/year** |
+| **Total** | **~$596/year** |
+| **Without Claude** | **~$356/year** |
 
 #### Yearly Total (after free tier, month 13+)
 | Item | Cost |
 |---|---|
-| AWS infrastructure (~$18/month × 12) | ~$216/year |
+| AWS infrastructure (~$31/month × 12) | ~$372/year |
 | Claude Pro (~$20/month × 12) | ~$240/year |
 | Domain renewal | ~$20/year |
 | Texas franchise tax report | $0/year |
-| **Total** | **~$476/year** |
-| **Without Claude** | **~$236/year** |
+| **Total** | **~$632/year** |
+| **Without Claude** | **~$392/year** |
 
 > **Note:** AWS credentials are empty on both instances — the EC2 IAM instance role automatically provides credentials for SES and SQS. Only `AWS_REGION` and `SES_FROM_EMAIL` need to be configured in the Helm chart secrets.
 
@@ -602,7 +602,7 @@ helm/
 
 | | Dev | Prod |
 |---|---|---|
-| EC2 instance | t2.micro (free tier) | t3a.small (~$14/month) |
+| EC2 instance | t2.micro (free tier) | t3a.medium (~$27/month) |
 | K8s cluster | Separate K3s instance | Separate K3s instance |
 | Database | `league_caddie_dev` | `league_caddie_prod` |
 | Deploy trigger | push to `main` + approval (gate #1) | push to `main` + approval (gate #2, after dev) |
@@ -795,14 +795,14 @@ Provision all AWS resources needed for production (and dev). Use only free-tier 
    - Install K3s on first boot: `curl -sfL https://get.k3s.io | sh -`
    - Security group: 22 (SSH from your IP only), 80 (HTTP public), 443 (HTTPS public)
 
-6. **EC2 — Prod instance (`t3a.small`)**
-   - Launch `t3a.small` with Amazon Linux 2023 (2 vCPU, 2 GB RAM, AMD EPYC — ~$13.70/month)
+6. **EC2 — Prod instance (`t3a.medium`)**
+   - Launch `t3a.medium` with Amazon Linux 2023 (2 vCPU, 4 GB RAM, AMD EPYC — ~$27/month)
    - 22 GB EBS gp3 volume (more headroom for prod Postgres data)
    - Assign Elastic IP (free while instance is running)
    - Attach IAM instance role `league-caddie-ec2-role`
    - Install K3s on first boot: `curl -sfL https://get.k3s.io | sh -`
    - Security group: same as dev — 22 (SSH from your IP only), 80 (HTTP public), 443 (HTTPS public)
-   - **Note:** t3a.small is not free-tier eligible; dev instance (t2.micro) stays free for 12 months
+   - **Note:** t3a.medium is not free-tier eligible; dev instance (t2.micro) stays free for 12 months
 
 7. **DNS & TLS (~$12/year for domain + $0.50/month hosted zone)**
    - Domain registered via Squarespace; nameservers pointed to Route 53
@@ -844,7 +844,7 @@ Before deploying:
 5. Create ECR repositories (`league-caddie/backend`, `league-caddie/scraper`, `league-caddie/worker`, `league-caddie/frontend`)
 6. Create SQS queues (`league-caddie-events-dev`, `-dlq`, `league-caddie-events-prod`, `-dlq`)
 7. Verify SES sender identity; request sandbox exit
-8. Launch EC2 instances (t2.micro for dev, t3a.small for prod), assign Elastic IPs, attach IAM role to each
+8. Launch EC2 instances (t2.micro for dev, t3a.medium for prod), assign Elastic IPs, attach IAM role to each
 9. Enable Data Lifecycle Manager — daily EBS snapshots, 7-day retention, for both volumes
 10. Install K3s on EC2
 11. Install CloudWatch agent / Fluent Bit on EC2 — ship logs to `/league-caddie/dev` and `/league-caddie/prod`; set 30-day retention

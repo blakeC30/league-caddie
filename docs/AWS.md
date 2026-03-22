@@ -166,7 +166,7 @@ ssh-keygen -t ed25519 -f ~/.ssh/league-caddie-ec2 -C "league-caddie-ec2"
 
 **Prod instance:**
 - AMI: Amazon Linux 2023
-- Instance type: `t3a.small` (2 vCPU, 2 GB RAM, ~$13.70/month — not free tier)
+- Instance type: `t3a.medium` (2 vCPU, 4 GB RAM, ~$27/month — not free tier)
 - EBS: 22 GB gp3 volume
 - Attach IAM role: `league-caddie-ec2-role`
 - Attach security group: `league-caddie-sg`
@@ -473,7 +473,7 @@ Stripe webhook secrets are **per-endpoint** — your local development secret wo
 - [ ] Route 53 hosted zone created
 - [ ] Security group created
 - [ ] EC2 dev instance launched (t2.micro)
-- [ ] EC2 prod instance launched (t3a.small)
+- [ ] EC2 prod instance launched (t3a.medium)
 - [ ] Elastic IPs assigned to both instances
 - [ ] DNS A records configured
 - [ ] EBS snapshot automation enabled
