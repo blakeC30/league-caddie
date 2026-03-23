@@ -21,6 +21,8 @@ import os
 import time
 from collections.abc import Callable
 
+import botocore.exceptions
+
 log = logging.getLogger(__name__)
 
 
@@ -78,7 +80,7 @@ def consume(handler: Callable[[dict], None]) -> None:
                 WaitTimeSeconds=20,  # long polling — wait up to 20s for messages
                 VisibilityTimeout=120,  # 2× max expected processing time
             )
-        except Exception as exc:
+        except (OSError, botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as exc:
             log.warning("SQS receive failed (will retry in 5s): %s", exc)
             time.sleep(5)
             continue
