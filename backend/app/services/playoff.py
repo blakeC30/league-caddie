@@ -921,6 +921,7 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
                 draft_position=member_count_in_next + 1,  # temporary; re-sorted below
             )
             db.add(next_member)
+            db.flush()  # make visible to subsequent count queries within this loop
 
     playoff_round.status = "completed"
 

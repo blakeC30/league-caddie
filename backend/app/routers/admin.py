@@ -282,6 +282,48 @@ def trigger_tournament_sync(
         )
         raise HTTPException(status_code=502, detail=f"Sync failed: {exc}") from exc
 
+    # Directly run the playoff pipeline for any unscored playoff rounds
+    # linked to this tournament. Runs synchronously in the admin request
+    # rather than going through SQS (the backend container doesn't have
+    # SQS_QUEUE_URL set). This covers the case where the original SQS
+    # event was consumed but the playoff pipeline didn't complete.
+    if tournament.status == "completed":
+        from app.models import PlayoffRound
+        from app.services.playoff import advance_bracket, score_round
+        from app.services.scraper import _winner_has_earnings
+
+        playoff_round = (
+            db.query(PlayoffRound).filter_by(tournament_id=tournament.id, status="locked").first()
+        )
+        if playoff_round and _winner_has_earnings(db, str(tournament.id)):
+            try:
+                score_round(db, playoff_round)
+                log.info(
+                    "Admin sync: scored playoff round %d for '%s'",
+                    playoff_round.round_number,
+                    tournament.name,
+                )
+                advance_bracket(db, playoff_round)
+                log.info(
+                    "Admin sync: advanced bracket past round %d for '%s'",
+                    playoff_round.round_number,
+                    tournament.name,
+                )
+            except HTTPException as exc:
+                log.warning(
+                    "Admin sync: playoff pipeline deferred for round %d: %s",
+                    playoff_round.round_number,
+                    exc.detail,
+                )
+            except Exception as exc:
+                db.rollback()
+                log.error(
+                    "Admin sync: playoff pipeline failed for round %d: %s",
+                    playoff_round.round_number,
+                    exc,
+                    exc_info=True,
+                )
+
     log.info("Admin single tournament sync completed: pga_tour_id=%s", pga_tour_id)
     return result
 

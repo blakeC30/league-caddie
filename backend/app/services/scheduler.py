@@ -376,6 +376,8 @@ def _run_results_finalization() -> None:
       - 15:00 UTC: catches Monday morning finishes or mid-morning corrections
       - 21:00 UTC: catches Monday afternoon finishes or late-posted results
     """
+    from datetime import UTC, datetime, timedelta
+
     from app.database import SessionLocal
     from app.models import Pick, Tournament, TournamentStatus
     from app.services.scraper import score_picks, sync_tournament
@@ -393,6 +395,31 @@ def _run_results_finalization() -> None:
             .distinct()
             .all()
         )
+
+        # Also re-check recently completed tournaments where all picks scored 0.
+        # This catches premature scoring — ESPN hadn't published earnings when
+        # score_picks first ran, so everything got 0. The 48-hour window limits
+        # re-checks to recent tournaments only.
+        cutoff = datetime.now(tz=UTC) - timedelta(hours=48)
+        zero_scored_tournaments = (
+            db.query(Tournament)
+            .join(Pick, Pick.tournament_id == Tournament.id)
+            .filter(
+                Tournament.status == TournamentStatus.COMPLETED.value,
+                Tournament.end_date >= cutoff.date(),
+                Pick.points_earned == 0,
+            )
+            .distinct()
+            .all()
+        )
+
+        # Merge both lists, deduplicating by ID.
+        seen_ids = {t.id for t in tournaments_needing_scoring}
+        for t in zero_scored_tournaments:
+            if t.id not in seen_ids:
+                tournaments_needing_scoring.append(t)
+                seen_ids.add(t.id)
+
         if not tournaments_needing_scoring:
             log.debug("Results finalization: no tournaments with unscored picks")
             return
@@ -407,12 +434,44 @@ def _run_results_finalization() -> None:
                 # earnings from ESPN so score_picks() always uses current values.
                 sync_tournament(db, tournament.pga_tour_id, force=True)
                 db.refresh(tournament)
+
+                # Check if earnings are actually available before scoring.
+                from app.services.scraper import _winner_has_earnings
+
+                if not _winner_has_earnings(db, str(tournament.id)):
+                    log.info(
+                        "Results finalization: earnings not yet published for '%s' — skipping",
+                        tournament.name,
+                    )
+                    continue
+
                 count = score_picks(db, tournament)
                 log.info(
                     "Results finalization: scored %d picks for '%s'",
                     count,
                     tournament.name,
                 )
+
+                # Publish TOURNAMENT_COMPLETED for the worker to handle the
+                # playoff pipeline (score_round → advance_bracket). This covers
+                # the case where the original event was deferred by the earnings gate.
+                import os
+
+                if os.environ.get("SQS_QUEUE_URL"):
+                    from app.services.sqs import publish
+
+                    try:
+                        publish("TOURNAMENT_COMPLETED", tournament_id=str(tournament.id))
+                        log.info(
+                            "Results finalization: published TOURNAMENT_COMPLETED for '%s'",
+                            tournament.name,
+                        )
+                    except Exception as sqs_exc:
+                        log.error(
+                            "Results finalization: SQS publish failed for '%s': %s",
+                            tournament.name,
+                            sqs_exc,
+                        )
             except Exception as exc:
                 # Roll back the failed transaction so the next tournament can proceed.
                 db.rollback()

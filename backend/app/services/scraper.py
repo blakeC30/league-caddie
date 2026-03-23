@@ -1471,9 +1471,13 @@ def _backfill_field_earnings(db: Session, tournament: Tournament) -> None:
             competition_id=tournament.competition_id,
             is_team_event=tournament.is_team_event,
         )
-        # Store 0 explicitly for golfers who missed the cut (no earnings)
-        # so we don't re-fetch them on future syncs.
-        entry.earnings_usd = raw if raw is not None else 0
+        if raw is not None:
+            # ESPN returned a positive earnings value — store it.
+            entry.earnings_usd = raw
+        elif entry.status in ("CUT", "WD", "DQ", "MDF"):
+            # Confirmed non-earner — store 0 so we don't re-fetch.
+            entry.earnings_usd = 0
+        # else: earnings not yet published — leave as NULL for retry
 
     db.commit()
     log.info("Back-fill complete for '%s'", tournament.name)
@@ -1601,7 +1605,7 @@ def sync_schedule(db: Session, year: int) -> dict:
     # We only publish TOURNAMENT_COMPLETED here; TOURNAMENT_IN_PROGRESS is
     # published from sync_tournament() so it fires within 5 minutes of the
     # first tee time rather than waiting for the next daily schedule sync.
-    _publish_schedule_transitions(transitions)
+    _publish_schedule_transitions(transitions, db=db)
 
     return {
         "year": year,
@@ -1612,12 +1616,48 @@ def sync_schedule(db: Session, year: int) -> dict:
     }
 
 
-def _publish_schedule_transitions(transitions: list[tuple[str, str, str]]) -> None:
+def _winner_has_earnings(db: Session, tournament_id: str) -> bool:
+    """
+    Check whether the tournament winner (finish_position=1) has earnings.
+
+    This gates the TOURNAMENT_COMPLETED SQS event — if ESPN hasn't published
+    prize money yet, we skip the event and let results_finalization pick it up
+    later. This prevents premature scoring (points_earned=0) and incorrect
+    playoff advancement.
+    """
+    winner_entry = (
+        db.query(TournamentEntry).filter_by(tournament_id=tournament_id, finish_position=1).first()
+    )
+    if winner_entry is None:
+        log.info(
+            "Earnings gate: no winner entry found for tournament %s — skipping event",
+            tournament_id,
+        )
+        return False
+
+    if winner_entry.earnings_usd is None or winner_entry.earnings_usd == 0:
+        log.info(
+            "Earnings gate: winner earnings not yet published for tournament %s — skipping event",
+            tournament_id,
+        )
+        return False
+
+    return True
+
+
+def _publish_schedule_transitions(
+    transitions: list[tuple[str, str, str]],
+    db: Session | None = None,
+) -> None:
     """
     Publish SQS events for status transitions returned by upsert_tournaments().
 
     Only fires when SQS_QUEUE_URL is present in the environment. Missing env
     var is treated as a graceful no-op (early dev, local without LocalStack).
+
+    TOURNAMENT_COMPLETED is gated on the winner having earnings — if ESPN
+    hasn't published prize money yet, the event is skipped and
+    results_finalization will catch it later.
     """
     import os
 
@@ -1628,6 +1668,15 @@ def _publish_schedule_transitions(transitions: list[tuple[str, str, str]]) -> No
 
     for tournament_id, old_status, new_status in transitions:
         if new_status == "completed":
+            # Gate on winner earnings to prevent premature scoring.
+            if db is not None and not _winner_has_earnings(db, tournament_id):
+                log.info(
+                    "Schedule sync: deferring TOURNAMENT_COMPLETED for %s — "
+                    "earnings not yet published (results_finalization will retry)",
+                    tournament_id,
+                )
+                continue
+
             log.info(
                 "Schedule sync: publishing TOURNAMENT_COMPLETED for %s (%s → %s)",
                 tournament_id,
@@ -1771,7 +1820,7 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
                 old_status,
                 new_status,
             )
-            _publish_schedule_transitions([(str(tournament.id), old_status, new_status)])
+            _publish_schedule_transitions([(str(tournament.id), old_status, new_status)], db=db)
 
     # Pass IDs of golfers already in DB so fetch functions skip re-fetching them.
     known_ids = {g.pga_tour_id for g in db.query(Golfer).all()}
@@ -1900,12 +1949,75 @@ def full_sync(db: Session, year: int, *, force: bool = False) -> dict:
             log.error("Failed to sync tournament '%s': %s", t_name, exc)
             errors.append({"pga_tour_id": t_id, "name": t_name, "error": str(exc)})
 
+    # Publish TOURNAMENT_COMPLETED for any completed tournament that has
+    # unscored playoff rounds. This covers the case where the original SQS
+    # event was consumed but score_round failed (e.g. earnings not yet
+    # available), or the admin triggered a manual sync after earnings appeared.
+    _publish_completed_for_unscored_playoffs(db)
+
     return {
         "year": year,
         "schedule": schedule_result,
         "tournaments_synced": len(tournament_results),
         "errors": errors,
     }
+
+
+def _publish_completed_for_unscored_playoffs(db: Session, tournament_id: str | None = None) -> None:
+    """
+    Find completed tournaments with locked (unscored) playoff rounds and
+    publish TOURNAMENT_COMPLETED if earnings are available.
+
+    When tournament_id is provided, only check that specific tournament.
+    When None, check all completed tournaments (used by full_sync).
+
+    This is a safety net for scenarios where the original event was consumed
+    but the playoff pipeline didn't complete (e.g. earnings weren't available
+    at the time, worker crashed mid-pipeline, or admin triggered a manual sync).
+    """
+    import os
+
+    if not os.environ.get("SQS_QUEUE_URL"):
+        return
+
+    from app.models import PlayoffRound
+    from app.services.sqs import publish
+
+    query = (
+        db.query(PlayoffRound)
+        .join(Tournament, PlayoffRound.tournament_id == Tournament.id)
+        .filter(
+            Tournament.status == TournamentStatus.COMPLETED.value,
+            PlayoffRound.status == "locked",
+        )
+    )
+    if tournament_id is not None:
+        query = query.filter(PlayoffRound.tournament_id == tournament_id)
+
+    unscored_rounds = query.all()
+
+    for pr in unscored_rounds:
+        tid = str(pr.tournament_id)
+        if not _winner_has_earnings(db, tid):
+            log.info(
+                "Unscored playoff round %d: earnings not yet available — skipping",
+                pr.round_number,
+            )
+            continue
+
+        log.info(
+            "Publishing TOURNAMENT_COMPLETED for unscored playoff round %d (tournament=%s)",
+            pr.round_number,
+            tid,
+        )
+        try:
+            publish("TOURNAMENT_COMPLETED", tournament_id=tid)
+        except Exception as exc:
+            log.error(
+                "Failed to publish TOURNAMENT_COMPLETED for playoff round %d: %s",
+                pr.round_number,
+                exc,
+            )
 
 
 # ---------------------------------------------------------------------------

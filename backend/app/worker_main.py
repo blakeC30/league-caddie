@@ -132,6 +132,8 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
     points_earned IS NULL, score_round checks status == "locked", and
     advance_bracket checks that all members are scored before advancing.
     """
+    from fastapi import HTTPException
+
     from app.models import PlayoffRound, Tournament
     from app.services.playoff import advance_bracket, score_round
     from app.services.scraper import score_picks
@@ -182,6 +184,19 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
             "TOURNAMENT_COMPLETED: playoff round %d scored",
             playoff_round.round_number,
         )
+    except HTTPException as exc:
+        # 422 from score_round means earnings aren't available yet or the
+        # round is in the wrong status. Don't retry via SQS — this will fail
+        # the same way. results_finalization will re-publish the event once
+        # earnings are available.
+        db.rollback()
+        log.warning(
+            "TOURNAMENT_COMPLETED: score_round deferred for round %d: %s "
+            "(results_finalization will retry when earnings are available)",
+            playoff_round.round_number,
+            exc.detail,
+        )
+        return
     except Exception as exc:
         db.rollback()
         log.error(
@@ -190,7 +205,7 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
             exc,
             exc_info=True,
         )
-        raise  # retry
+        raise  # retry unexpected errors
 
     # Step 3: Advance the bracket (advance_bracket checks internally that all
     # members are scored before acting — safe to call unconditionally here).
