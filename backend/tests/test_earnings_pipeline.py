@@ -491,3 +491,43 @@ class TestPublishCompletedForUnscoredPlayoffs:
                 _publish_completed_for_unscored_playoffs(db)
 
         mock_pub.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestScorePicksNoBackfill
+# ---------------------------------------------------------------------------
+
+
+class TestScorePicksNoBackfill:
+    """score_picks() must NOT call _backfill_field_earnings — backfill runs only in the worker."""
+
+    def test_score_picks_does_not_call_backfill(self, db):
+        from app.services.scraper import score_picks
+
+        tournament = _make_completed_tournament(db, "No Backfill Open")
+
+        with patch("app.services.scraper._backfill_field_earnings") as mock_backfill:
+            score_picks(db, tournament)
+
+        mock_backfill.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# TestWorkerCallsBackfill
+# ---------------------------------------------------------------------------
+
+
+class TestWorkerCallsBackfill:
+    """_handle_tournament_completed calls _backfill_field_earnings after score_picks."""
+
+    def test_worker_calls_backfill_after_scoring(self, db):
+        from app.worker_main import _handle_tournament_completed
+
+        tournament = _make_completed_tournament(db, "Worker Backfill Open")
+
+        with patch("app.services.scraper.score_picks", return_value=0):
+            with patch("app.services.scraper._backfill_field_earnings") as mock_backfill:
+                _handle_tournament_completed(db, str(tournament.id))
+
+        mock_backfill.assert_called_once()
+        assert mock_backfill.call_args[0][1].id == tournament.id

@@ -1418,11 +1418,6 @@ def score_picks(db: Session, tournament: Tournament) -> int:
     db.commit()
     log.info("Scored %d picks for '%s'", count, tournament.name)
 
-    # After scoring picks, back-fill earnings for every other golfer in the field
-    # so the Tournament Detail leaderboard shows earnings for all entrants, not
-    # just league members who submitted a pick.
-    _backfill_field_earnings(db, tournament)
-
     return count
 
 

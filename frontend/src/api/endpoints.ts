@@ -686,6 +686,29 @@ export const adminApi = {
 
   syncTournamentForce: (pgaTourId: string) =>
     api.post(`/admin/sync/${pgaTourId}`, null, { params: { force: true }, timeout: 300_000 }).then((r) => r.data),
+
+  importMembers: (leagueId: string, file: File) => {
+    const formData = new FormData();
+    formData.append("league_id", leagueId);
+    formData.append("file", file);
+    return api
+      .post("/admin/import-members", formData, { timeout: 120_000 })
+      .then((r) => r.data);
+  },
+
+  importPicks: (
+    leagueId: string,
+    tournamentId: string,
+    file: File,
+  ) => {
+    const formData = new FormData();
+    formData.append("league_id", leagueId);
+    formData.append("tournament_id", tournamentId);
+    formData.append("file", file);
+    return api
+      .post("/admin/import-picks", formData, { timeout: 120_000 })
+      .then((r) => r.data);
+  },
 };
 
 // ---------------------------------------------------------------------------

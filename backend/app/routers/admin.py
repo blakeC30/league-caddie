@@ -10,13 +10,17 @@ Endpoints:
   POST /admin/sync/{pga_tour_id}                     Sync a single tournament by its ESPN event ID
   GET  /admin/stripe/webhook-failures                List unresolved webhook failures
   POST /admin/stripe/webhook-failures/{id}/retry     Retry a failed webhook event
+  POST /admin/import-members                         Bulk import members from CSV
+  POST /admin/import-picks                           Bulk import picks from CSV
 """
 
+import csv
+import io
 import logging
 import uuid
 from datetime import UTC, date, datetime, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -25,19 +29,24 @@ from app.database import get_db
 from app.dependencies import require_platform_admin
 from app.limiter import limiter
 from app.models import (
+    Golfer,
     League,
     LeagueMember,
+    LeagueMemberRole,
     LeagueMemberStatus,
     LeaguePurchase,
+    LeagueTournament,
     Pick,
     PlayoffConfig,
+    Season,
     StripeWebhookFailure,
     Tournament,
     TournamentStatus,
     User,
 )
 from app.models.deleted_league import DeletedLeague
-from app.services.scraper import full_sync, sync_tournament
+from app.services.auth import hash_password
+from app.services.scraper import full_sync, score_picks, sync_tournament
 
 log = logging.getLogger(__name__)
 
@@ -401,3 +410,347 @@ def retry_webhook_failure(
 
     log.info("Admin webhook retry resolved: failure_id=%s", str(failure_id))
     return {"resolved": True}
+
+
+# ---------------------------------------------------------------------------
+# Bulk import — members
+# ---------------------------------------------------------------------------
+
+
+@router.post("/import-members")
+@limiter.limit("10/hour")
+def import_members(
+    request: Request,
+    league_id: uuid.UUID = Form(...),
+    file: UploadFile = File(...),
+    admin_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk import members from a CSV file into a league.
+
+    CSV format: name,email (header row required).
+    - If the email exists in the DB, uses the existing account.
+    - If the email is new, creates an account with password "password123".
+    - Adds the user to the league as an approved member.
+    - Skips users already in the league.
+    """
+    log.info(
+        "Admin import members: league=%s triggered by user=%s",
+        str(league_id),
+        str(admin_user.id),
+    )
+
+    league = db.query(League).filter_by(id=league_id).first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+
+    # Parse CSV
+    try:
+        content = file.file.read().decode("utf-8")
+        reader = csv.DictReader(io.StringIO(content))
+        rows = list(reader)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Failed to parse CSV: {exc}",
+        ) from exc
+
+    if not rows:
+        raise HTTPException(status_code=422, detail="CSV is empty")
+
+    # Validate required columns
+    if "name" not in rows[0] or "email" not in rows[0]:
+        raise HTTPException(
+            status_code=422,
+            detail="CSV must have 'name' and 'email' columns",
+        )
+
+    temp_password_hash = hash_password("password123")
+    accounts_created = 0
+    existing_accounts = 0
+    members_added = 0
+    skipped_already_in_league = 0
+    errors: list[str] = []
+
+    for i, row in enumerate(rows, start=2):  # start=2 because row 1 is the header
+        name = row.get("name", "").strip()
+        email = row.get("email", "").strip().lower()
+
+        if not name or not email:
+            errors.append(f"Row {i}: missing name or email")
+            continue
+
+        # Find or create user
+        user = db.query(User).filter(func.lower(User.email) == email).first()
+        if user:
+            existing_accounts += 1
+        else:
+            user = User(
+                email=email,
+                password_hash=temp_password_hash,
+                display_name=name,
+            )
+            db.add(user)
+            db.flush()
+            accounts_created += 1
+
+        # Check if already a member
+        existing_membership = (
+            db.query(LeagueMember).filter_by(league_id=league.id, user_id=user.id).first()
+        )
+        if existing_membership:
+            skipped_already_in_league += 1
+            continue
+
+        # Add as approved member
+        db.add(
+            LeagueMember(
+                league_id=league.id,
+                user_id=user.id,
+                role=LeagueMemberRole.MEMBER.value,
+                status=LeagueMemberStatus.APPROVED.value,
+            )
+        )
+        members_added += 1
+
+    db.commit()
+
+    result = {
+        "accounts_created": accounts_created,
+        "existing_accounts": existing_accounts,
+        "members_added": members_added,
+        "skipped_already_in_league": skipped_already_in_league,
+        "errors": errors,
+    }
+    log.info("Admin import members complete: league=%s result=%s", str(league_id), result)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Bulk import — picks
+# ---------------------------------------------------------------------------
+
+
+@router.post("/import-picks")
+@limiter.limit("30/hour")
+def import_picks(
+    request: Request,
+    league_id: uuid.UUID = Form(...),
+    tournament_id: uuid.UUID = Form(...),
+    file: UploadFile = File(...),
+    admin_user: User = Depends(require_platform_admin),
+    db: Session = Depends(get_db),
+):
+    """
+    Bulk import picks from a CSV file for a specific tournament in a league.
+
+    CSV format: email,golfer_name (header row required).
+    - Rows with golfer_name "No Pick" are skipped (penalty applied automatically).
+    - Creates or replaces picks using the admin override logic.
+    - Enforces the no-repeat rule.
+    - Auto-scores if the tournament is completed.
+    """
+    log.info(
+        "Admin import picks: league=%s tournament=%s triggered by user=%s",
+        str(league_id),
+        str(tournament_id),
+        str(admin_user.id),
+    )
+
+    league = db.query(League).filter_by(id=league_id).first()
+    if not league:
+        raise HTTPException(status_code=404, detail="League not found")
+
+    tournament = db.query(Tournament).filter_by(id=tournament_id).first()
+    if not tournament:
+        raise HTTPException(status_code=404, detail="Tournament not found")
+
+    # Verify tournament is in the league's schedule
+    lt = (
+        db.query(LeagueTournament)
+        .filter_by(league_id=league.id, tournament_id=tournament.id)
+        .first()
+    )
+    if not lt:
+        raise HTTPException(
+            status_code=422,
+            detail="Tournament is not in this league's schedule",
+        )
+
+    # Get active season
+    season = db.query(Season).filter_by(league_id=league.id, is_active=True).first()
+    if not season:
+        raise HTTPException(status_code=422, detail="No active season for this league")
+
+    # Parse CSV
+    try:
+        content = file.file.read().decode("utf-8")
+        reader = csv.DictReader(io.StringIO(content))
+        rows = list(reader)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Failed to parse CSV: {exc}",
+        ) from exc
+
+    if not rows:
+        raise HTTPException(status_code=422, detail="CSV is empty")
+
+    if "email" not in rows[0] or "golfer_name" not in rows[0]:
+        raise HTTPException(
+            status_code=422,
+            detail="CSV must have 'email' and 'golfer_name' columns",
+        )
+
+    # ── Phase 1: Validate all rows before writing anything ──────────
+    validated_rows: list[dict] = []
+    validation_errors: list[str] = []
+
+    for i, row in enumerate(rows, start=2):
+        email = row.get("email", "").strip().lower()
+        golfer_name = row.get("golfer_name", "").strip()
+
+        if not email:
+            validation_errors.append(f"Row {i}: missing email")
+            continue
+
+        # Skip "No Pick" rows
+        if golfer_name.lower() == "no pick":
+            continue
+
+        if not golfer_name:
+            validation_errors.append(f"Row {i}: missing golfer_name")
+            continue
+
+        # Validate user exists and is a league member
+        user = db.query(User).filter(func.lower(User.email) == email).first()
+        if not user:
+            validation_errors.append(f"Row {i}: user not found: {email}")
+            continue
+
+        membership = (
+            db.query(LeagueMember)
+            .filter_by(
+                league_id=league.id,
+                user_id=user.id,
+                status=LeagueMemberStatus.APPROVED.value,
+            )
+            .first()
+        )
+        if not membership:
+            validation_errors.append(f"Row {i}: {email} is not a member of this league")
+            continue
+
+        # Validate golfer exists
+        golfer = db.query(Golfer).filter(Golfer.name == golfer_name).first()
+        if not golfer:
+            validation_errors.append(f"Row {i}: golfer not found: {golfer_name}")
+            continue
+
+        # Check no-repeat rule: golfer not used by this member in another tournament
+        no_repeat_conflict = (
+            db.query(Pick)
+            .filter(
+                Pick.league_id == league.id,
+                Pick.season_id == season.id,
+                Pick.user_id == user.id,
+                Pick.golfer_id == golfer.id,
+                Pick.tournament_id != tournament.id,
+            )
+            .first()
+        )
+        if no_repeat_conflict:
+            conflict_t = db.query(Tournament).filter_by(id=no_repeat_conflict.tournament_id).first()
+            validation_errors.append(
+                f"Row {i}: {email} already used {golfer_name} "
+                f"in {conflict_t.name if conflict_t else 'another tournament'}"
+            )
+            continue
+
+        validated_rows.append({"user": user, "golfer": golfer})
+
+    if validation_errors:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Validation failed — no data was written",
+                "errors": validation_errors,
+            },
+        )
+
+    # ── Phase 2: Create/replace picks ───────────────────────────────
+    picks_created = 0
+    picks_updated = 0
+    skipped_no_pick = len(rows) - len(validated_rows)
+
+    for vrow in validated_rows:
+        user = vrow["user"]
+        golfer = vrow["golfer"]
+
+        existing = (
+            db.query(Pick)
+            .filter_by(
+                league_id=league.id,
+                season_id=season.id,
+                user_id=user.id,
+                tournament_id=tournament.id,
+            )
+            .first()
+        )
+
+        if existing:
+            existing.golfer_id = golfer.id
+            existing.points_earned = None  # reset for re-scoring
+            picks_updated += 1
+        else:
+            db.add(
+                Pick(
+                    league_id=league.id,
+                    season_id=season.id,
+                    user_id=user.id,
+                    tournament_id=tournament.id,
+                    golfer_id=golfer.id,
+                )
+            )
+            picks_created += 1
+
+    db.commit()
+
+    # ── Phase 3: Auto-score if tournament is completed ──────────────
+    scored = False
+    if tournament.status == TournamentStatus.COMPLETED.value:
+        try:
+            score_picks(db, tournament)
+            scored = True
+            log.info(
+                "Admin import picks: auto-scored for '%s'",
+                tournament.name,
+            )
+        except Exception as exc:
+            log.error(
+                "Admin import picks: scoring failed for '%s': %s",
+                tournament.name,
+                exc,
+            )
+
+    # Invalidate standings cache
+    from app.services.scoring import invalidate_standings_cache
+
+    invalidate_standings_cache(db, season)
+    db.commit()
+
+    result = {
+        "picks_created": picks_created,
+        "picks_updated": picks_updated,
+        "skipped_no_pick": skipped_no_pick,
+        "scored": scored,
+        "errors": [],
+    }
+    log.info(
+        "Admin import picks complete: league=%s tournament=%s result=%s",
+        str(league_id),
+        str(tournament_id),
+        result,
+    )
+    return result

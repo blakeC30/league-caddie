@@ -136,17 +136,18 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
 
     from app.models import PlayoffRound, Tournament
     from app.services.playoff import advance_bracket, score_round
-    from app.services.scraper import score_picks
+    from app.services.scraper import _backfill_field_earnings, score_picks
 
     tournament = db.query(Tournament).filter_by(id=tournament_id).first()
     if not tournament:
         log.warning("TOURNAMENT_COMPLETED: tournament %s not found — skipping", tournament_id)
         return
 
-    # Step 1: Score regular picks.
+    # Step 1: Score regular picks + backfill field earnings.
     log.info("TOURNAMENT_COMPLETED: scoring regular picks for '%s'", tournament.name)
     try:
         count = score_picks(db, tournament)
+        _backfill_field_earnings(db, tournament)
         log.info(
             "TOURNAMENT_COMPLETED: scored %d regular picks for '%s'",
             count,

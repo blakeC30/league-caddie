@@ -14,7 +14,7 @@
  * - Earnings = raw prize money in USD, only shown when tournament is completed
  */
 
-import { useEffect, useState, useRef, useLayoutEffect } from "react";
+import React, { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { Link, useParams, useLocation } from "react-router-dom";
 import { useMyPicks, useTournamentLeaderboard, useTournamentSyncStatus, useGolferScorecard, useTournamentField } from "../hooks/usePick";
 import { useLeagueMembers, useLeaguePurchase, useLeagueTournaments } from "../hooks/useLeague";
@@ -721,9 +721,9 @@ export function TournamentDetail() {
                   const showCutLine = !entry.made_cut && (prevEntry === null || prevEntry.made_cut);
 
                   return (
-                    <>
+                    <React.Fragment key={entry.golfer_id}>
                       {showCutLine && (
-                        <tr key={`cut-line-${idx}`} className="border-b border-gray-100">
+                        <tr className="border-b border-gray-100">
                           <td colSpan={totalCols} className="px-4 py-1.5 bg-gray-50">
                             <div className="flex items-center gap-2">
                               <div className="flex-1 h-px bg-gray-300" />
@@ -734,7 +734,6 @@ export function TournamentDetail() {
                         </tr>
                       )}
                       <tr
-                        key={entry.golfer_id}
                         onClick={() => availableRounds.length > 0 && setExpandedGolferId((p) => p === entry.golfer_id ? null : entry.golfer_id)}
                         className={[
                           "border-b border-gray-100 last:border-0 transition-colors",
@@ -889,7 +888,7 @@ export function TournamentDetail() {
                           isLive={isLive}
                         />
                       )}
-                    </>
+                    </React.Fragment>
                   );
                 })}
               </tbody>

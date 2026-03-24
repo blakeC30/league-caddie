@@ -13,8 +13,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { adminApi, type AdminStats } from "../api/endpoints";
+import { adminApi, leaguesApi, type AdminStats } from "../api/endpoints";
 import { useAuthStore } from "../store/authStore";
+import { useMyLeagues } from "../hooks/useLeague";
 import { useTournaments } from "../hooks/usePick";
 import { Spinner } from "../components/Spinner";
 
@@ -40,6 +41,36 @@ export function PlatformAdmin() {
   // Bulk sync state
   const [bulkSyncStatus, setBulkSyncStatus] = useState<"idle" | "running" | "done" | "error">("idle");
   const [bulkSyncProgress, setBulkSyncProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
+
+  // Import members state
+  const [importLeagueId, setImportLeagueId] = useState("");
+  const [importMembersFile, setImportMembersFile] = useState<File | null>(null);
+  const [importMembersStatus, setImportMembersStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [importMembersResult, setImportMembersResult] = useState<string>("");
+
+  // Import picks state
+  const [picksLeagueId, setPicksLeagueId] = useState("");
+  const [picksTournamentId, setPicksTournamentId] = useState("");
+  const [importPicksFile, setImportPicksFile] = useState<File | null>(null);
+  const [importPicksStatus, setImportPicksStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [importPicksResult, setImportPicksResult] = useState<string>("");
+
+  // Leagues for dropdowns
+  const { data: myLeagues } = useMyLeagues();
+  // League tournaments for picks dropdown
+  const [leagueTournaments, setLeagueTournaments] = useState<{ id: string; name: string; status: string }[]>([]);
+  useEffect(() => {
+    if (!picksLeagueId) { setLeagueTournaments([]); return; }
+    leaguesApi.getTournaments(picksLeagueId).then((ts) => {
+      setLeagueTournaments(
+        ts.map((t) => ({
+          id: t.id,
+          name: t.name,
+          status: t.status,
+        }))
+      );
+    }).catch(() => setLeagueTournaments([]));
+  }, [picksLeagueId]);
 
   const { data: tournaments, isLoading: tournamentsLoading } = useTournaments();
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<AdminStats>({
@@ -420,6 +451,145 @@ export function PlatformAdmin() {
               </tbody>
             </table>
           </div>
+        )}
+      </section>
+
+      {/* ── Import Members Section ───────────────────────────────── */}
+      <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-gray-800">Import Members</h2>
+        <p className="text-sm text-gray-500">
+          Upload a CSV file with <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">name,email</code> columns to bulk-add members to a league.
+          New accounts are created with password <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">password123</code>.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">League</label>
+            <select
+              value={importLeagueId}
+              onChange={(e) => setImportLeagueId(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Select a league</option>
+              {myLeagues?.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setImportMembersFile(e.target.files?.[0] ?? null)}
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+            />
+          </div>
+        </div>
+
+        <button
+          disabled={!importLeagueId || !importMembersFile || importMembersStatus === "running"}
+          onClick={async () => {
+            if (!importMembersFile) return;
+            setImportMembersStatus("running");
+            setImportMembersResult("");
+            try {
+              const result = await adminApi.importMembers(importLeagueId, importMembersFile);
+              setImportMembersStatus("done");
+              setImportMembersResult(JSON.stringify(result, null, 2));
+            } catch (err: unknown) {
+              setImportMembersStatus("error");
+              const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+              setImportMembersResult(typeof detail === "string" ? detail : JSON.stringify(detail, null, 2));
+            }
+          }}
+          className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+        >
+          {importMembersStatus === "running" ? <Spinner /> : "Import Members"}
+        </button>
+
+        {importMembersResult && (
+          <pre className={`text-xs p-4 rounded-xl overflow-x-auto ${importMembersStatus === "error" ? "bg-red-50 text-red-700" : "bg-gray-50 text-gray-700"}`}>
+            {importMembersResult}
+          </pre>
+        )}
+      </section>
+
+      {/* ── Import Picks Section ──────────────────────────────────── */}
+      <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-gray-800">Import Picks</h2>
+        <p className="text-sm text-gray-500">
+          Upload a CSV file with <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">email,golfer_name</code> columns.
+          Use <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">No Pick</code> for members who didn&apos;t pick.
+          Completed tournaments are auto-scored after import.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">League</label>
+            <select
+              value={picksLeagueId}
+              onChange={(e) => { setPicksLeagueId(e.target.value); setPicksTournamentId(""); }}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              <option value="">Select a league</option>
+              {myLeagues?.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tournament</label>
+            <select
+              value={picksTournamentId}
+              onChange={(e) => setPicksTournamentId(e.target.value)}
+              disabled={!picksLeagueId}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+            >
+              <option value="">Select a tournament</option>
+              {leagueTournaments.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.status})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={(e) => setImportPicksFile(e.target.files?.[0] ?? null)}
+              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+            />
+          </div>
+        </div>
+
+        <button
+          disabled={!picksLeagueId || !picksTournamentId || !importPicksFile || importPicksStatus === "running"}
+          onClick={async () => {
+            if (!importPicksFile) return;
+            setImportPicksStatus("running");
+            setImportPicksResult("");
+            try {
+              const result = await adminApi.importPicks(picksLeagueId, picksTournamentId, importPicksFile);
+              setImportPicksStatus("done");
+              setImportPicksResult(JSON.stringify(result, null, 2));
+            } catch (err: unknown) {
+              setImportPicksStatus("error");
+              const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+              setImportPicksResult(typeof detail === "string" ? detail : JSON.stringify(detail, null, 2));
+            }
+          }}
+          className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+        >
+          {importPicksStatus === "running" ? <Spinner /> : "Import Picks"}
+        </button>
+
+        {importPicksResult && (
+          <pre className={`text-xs p-4 rounded-xl overflow-x-auto ${importPicksStatus === "error" ? "bg-red-50 text-red-700" : "bg-gray-50 text-gray-700"}`}>
+            {importPicksResult}
+          </pre>
         )}
       </section>
 
