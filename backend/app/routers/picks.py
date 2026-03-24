@@ -679,10 +679,10 @@ def admin_override_pick(
         str(body.golfer_id),
     )
 
-    # If the tournament is already completed, score the pick immediately
+    # If the tournament is already completed, score this league's picks immediately
     # so points_earned is populated without waiting for the next scheduled sync.
     if tournament and tournament.status == TournamentStatus.COMPLETED.value:
-        score_picks(db, tournament)
+        score_picks(db, tournament, league_id=league.id)
 
     invalidate_standings_cache(db, season)
     db.commit()

@@ -74,6 +74,7 @@ The core API endpoints above are the reliable replacement.
 
 import concurrent.futures
 import logging
+import uuid
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 
@@ -1331,9 +1332,12 @@ def upsert_field(
     return golfers_synced, entries_synced
 
 
-def score_picks(db: Session, tournament: Tournament) -> int:
+def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | None = None) -> int:
     """
-    Calculate and store points_earned for all picks in a completed tournament.
+    Calculate and store points_earned for picks in a completed tournament.
+
+    When league_id is provided, only scores picks for that league. When None,
+    scores all picks across all leagues (used by the worker and safety nets).
 
     For each pick we need the golfer's prize earnings. We first check the
     TournamentEntry row (may already have earnings from a previous sync), and
@@ -1356,7 +1360,10 @@ def score_picks(db: Session, tournament: Tournament) -> int:
         log.warning("score_picks called on non-completed tournament %s", tournament.name)
         return 0
 
-    picks = db.query(Pick).filter_by(tournament_id=tournament.id).all()
+    query = db.query(Pick).filter_by(tournament_id=tournament.id)
+    if league_id is not None:
+        query = query.filter(Pick.league_id == league_id)
+    picks = query.all()
     count = 0
 
     for pick in picks:

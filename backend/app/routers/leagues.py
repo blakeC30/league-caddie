@@ -1226,12 +1226,12 @@ def update_league_tournaments(
 
     invalidate_standings_cache_for_league(db, league.id)
 
-    # Re-score all completed tournament picks.
+    # Re-score this league's completed tournament picks.
     # score_picks uses cached TournamentEntry.earnings_usd — no ESPN API calls.
     for item in body.tournaments:
         tournament = tournament_map.get(item.tournament_id)
         if tournament and tournament.status == TournamentStatus.COMPLETED.value:
-            score_picks(db, tournament)
+            score_picks(db, tournament, league_id=league.id)
 
     rows = (
         db.query(LeagueTournament)

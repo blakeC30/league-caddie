@@ -163,72 +163,73 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
         )
         raise  # retry
 
-    # Step 2: Score playoff round if one is linked to this tournament.
-    playoff_round = (
-        db.query(PlayoffRound).filter_by(tournament_id=tournament_id, status="locked").first()
+    # Step 2 & 3: Score and advance playoff rounds linked to this tournament.
+    # Multiple leagues may have playoff rounds for the same tournament — process all.
+    playoff_rounds = (
+        db.query(PlayoffRound).filter_by(tournament_id=tournament_id, status="locked").all()
     )
-    if not playoff_round:
+    if not playoff_rounds:
         log.debug(
-            "TOURNAMENT_COMPLETED: no locked playoff round for tournament %s",
+            "TOURNAMENT_COMPLETED: no locked playoff rounds for tournament %s",
             tournament_id,
         )
         return
 
-    log.info(
-        "TOURNAMENT_COMPLETED: scoring playoff round %d for '%s'",
-        playoff_round.round_number,
-        tournament.name,
-    )
-    try:
-        score_round(db, playoff_round)
+    for playoff_round in playoff_rounds:
         log.info(
-            "TOURNAMENT_COMPLETED: playoff round %d scored",
+            "TOURNAMENT_COMPLETED: scoring playoff round %d (config=%s) for '%s'",
             playoff_round.round_number,
+            str(playoff_round.playoff_config_id),
+            tournament.name,
         )
-    except HTTPException as exc:
-        # 422 from score_round means earnings aren't available yet or the
-        # round is in the wrong status. Don't retry via SQS — this will fail
-        # the same way. results_finalization will re-publish the event once
-        # earnings are available.
-        db.rollback()
-        log.warning(
-            "TOURNAMENT_COMPLETED: score_round deferred for round %d: %s "
-            "(results_finalization will retry when earnings are available)",
-            playoff_round.round_number,
-            exc.detail,
-        )
-        return
-    except Exception as exc:
-        db.rollback()
-        log.error(
-            "TOURNAMENT_COMPLETED: score_round failed for round %d: %s",
-            playoff_round.round_number,
-            exc,
-            exc_info=True,
-        )
-        raise  # retry unexpected errors
+        try:
+            score_round(db, playoff_round)
+            log.info(
+                "TOURNAMENT_COMPLETED: playoff round %d scored",
+                playoff_round.round_number,
+            )
+        except HTTPException as exc:
+            db.rollback()
+            log.warning(
+                "TOURNAMENT_COMPLETED: score_round deferred for round %d (config=%s): %s "
+                "(results_finalization will retry when earnings are available)",
+                playoff_round.round_number,
+                str(playoff_round.playoff_config_id),
+                exc.detail,
+            )
+            continue
+        except Exception as exc:
+            db.rollback()
+            log.error(
+                "TOURNAMENT_COMPLETED: score_round failed for round %d (config=%s): %s",
+                playoff_round.round_number,
+                str(playoff_round.playoff_config_id),
+                exc,
+                exc_info=True,
+            )
+            raise  # retry unexpected errors
 
-    # Step 3: Advance the bracket (advance_bracket checks internally that all
-    # members are scored before acting — safe to call unconditionally here).
-    log.info(
-        "TOURNAMENT_COMPLETED: attempting bracket advance for round %d",
-        playoff_round.round_number,
-    )
-    try:
-        advance_bracket(db, playoff_round)
         log.info(
-            "TOURNAMENT_COMPLETED: bracket advanced past round %d",
+            "TOURNAMENT_COMPLETED: attempting bracket advance for round %d (config=%s)",
             playoff_round.round_number,
+            str(playoff_round.playoff_config_id),
         )
-    except Exception as exc:
-        db.rollback()
-        log.error(
-            "TOURNAMENT_COMPLETED: advance_bracket failed for round %d: %s",
-            playoff_round.round_number,
-            exc,
-            exc_info=True,
-        )
-        raise  # retry
+        try:
+            advance_bracket(db, playoff_round)
+            log.info(
+                "TOURNAMENT_COMPLETED: bracket advanced past round %d",
+                playoff_round.round_number,
+            )
+        except Exception as exc:
+            db.rollback()
+            log.error(
+                "TOURNAMENT_COMPLETED: advance_bracket failed for round %d (config=%s): %s",
+                playoff_round.round_number,
+                str(playoff_round.playoff_config_id),
+                exc,
+                exc_info=True,
+            )
+            raise  # retry
 
 
 def _configure_logging() -> None:

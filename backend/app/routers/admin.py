@@ -301,37 +301,41 @@ def trigger_tournament_sync(
         from app.services.playoff import advance_bracket, score_round
         from app.services.scraper import _winner_has_earnings
 
-        playoff_round = (
-            db.query(PlayoffRound).filter_by(tournament_id=tournament.id, status="locked").first()
+        playoff_rounds = (
+            db.query(PlayoffRound).filter_by(tournament_id=tournament.id, status="locked").all()
         )
-        if playoff_round and _winner_has_earnings(db, str(tournament.id)):
-            try:
-                score_round(db, playoff_round)
-                log.info(
-                    "Admin sync: scored playoff round %d for '%s'",
-                    playoff_round.round_number,
-                    tournament.name,
-                )
-                advance_bracket(db, playoff_round)
-                log.info(
-                    "Admin sync: advanced bracket past round %d for '%s'",
-                    playoff_round.round_number,
-                    tournament.name,
-                )
-            except HTTPException as exc:
-                log.warning(
-                    "Admin sync: playoff pipeline deferred for round %d: %s",
-                    playoff_round.round_number,
-                    exc.detail,
-                )
-            except Exception as exc:
-                db.rollback()
-                log.error(
-                    "Admin sync: playoff pipeline failed for round %d: %s",
-                    playoff_round.round_number,
-                    exc,
-                    exc_info=True,
-                )
+        if playoff_rounds and _winner_has_earnings(db, str(tournament.id)):
+            for playoff_round in playoff_rounds:
+                try:
+                    score_round(db, playoff_round)
+                    log.info(
+                        "Admin sync: scored playoff round %d (config=%s) for '%s'",
+                        playoff_round.round_number,
+                        str(playoff_round.playoff_config_id),
+                        tournament.name,
+                    )
+                    advance_bracket(db, playoff_round)
+                    log.info(
+                        "Admin sync: advanced bracket past round %d for '%s'",
+                        playoff_round.round_number,
+                        tournament.name,
+                    )
+                except HTTPException as exc:
+                    log.warning(
+                        "Admin sync: playoff pipeline deferred for round %d (config=%s): %s",
+                        playoff_round.round_number,
+                        str(playoff_round.playoff_config_id),
+                        exc.detail,
+                    )
+                except Exception as exc:
+                    db.rollback()
+                    log.error(
+                        "Admin sync: playoff pipeline failed for round %d (config=%s): %s",
+                        playoff_round.round_number,
+                        str(playoff_round.playoff_config_id),
+                        exc,
+                        exc_info=True,
+                    )
 
     log.info("Admin single tournament sync completed: pga_tour_id=%s", pga_tour_id)
     return result
@@ -721,7 +725,7 @@ def import_picks(
     scored = False
     if tournament.status == TournamentStatus.COMPLETED.value:
         try:
-            score_picks(db, tournament)
+            score_picks(db, tournament, league_id=league_id)
             scored = True
             log.info(
                 "Admin import picks: auto-scored for '%s'",
