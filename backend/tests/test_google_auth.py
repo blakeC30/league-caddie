@@ -104,6 +104,8 @@ class TestGoogleAuthNewUser:
         """The refresh token cookie is set after first-time Google login."""
         with patch(_SETTINGS_PATCH) as mock_settings:
             mock_settings.GOOGLE_CLIENT_ID = "fake-client-id"
+            mock_settings.COOKIE_DOMAIN = ""
+            mock_settings.ENVIRONMENT = "test"
             with patch(_PATCH_TARGET, return_value=_GOOGLE_CLAIMS):
                 resp = _post_google(client)
 
