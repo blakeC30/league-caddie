@@ -406,6 +406,7 @@ jobs:
             --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_PROD }}" \
             --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}" \
             --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}" \
+            --set secrets.resendApiKey="${{ secrets.RESEND_API_KEY }}" \
             --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
             --rollback-on-failure --wait --timeout=10m
 

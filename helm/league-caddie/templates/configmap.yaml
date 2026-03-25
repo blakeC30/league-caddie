@@ -27,8 +27,8 @@ data:
   # Empty = real AWS. Set to http://localstack:4566 for local docker-compose dev only.
   AWS_ENDPOINT_URL: {{ .Values.config.awsEndpointUrl | quote }}
 
-  # Verified SES sender address. Must be verified in AWS SES console before going live.
-  SES_FROM_EMAIL: {{ .Values.config.sesFromEmail | quote }}
+  # Verified sender address for transactional emails (Resend).
+  EMAIL_FROM: {{ .Values.config.emailFrom | quote }}
 
   # "true" → only platform admins can create leagues. Flip to "false" to open to public.
   LEAGUE_CREATION_RESTRICTED: {{ .Values.config.leagueCreationRestricted | quote }}

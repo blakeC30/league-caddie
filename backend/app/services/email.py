@@ -1,35 +1,38 @@
 """
-Email service — sends transactional emails via AWS SES.
+Email service — sends transactional emails via Resend.
 
-In local development, AWS_ENDPOINT_URL points to LocalStack, which accepts
-SES API calls but does not actually deliver emails. The reset URL is always
-logged to the console so developers can copy it without checking their inbox.
+In local development, RESEND_API_KEY is empty. Emails are logged to the
+console but not sent, so developers can copy the reset URL from the logs.
 
-In production, boto3 uses the EC2 IAM instance role for credentials, so
-AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY should be left empty in the prod
-environment. The only required production config is SES_FROM_EMAIL (must be
-verified in the AWS SES console) and AWS_REGION.
+In production, set RESEND_API_KEY in the environment (Helm secret).
+The domain (league-caddie.com) must be verified in the Resend dashboard.
 """
 
 import logging
 
-import boto3
+import resend
 
 from app.config import settings
 
 log = logging.getLogger(__name__)
 
 
-def _ses_client():
-    """Build a boto3 SES client, optionally pointed at LocalStack."""
-    kwargs: dict = {"region_name": settings.AWS_REGION}
-    if settings.AWS_ENDPOINT_URL:
-        kwargs["endpoint_url"] = settings.AWS_ENDPOINT_URL
-    if settings.AWS_ACCESS_KEY_ID:
-        kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
-    if settings.AWS_SECRET_ACCESS_KEY:
-        kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
-    return boto3.client("ses", **kwargs)
+def _send(to: str, subject: str, html: str, text: str) -> None:
+    """Send an email via Resend, or log-only if no API key is configured."""
+    if not settings.RESEND_API_KEY:
+        log.info("Email not sent (no RESEND_API_KEY): to=%s subject=%r", to, subject)
+        return
+
+    resend.api_key = settings.RESEND_API_KEY
+    resend.Emails.send(
+        {
+            "from": settings.EMAIL_FROM,
+            "to": [to],
+            "subject": subject,
+            "html": html,
+            "text": text,
+        }
+    )
 
 
 def send_password_reset_email(to_email: str, raw_token: str) -> None:
@@ -136,17 +139,7 @@ def send_password_reset_email(to_email: str, raw_token: str) -> None:
 </body>
 </html>"""
 
-    _ses_client().send_email(
-        Source=settings.SES_FROM_EMAIL,
-        Destination={"ToAddresses": [to_email]},
-        Message={
-            "Subject": {"Data": "Reset your League Caddie password"},
-            "Body": {
-                "Text": {"Data": text_body},
-                "Html": {"Data": html_body},
-            },
-        },
-    )
+    _send(to_email, "Reset your League Caddie password", html_body, text_body)
 
 
 def send_pick_reminder_email(
@@ -298,14 +291,9 @@ def send_pick_reminder_email(
 </body>
 </html>"""
 
-    _ses_client().send_email(
-        Source=settings.SES_FROM_EMAIL,
-        Destination={"ToAddresses": [to_email]},
-        Message={
-            "Subject": {"Data": f"Pick reminder: {tournament_name} starts {start_date}"},
-            "Body": {
-                "Text": {"Data": text_body},
-                "Html": {"Data": html_body},
-            },
-        },
+    _send(
+        to_email,
+        f"Pick reminder: {tournament_name} starts {start_date}",
+        html_body,
+        text_body,
     )
