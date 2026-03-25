@@ -112,6 +112,7 @@ export function Settings() {
   useEffect(() => {
     document.title = "Settings — League Caddie";
   }, []);
+  const [profileEditing, setProfileEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -123,6 +124,15 @@ export function Settings() {
 
   const { data: leagues, isLoading: leaguesLoading } = useMyLeagues();
   const [isEditingLeagues, setIsEditingLeagues] = useState(false);
+
+  function cancelProfileEditing() {
+    setFirstName(user?.first_name ?? "");
+    setLastName(user?.last_name ?? "");
+    setDisplayName(user?.display_name ?? "");
+    setError("");
+    setSaved(false);
+    setProfileEditing(false);
+  }
 
   const hasProfileChanges =
     displayName.trim() !== (user?.display_name ?? "") ||
@@ -153,6 +163,7 @@ export function Settings() {
       const updated = await usersApi.updateMe(payload);
       setAuth(updated, token!);
       setSaved(true);
+      setProfileEditing(false);
     } catch {
       setError("Failed to save changes. Please try again.");
     } finally {
@@ -186,90 +197,127 @@ export function Settings() {
 
       {/* Profile section */}
       <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-            </svg>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
+            </div>
+            <h2 className="text-base font-bold text-gray-900">Profile</h2>
           </div>
-          <h2 className="text-base font-bold text-gray-900">Profile</h2>
+          {!profileEditing ? (
+            <button
+              type="button"
+              onClick={() => setProfileEditing(true)}
+              className="text-sm font-medium text-green-700 hover:text-green-900 transition-colors"
+            >
+              Edit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={cancelProfileEditing}
+              className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                First name
-              </label>
-              <input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => { setFirstName(e.target.value); setSaved(false); }}
-                maxLength={50}
-                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
-              />
+        {!profileEditing ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">First name</p>
+                <p className="text-sm text-gray-900">{user?.first_name || <span className="text-gray-300">—</span>}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">Last name</p>
+                <p className="text-sm text-gray-900">{user?.last_name || <span className="text-gray-300">—</span>}</p>
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                Last name
-              </label>
-              <input
-                id="lastName"
-                type="text"
-                value={lastName}
-                onChange={(e) => { setLastName(e.target.value); setSaved(false); }}
-                maxLength={50}
-                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
-              />
+            <div>
+              <p className="text-xs text-gray-400 mb-0.5">Display name</p>
+              <p className="text-sm text-gray-900">{user?.display_name}</p>
             </div>
           </div>
-
-          <div className="space-y-1.5">
-            <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
-              Display name
-            </label>
-            <input
-              id="displayName"
-              type="text"
-              required
-              value={displayName}
-              onChange={(e) => { setDisplayName(e.target.value); setSaved(false); }}
-              maxLength={40}
-              className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
-            />
-            <p className="text-xs text-gray-400">
-              This is how you appear on leaderboards and pick history.
-            </p>
-          </div>
-
-          {error && (
-            <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3.5 py-2.5 rounded-xl">
-              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
-              </svg>
-              {error}
+        ) : (
+          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                  First name
+                </label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => { setFirstName(e.target.value); setSaved(false); }}
+                  maxLength={50}
+                  className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                  Last name
+                </label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => { setLastName(e.target.value); setSaved(false); }}
+                  maxLength={50}
+                  className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+                />
+              </div>
             </div>
-          )}
 
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={loading || !hasProfileChanges}
-              className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 px-5 rounded-xl transition-colors shadow-sm text-sm"
-            >
-              {loading ? "Saving…" : "Save changes"}
-            </button>
-            {saved && (
-              <span className="inline-flex items-center gap-1.5 text-sm text-green-700 font-medium">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+            <div className="space-y-1.5">
+              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+                Display name
+              </label>
+              <input
+                id="displayName"
+                type="text"
+                value={displayName}
+                onChange={(e) => { setDisplayName(e.target.value); setSaved(false); }}
+                maxLength={40}
+                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+              />
+              <p className="text-xs text-gray-400">
+                This is how you appear on leaderboards and pick history.
+              </p>
+            </div>
+
+            {error && (
+              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3.5 py-2.5 rounded-xl">
+                <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
                 </svg>
-                Saved
-              </span>
+                {error}
+              </div>
             )}
-          </div>
-        </form>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={loading || !hasProfileChanges}
+                className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 px-5 rounded-xl transition-colors shadow-sm text-sm"
+              >
+                {loading ? "Saving…" : "Save changes"}
+              </button>
+              {saved && (
+                <span className="inline-flex items-center gap-1.5 text-sm text-green-700 font-medium">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                  Saved
+                </span>
+              )}
+            </div>
+          </form>
+        )}
       </div>
 
       {/* Account info section */}
