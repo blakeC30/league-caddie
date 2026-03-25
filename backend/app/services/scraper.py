@@ -1366,18 +1366,34 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
     picks = query.all()
     count = 0
 
+    # Pre-load all TournamentEntry rows for this tournament into a dict keyed
+    # by golfer_id. Avoids one DB query per pick.
+    entries_by_golfer: dict[uuid.UUID, TournamentEntry] = {
+        e.golfer_id: e
+        for e in db.query(TournamentEntry).filter_by(tournament_id=tournament.id).all()
+    }
+
+    # Cache earnings fetched from ESPN during this run so each golfer is
+    # fetched at most once, even when multiple league members picked them.
+    # Key = golfer_id, value = earnings (int) or None if ESPN returned nothing.
+    earnings_cache: dict[uuid.UUID, int | None] = {}
+
+    # Pre-load per-league multiplier overrides for all leagues in this batch.
+    # Key = league_id, value = LeagueTournament row (or missing = use global).
+    lt_cache: dict[uuid.UUID, LeagueTournament | None] = {}
+
     for pick in picks:
-        entry = (
-            db.query(TournamentEntry)
-            .filter_by(tournament_id=tournament.id, golfer_id=pick.golfer_id)
-            .first()
-        )
+        entry = entries_by_golfer.get(pick.golfer_id)
 
         earnings: float | None = None
 
-        if entry and entry.earnings_usd:
+        if entry and entry.earnings_usd is not None:
             # Already stored from a previous sync — use it directly.
             earnings = float(entry.earnings_usd)
+        elif pick.golfer_id in earnings_cache:
+            # Already fetched from ESPN during this run — reuse cached value.
+            raw = earnings_cache[pick.golfer_id]
+            earnings = float(raw) if raw is not None else None
         else:
             # Not stored yet — fetch from ESPN core API for this specific pick.
             # For team events, use the team_competitor_id as the competitor_id;
@@ -1388,6 +1404,7 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
                 golfer = db.query(Golfer).filter_by(id=pick.golfer_id).first()
                 competitor_id = golfer.pga_tour_id if golfer else None
 
+            raw = None
             if competitor_id:
                 raw = _fetch_golfer_earnings(
                     tournament.pga_tour_id,
@@ -1401,13 +1418,17 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
                     if entry:
                         entry.earnings_usd = raw
 
+            earnings_cache[pick.golfer_id] = raw
+
         # Use the league's per-tournament multiplier override if set; otherwise
         # fall back to the tournament's global multiplier.
-        lt = (
-            db.query(LeagueTournament)
-            .filter_by(league_id=pick.league_id, tournament_id=tournament.id)
-            .first()
-        )
+        if pick.league_id not in lt_cache:
+            lt_cache[pick.league_id] = (
+                db.query(LeagueTournament)
+                .filter_by(league_id=pick.league_id, tournament_id=tournament.id)
+                .first()
+            )
+        lt = lt_cache[pick.league_id]
         effective_multiplier = (
             lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
         )
