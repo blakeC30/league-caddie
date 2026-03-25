@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { LeaguePurchaseEvent, LeaguePurchaseStatus, PricingTier } from "../../api/endpoints";
 import { stripeApi } from "../../api/endpoints";
 import { Spinner } from "../Spinner";
-import { SectionIcon, TIER_ORDER, type ConfirmModalState } from "./shared";
+import { TIER_ORDER } from "./constants";
+import { SectionIcon, type ConfirmModalState } from "./shared";
 
 export interface LeaguePlanSectionProps {
   leagueId: string;

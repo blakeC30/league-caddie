@@ -23,7 +23,8 @@ import {
   usePlayoffConfig,
 } from "../hooks/usePlayoff";
 import { useAuthStore } from "../store/authStore";
-import { REQUIRED_ROUNDS, type ConfirmModalState } from "../components/manage/shared";
+import { REQUIRED_ROUNDS } from "../components/manage/constants";
+import { type ConfirmModalState } from "../components/manage/shared";
 import {
   InviteLinkSection,
   LeagueSettingsSection,

@@ -3,7 +3,8 @@ import type { LeagueTournamentOut, PlayoffConfigOut, Tournament } from "../../ap
 import { useUpdateLeagueTournaments } from "../../hooks/useLeague";
 import { fmtTournamentName, isoWeekKey } from "../../utils";
 import { Spinner } from "../Spinner";
-import { REQUIRED_ROUNDS, SectionIcon } from "./shared";
+import { REQUIRED_ROUNDS } from "./constants";
+import { SectionIcon } from "./shared";
 
 export interface TournamentScheduleSectionProps {
   leagueId: string;

@@ -8,6 +8,7 @@ export function Login() {
   const { login, loginWithGoogle } = useAuth();
   const [searchParams] = useSearchParams();
   const next = searchParams.get("next");
+  const sessionExpired = searchParams.get("session_expired") === "1";
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -72,6 +73,12 @@ export function Login() {
           <p className="text-2xl font-bold text-gray-900 pt-1">Welcome back</p>
           <p className="text-sm text-gray-500">Sign in to your account to continue</p>
         </div>
+
+        {sessionExpired && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3 text-center">
+            Your session has expired. Please sign in again.
+          </div>
+        )}
 
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4">

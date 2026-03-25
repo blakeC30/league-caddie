@@ -53,7 +53,7 @@ _REFRESH_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
     """Attach the refresh token as a secure httpOnly cookie."""
-    response.set_cookie(
+    kwargs: dict = dict(
         key=_REFRESH_COOKIE,
         value=token,
         httponly=True,  # JS cannot read it
@@ -61,6 +61,9 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
         samesite="lax",  # CSRF protection
         max_age=_REFRESH_MAX_AGE,
     )
+    if settings.COOKIE_DOMAIN:
+        kwargs["domain"] = settings.COOKIE_DOMAIN
+    response.set_cookie(**kwargs)
 
 
 def _issue_tokens(user: User, response: Response) -> TokenResponse:
@@ -245,7 +248,10 @@ def logout(response: Response):
     The client is responsible for discarding the access token from memory.
     Since access tokens are short-lived (15 min), they expire on their own.
     """
-    response.delete_cookie(key=_REFRESH_COOKIE)
+    kwargs: dict = dict(key=_REFRESH_COOKIE)
+    if settings.COOKIE_DOMAIN:
+        kwargs["domain"] = settings.COOKIE_DOMAIN
+    response.delete_cookie(**kwargs)
 
 
 @router.get("/me", response_model=UserOut)

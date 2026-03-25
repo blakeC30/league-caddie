@@ -33,6 +33,10 @@ data:
   # "true" → only platform admins can create leagues. Flip to "false" to open to public.
   LEAGUE_CREATION_RESTRICTED: {{ .Values.config.leagueCreationRestricted | quote }}
 
+  # Cookie domain — set to ".league-caddie.com" in prod so cookies work on
+  # both league-caddie.com and www.league-caddie.com. Empty for local dev.
+  COOKIE_DOMAIN: {{ .Values.config.cookieDomain | quote }}
+
   # SQS queue URL for the scraper → worker event pipeline.
   # Phase 7 CI/CD injects the real queue URL per environment.
   SQS_QUEUE_URL: {{ .Values.config.sqsQueueUrl | quote }}

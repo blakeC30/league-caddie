@@ -13,6 +13,7 @@ config:
   environment: development
   debug: "true"
   frontendUrl: "http://localhost:8080"
+  cookieDomain: ""
   leagueCreationRestricted: "true"
   sqsQueueUrl: "https://sqs.us-east-2.amazonaws.com/049429105437/league-caddie-events-dev"
 

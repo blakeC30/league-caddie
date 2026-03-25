@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # "not available yet" message. Flip to False once the platform opens publicly.
     LEAGUE_CREATION_RESTRICTED: bool = False
 
+    # --- Cookies ---
+    # Domain for httpOnly cookies. Set to ".league-caddie.com" in production
+    # so cookies work on both league-caddie.com and www.league-caddie.com.
+    # Leave empty for local dev (defaults to the request's host).
+    COOKIE_DOMAIN: str = ""
+
     # --- CORS ---
     # The frontend origin that is allowed to make cross-origin requests to the API.
     FRONTEND_URL: str = "http://localhost:5173"

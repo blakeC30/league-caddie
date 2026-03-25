@@ -97,6 +97,7 @@ config:
   environment: development
   debug: "false"
   frontendUrl: "https://league-caddie.com"
+  cookieDomain: ".league-caddie.com"
   awsRegion: "us-east-2"
   # Empty = use real AWS. Set to LocalStack URL for local dev only.
   awsEndpointUrl: ""

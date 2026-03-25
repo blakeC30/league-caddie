@@ -6,7 +6,8 @@ import {
   useRevisePlayoffPick,
   useAdminCreatePlayoffPick,
 } from "../../hooks/usePlayoff";
-import { DropdownSelect, LockedBadge, REQUIRED_ROUNDS, SectionIcon, type ConfirmModalState } from "./shared";
+import { REQUIRED_ROUNDS } from "./constants";
+import { DropdownSelect, LockedBadge, SectionIcon, type ConfirmModalState } from "./shared";
 
 export interface PlayoffConfigSectionProps {
   leagueId: string;

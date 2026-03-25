@@ -69,18 +69,20 @@ api.interceptors.response.use(
       const newToken = await refreshPromise;
       original.headers.Authorization = `Bearer ${newToken}`;
       return api(original);
-    } catch (refreshErr) {
+    } catch {
       useAuthStore.getState().clearAuth();
       // Only redirect if we're not already on a public page. Redirecting to
       // /login from /login causes a full browser reload and an infinite loop.
       const publicPaths = ["/login", "/register", "/join"];
       const onPublicPage = publicPaths.some((p) =>
-        window.location.pathname.startsWith(p)
+        window.location.pathname.startsWith(p),
       );
       if (!onPublicPage) {
-        window.location.href = "/login";
+        window.location.href = "/login?session_expired=1";
       }
-      return Promise.reject(refreshErr);
+      // Reject with a silent error so React Query / callers don't surface
+      // the raw "No refresh token provided" message to the user.
+      return Promise.reject(new Error("SESSION_EXPIRED"));
     }
   }
 );

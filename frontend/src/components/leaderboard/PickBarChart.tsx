@@ -54,7 +54,7 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName 
     }
 
     return result;
-  }, [groups, noPickMembers, isCompleted, myGolferName]);
+  }, [groups, noPickMembers, isCompleted]);
 
   const maxCount = Math.max(...bars.map((b) => b.count), 1);
 

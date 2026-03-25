@@ -14,6 +14,7 @@ Dependency chain for a protected league-manager route:
                       └── get_db()
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -33,6 +34,8 @@ from app.models import (
     User,
 )
 from app.services.auth import decode_access_token
+
+log = logging.getLogger(__name__)
 
 # HTTPBearer extracts "Bearer <token>" from the Authorization header.
 # auto_error=False lets us return a cleaner 401 instead of FastAPI's default.
@@ -194,16 +197,19 @@ def get_refresh_token_user(
     from app.services.auth import decode_refresh_token
 
     if not refresh_token:
+        log.info("Refresh token missing — cookie not sent by browser")
         raise HTTPException(status_code=401, detail="No refresh token provided")
 
     try:
         payload = decode_refresh_token(refresh_token)
         user_id = uuid.UUID(payload["sub"])
     except (JWTError, ValueError, KeyError):
+        log.warning("Refresh token decode failed — expired or malformed")
         raise HTTPException(status_code=401, detail="Invalid or expired refresh token")
 
     user = db.query(User).filter_by(id=user_id).first()
     if not user:
+        log.warning("Refresh token valid but user not found: user_id=%s", user_id)
         raise HTTPException(status_code=401, detail="User account not found")
 
     return user
