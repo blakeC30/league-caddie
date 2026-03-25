@@ -96,3 +96,16 @@ class LeagueRequestOut(BaseModel):
     league_id: uuid.UUID
     league_name: str
     requested_at: datetime
+
+
+class RosterMemberOut(BaseModel):
+    """Roster info for an approved league member.
+
+    email is only populated for league managers; regular members see null.
+    """
+
+    user_id: str
+    display_name: str
+    first_name: str
+    last_name: str
+    email: str | None = None

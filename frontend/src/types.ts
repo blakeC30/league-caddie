@@ -12,6 +12,8 @@ export interface User {
   id: string;
   email: string;
   display_name: string;
+  first_name: string;
+  last_name: string;
   is_platform_admin: boolean;
   pick_reminders_enabled: boolean;
   created_at: string;

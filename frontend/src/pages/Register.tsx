@@ -9,6 +9,8 @@ export function Register() {
   const [searchParams] = useSearchParams();
   const next = searchParams.get("next");
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
 
   useEffect(() => {
     document.title = "Sign Up — League Caddie";
@@ -21,6 +23,14 @@ export function Register() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!firstName.trim()) {
+      setError("Please enter your first name.");
+      return;
+    }
+    if (!lastName.trim()) {
+      setError("Please enter your last name.");
+      return;
+    }
     if (!displayName.trim()) {
       setError("Please enter a display name.");
       return;
@@ -40,7 +50,7 @@ export function Register() {
     setError("");
     setLoading(true);
     try {
-      await register(email, password, displayName);
+      await register(email, password, displayName, firstName, lastName);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(msg ?? "Registration failed. Please try again.");
@@ -85,6 +95,38 @@ export function Register() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                First name
+              </label>
+              <input
+                id="firstName"
+                type="text"
+                placeholder="Jane"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                maxLength={50}
+                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                Last name
+              </label>
+              <input
+                id="lastName"
+                type="text"
+                placeholder="Doe"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                maxLength={50}
+                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+              />
+            </div>
+          </div>
           <div className="space-y-1.5">
             <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
               Display name

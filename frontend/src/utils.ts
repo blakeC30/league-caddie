@@ -5,6 +5,30 @@
 export const RESET_TOKEN_EXPIRE_HOURS = 1;
 
 /**
+ * Suggested default multipliers for special tournaments.
+ * Used to pre-populate the multiplier field during league creation and
+ * schedule management. Managers can override these values.
+ *
+ * Majors: 2× (Masters, PGA Championship, U.S. Open, The Open Championship)
+ * The Players Championship: 1.5×
+ * Everything else: 1×
+ */
+const MAJOR_PATTERNS = [
+  "masters tournament",
+  "pga championship",
+  "u.s. open",
+  "the open championship",
+];
+const PLAYERS_PATTERNS = ["players championship", "the players"];
+
+export function suggestedMultiplier(tournamentName: string): number {
+  const lower = tournamentName.toLowerCase();
+  if (MAJOR_PATTERNS.some((p) => lower.includes(p))) return 2.0;
+  if (PLAYERS_PATTERNS.some((p) => lower.includes(p))) return 1.5;
+  return 1.0;
+}
+
+/**
  * Strips sponsorship suffixes from PGA Tour event names.
  * ESPN names include " pres. by Sponsor" or " presented by Sponsor".
  * Examples:

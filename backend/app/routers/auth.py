@@ -95,6 +95,8 @@ def register(
         email=body.email.lower(),
         password_hash=hash_password(body.password),
         display_name=body.display_name,
+        first_name=body.first_name,
+        last_name=body.last_name,
     )
     db.add(user)
     db.commit()
@@ -157,6 +159,8 @@ def google_auth(
     google_id = claims["sub"]
     email = claims.get("email", "").lower()
     name = claims.get("name", email)
+    first_name = claims.get("given_name", "")
+    last_name = claims.get("family_name", "")
 
     # Try to find the user by google_id first, then by email (account linking).
     user = db.query(User).filter_by(google_id=google_id).first()
@@ -169,7 +173,13 @@ def google_auth(
 
     if not user:
         # First-time Google sign-in: create a new account.
-        user = User(email=email, google_id=google_id, display_name=name)
+        user = User(
+            email=email,
+            google_id=google_id,
+            display_name=name,
+            first_name=first_name,
+            last_name=last_name,
+        )
         db.add(user)
         db.commit()
         db.refresh(user)

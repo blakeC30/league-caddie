@@ -14,7 +14,7 @@ export interface MembersSectionProps {
   onConfirm: (modal: ConfirmModalState) => void;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 25;
 
 export function MembersSection({
   leagueId,
@@ -43,6 +43,8 @@ export function MembersSection({
     return sorted.filter(
       (m) =>
         m.user.display_name.toLowerCase().includes(q) ||
+        m.user.first_name.toLowerCase().includes(q) ||
+        m.user.last_name.toLowerCase().includes(q) ||
         m.user.email.toLowerCase().includes(q),
     );
   }, [members, search]);
@@ -125,8 +127,10 @@ export function MembersSection({
           <table className="min-w-full text-sm">
             <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
               <tr>
-                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Name</th>
-                <th className="hidden sm:table-cell px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Email</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Display Name</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">First</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Last</th>
+                <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">Email</th>
                 <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Role</th>
                 {membersEditing && (
                   <th className="px-4 py-2.5 text-right text-xs uppercase tracking-wider font-semibold">Actions</th>
@@ -136,7 +140,7 @@ export function MembersSection({
             <tbody className="divide-y divide-gray-100">
               {pagedMembers.length === 0 ? (
                 <tr>
-                  <td colSpan={membersEditing ? 4 : 3} className="px-4 py-8 text-center text-gray-400 text-sm">
+                  <td colSpan={membersEditing ? 6 : 5} className="px-4 py-8 text-center text-gray-400 text-sm">
                     {search ? "No members match your search." : "No members yet."}
                   </td>
                 </tr>
@@ -148,7 +152,13 @@ export function MembersSection({
                       <td className="px-4 py-3 font-medium text-gray-900">
                         {m.user.display_name}
                       </td>
-                      <td className="hidden sm:table-cell px-4 py-3 text-gray-500">{m.user.email}</td>
+                      <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {m.user.first_name || <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 whitespace-nowrap">
+                        {m.user.last_name || <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{m.user.email}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
@@ -208,28 +218,26 @@ export function MembersSection({
 
       {/* Pagination controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            ← Prev
+          </button>
           <span className="text-xs text-gray-400 tabular-nums">
             {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalFiltered)} of {totalFiltered}{search ? " results" : " members"}
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              ← Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              Next →
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            Next →
+          </button>
         </div>
       )}
 

@@ -193,6 +193,8 @@ def registered_user(client):
             "email": "test@example.com",
             "password": "password123",
             "display_name": "Test User",
+            "first_name": "Test",
+            "last_name": "User",
         },
     )
     assert resp.status_code == 201, resp.json()

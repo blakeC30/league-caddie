@@ -85,11 +85,10 @@ def make_completed_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=TournamentStatus.COMPLETED.value,
-        multiplier=multiplier,
     )
     db.add(t)
     db.flush()
-    db.add(LeagueTournament(league_id=league.id, tournament_id=t.id))
+    db.add(LeagueTournament(league_id=league.id, tournament_id=t.id, multiplier=multiplier))
     db.commit()
     db.refresh(t)
     return t

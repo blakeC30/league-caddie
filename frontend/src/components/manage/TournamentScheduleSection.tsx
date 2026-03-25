@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { LeagueTournamentOut, PlayoffConfigOut, Tournament } from "../../api/endpoints";
 import { useUpdateLeagueTournaments } from "../../hooks/useLeague";
-import { fmtTournamentName, isoWeekKey } from "../../utils";
+import { fmtTournamentName, isoWeekKey, suggestedMultiplier } from "../../utils";
 import { Spinner } from "../Spinner";
 import { REQUIRED_ROUNDS } from "./constants";
 import { SectionIcon } from "./shared";
@@ -95,7 +95,7 @@ export function TournamentScheduleSection({
     await updateSchedule.mutateAsync(
       [...selectedIds].map((id) => ({
         tournament_id: id,
-        multiplier: multipliers[id] ?? allTournamentsById[id]?.multiplier ?? 1.0,
+        multiplier: multipliers[id] ?? suggestedMultiplier(allTournamentsById[id]?.name ?? ""),
       }))
     );
     setScheduleSaved(true);
@@ -202,7 +202,7 @@ export function TournamentScheduleSection({
                           {weekTournaments.map((t) => {
                             const checked = selectedIds.has(t.id);
                             const isPast = t.status === "completed";
-                            const effectiveMultiplier = multipliers[t.id] ?? t.multiplier;
+                            const effectiveMultiplier = multipliers[t.id] ?? suggestedMultiplier(t.name);
                             const playoffRound = checked
                               ? (scheduleEditing ? editingPlayoffRoundMap : savedPlayoffRoundMap).get(t.id) ?? null
                               : null;

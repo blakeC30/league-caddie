@@ -106,6 +106,8 @@ export function Settings() {
   const setAuth = useAuthStore((s) => s.setAuth);
 
   const [displayName, setDisplayName] = useState(user?.display_name ?? "");
+  const [firstName, setFirstName] = useState(user?.first_name ?? "");
+  const [lastName, setLastName] = useState(user?.last_name ?? "");
 
   useEffect(() => {
     document.title = "Settings — League Caddie";
@@ -122,14 +124,33 @@ export function Settings() {
   const { data: leagues, isLoading: leaguesLoading } = useMyLeagues();
   const [isEditingLeagues, setIsEditingLeagues] = useState(false);
 
+  const hasProfileChanges =
+    displayName.trim() !== (user?.display_name ?? "") ||
+    firstName.trim() !== (user?.first_name ?? "") ||
+    lastName.trim() !== (user?.last_name ?? "");
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!displayName.trim()) return;
+    const missing: string[] = [];
+    if (!firstName.trim()) missing.push("first name");
+    if (!lastName.trim()) missing.push("last name");
+    if (!displayName.trim()) missing.push("display name");
+    if (missing.length > 0) {
+      setError(`Please enter your ${missing.join(", ")}.`);
+      return;
+    }
     setError("");
     setSaved(false);
     setLoading(true);
     try {
-      const updated = await usersApi.updateMe({ display_name: displayName.trim() });
+      const payload: Record<string, string> = {};
+      if (displayName.trim() !== (user?.display_name ?? ""))
+        payload.display_name = displayName.trim();
+      if (firstName.trim() !== (user?.first_name ?? ""))
+        payload.first_name = firstName.trim();
+      if (lastName.trim() !== (user?.last_name ?? ""))
+        payload.last_name = lastName.trim();
+      const updated = await usersApi.updateMe(payload);
       setAuth(updated, token!);
       setSaved(true);
     } catch {
@@ -174,7 +195,36 @@ export function Settings() {
           <h2 className="text-base font-bold text-gray-900">Profile</h2>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                First name
+              </label>
+              <input
+                id="firstName"
+                type="text"
+                value={firstName}
+                onChange={(e) => { setFirstName(e.target.value); setSaved(false); }}
+                maxLength={50}
+                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                Last name
+              </label>
+              <input
+                id="lastName"
+                type="text"
+                value={lastName}
+                onChange={(e) => { setLastName(e.target.value); setSaved(false); }}
+                maxLength={50}
+                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
               Display name
@@ -205,7 +255,7 @@ export function Settings() {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={loading || !displayName.trim() || displayName.trim() === user?.display_name}
+              disabled={loading || !hasProfileChanges}
               className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 px-5 rounded-xl transition-colors shadow-sm text-sm"
             >
               {loading ? "Saving…" : "Save changes"}

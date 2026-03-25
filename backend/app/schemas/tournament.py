@@ -32,7 +32,6 @@ class TournamentOut(BaseModel):
     name: str
     start_date: date
     end_date: date
-    multiplier: float
     purse_usd: int | None
     status: str
     is_team_event: bool
@@ -43,9 +42,9 @@ class TournamentOut(BaseModel):
 class LeagueTournamentOut(TournamentOut):
     """TournamentOut extended with the league's effective multiplier.
 
-    effective_multiplier resolves to the league's per-tournament override if set,
-    falling back to the global tournament.multiplier. Frontend uses this value
-    to display and pre-populate the multiplier picker in the manage page.
+    effective_multiplier is the league's per-tournament multiplier (from
+    league_tournaments.multiplier), defaulting to 1.0 if not set. Frontend
+    uses this value to display and pre-populate the multiplier picker.
 
     all_r1_teed_off is True when every Round 1 tee time for an in-progress
     tournament has passed. The frontend uses this to hide the pick button when

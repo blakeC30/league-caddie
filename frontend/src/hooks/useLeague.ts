@@ -3,6 +3,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api/client";
 import { leaguesApi, stripeApi, usersApi } from "../api/endpoints";
 import type { LeaguePurchaseEvent, LeaguePurchaseStatus, PricingTier } from "../api/endpoints";
 
@@ -216,6 +217,22 @@ export function usePurchaseEvents(leagueId: string) {
   return useQuery<LeaguePurchaseEvent[]>({
     queryKey: ["purchaseEvents", leagueId],
     queryFn: () => leaguesApi.getPurchaseEvents(leagueId),
+    enabled: !!leagueId,
+  });
+}
+
+export interface RosterMember {
+  user_id: string;
+  display_name: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+}
+
+export function useRoster(leagueId: string) {
+  return useQuery<RosterMember[]>({
+    queryKey: ["roster", leagueId],
+    queryFn: () => api.get(`/leagues/${leagueId}/roster`).then((r) => r.data),
     enabled: !!leagueId,
   });
 }

@@ -110,7 +110,9 @@ class TestParseScheduleResponse:
         assert masters["start_date"] == date(2025, 4, 10)
         assert masters["end_date"] == date(2025, 4, 13)
         assert masters["status"] == "completed"
-        assert masters["multiplier"] == 1.0  # scraper never sets 2.0 — admin does that
+        assert (
+            masters["is_team_event"] is False
+        )  # scraper never sets multiplier — admin does that on league_tournaments
 
     def test_handles_nested_leagues_structure(self):
         """ESPN sometimes wraps events under leagues[i].events."""
@@ -226,7 +228,6 @@ class TestUpsertTournaments:
                 "start_date": date(2025, 6, 1),
                 "end_date": date(2025, 6, 4),
                 "status": "scheduled",
-                "multiplier": 1.0,
             }
         ]
         created, updated, transitions = upsert_tournaments(db, parsed)
@@ -250,7 +251,6 @@ class TestUpsertTournaments:
                 start_date=date(2025, 7, 1),
                 end_date=date(2025, 7, 4),
                 status="scheduled",
-                multiplier=1.0,
             )
         )
         db.commit()
@@ -262,7 +262,6 @@ class TestUpsertTournaments:
                 "start_date": date(2025, 7, 1),
                 "end_date": date(2025, 7, 4),
                 "status": "completed",
-                "multiplier": 1.0,
             }
         ]
         created, updated, transitions = upsert_tournaments(db, parsed)
@@ -276,8 +275,8 @@ class TestUpsertTournaments:
         assert t.name == "New Name"
         assert t.status == "completed"
 
-    def test_does_not_overwrite_multiplier(self, db):
-        """Admin-set multiplier (e.g. 2.0 for majors) must survive a sync."""
+    def test_does_not_overwrite_competition_id(self, db):
+        """Manually-set competition_id must survive a sync."""
         from app.models import Tournament
 
         db.add(
@@ -287,7 +286,7 @@ class TestUpsertTournaments:
                 start_date=date(2025, 4, 10),
                 end_date=date(2025, 4, 13),
                 status="scheduled",
-                multiplier=2.0,  # admin set this manually
+                competition_id="MANUAL_001",
             )
         )
         db.commit()
@@ -299,13 +298,13 @@ class TestUpsertTournaments:
                 "start_date": date(2025, 4, 10),
                 "end_date": date(2025, 4, 13),
                 "status": "completed",
-                "multiplier": 1.0,  # scraper always returns 1.0
+                "competition_id": "NEW_001",
             }
         ]
         upsert_tournaments(db, parsed)
 
         t = db.query(Tournament).filter_by(pga_tour_id="ESPN_003").first()
-        assert t.multiplier == 2.0  # unchanged
+        assert t.competition_id == "MANUAL_001"  # unchanged
 
 
 # ---------------------------------------------------------------------------
@@ -322,6 +321,7 @@ class TestScorePicks:
             League,
             LeagueMember,
             LeagueMemberRole,
+            LeagueTournament,
             Pick,
             Season,
             Tournament,
@@ -366,10 +366,12 @@ class TestScorePicks:
             start_date=t_start,
             end_date=t_start + timedelta(days=3),
             status=TournamentStatus.COMPLETED.value,
-            multiplier=2.0,
         )
         db.add(tournament)
         db.flush()
+
+        # League-level multiplier (2× for majors).
+        db.add(LeagueTournament(league_id=league.id, tournament_id=tournament.id, multiplier=2.0))
 
         entry = TournamentEntry(
             tournament_id=tournament.id,
@@ -443,7 +445,6 @@ class TestScorePicks:
             start_date=t_start,
             end_date=t_start + timedelta(days=3),
             status=TournamentStatus.COMPLETED.value,
-            multiplier=1.0,
         )
         db.add(tournament)
         db.flush()
@@ -486,7 +487,6 @@ class TestScorePicks:
             start_date=t_start,
             end_date=t_start + timedelta(days=3),
             status=TournamentStatus.SCHEDULED.value,
-            multiplier=1.0,
         )
         db.add(tournament)
         db.commit()

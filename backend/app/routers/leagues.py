@@ -67,6 +67,7 @@ from app.schemas.league import (
     LeagueRequestOut,
     LeagueUpdate,
     RoleUpdate,
+    RosterMemberOut,
 )
 from app.schemas.tournament import LeagueTournamentOut
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
@@ -581,6 +582,40 @@ def list_members(
     )
 
 
+@router.get("/{league_id}/roster", response_model=list[RosterMemberOut])
+def get_roster(
+    league_and_member: tuple[League, LeagueMember] = Depends(require_league_member),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
+    db: Session = Depends(get_db),
+):
+    """Return roster for all approved members.
+
+    Emails are only included for league managers. Regular members see
+    display_name, first_name, and last_name only.
+    """
+    league, current_member = league_and_member
+    is_manager = current_member.role == LeagueMemberRole.MANAGER.value
+    members = (
+        db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+        .options(joinedload(LeagueMember.user))
+        .all()
+    )
+    return sorted(
+        [
+            RosterMemberOut(
+                user_id=str(m.user.id),
+                display_name=m.user.display_name,
+                first_name=m.user.first_name,
+                last_name=m.user.last_name,
+                email=m.user.email if is_manager else None,
+            )
+            for m in members
+        ],
+        key=lambda r: r.display_name.lower(),
+    )
+
+
 @router.patch("/{league_id}/members/{user_id}/role", response_model=LeagueMemberOut)
 def update_member_role(
     user_id: uuid.UUID,
@@ -1011,7 +1046,7 @@ def _build_league_tournament_out(
     check is O(1) without an extra DB hit per row.
     """
     t = row.tournament
-    effective = row.multiplier if row.multiplier is not None else t.multiplier
+    effective = row.multiplier if row.multiplier is not None else 1.0
     # Check tee times for both in_progress and scheduled tournaments — the scraper
     # may not have flipped the status to in_progress yet even though R1 has started.
     # For scheduled tournaments, all_r1_teed_off will return False if no tee times
@@ -1026,7 +1061,6 @@ def _build_league_tournament_out(
         name=t.name,
         start_date=t.start_date,
         end_date=t.end_date,
-        multiplier=t.multiplier,
         purse_usd=t.purse_usd,
         status=t.status,
         is_team_event=t.is_team_event,
@@ -1062,7 +1096,7 @@ def get_league_tournaments(
 
 class TournamentScheduleItem(BaseModel):
     tournament_id: uuid.UUID
-    multiplier: float | None = None  # None = inherit from tournament.multiplier
+    multiplier: float | None = None  # None defaults to 1.0 at scoring time
 
     @field_validator("multiplier")
     @classmethod

@@ -8,10 +8,9 @@ TournamentEntry is the join table between a Tournament and the Golfers who
 played in it. After the tournament ends, each entry records that golfer's
 finish position and earnings — this is the raw data our scoring service uses.
 
-Key design note: `multiplier` replaces a simple `is_major` boolean.
-  - Standard tournament: multiplier = 1.0  → points = earnings × 1.0
-  - Major tournament:    multiplier = 2.0  → points = earnings × 2.0
-  - Future flexibility:  any float value works (e.g. 1.5 for a special event)
+Multipliers are per-league, stored on league_tournaments.multiplier. The
+tournament table has no multiplier column — the frontend suggests defaults
+(2× for majors, 1.5× for The Players) during league creation/schedule setup.
 
 Pick-lock rules (enforced in the API layer, schema supports them here):
   - A pick can be CHANGED until the picked golfer's `tee_time` has passed.
@@ -32,7 +31,6 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
     String,
@@ -86,16 +84,6 @@ class Tournament(Base):
 
     start_date: Mapped[date] = mapped_column(Date, nullable=False)
     end_date: Mapped[date] = mapped_column(Date, nullable=False)
-
-    # Scoring multiplier. Default 1.0 (standard event). Set to 2.0 for majors.
-    # Using Float instead of Numeric here because rounding to the cent is not
-    # important for a multiplier — it's always a simple value like 1.0 or 2.0.
-    multiplier: Mapped[float] = mapped_column(
-        Float,
-        nullable=False,
-        default=1.0,
-        server_default="1.0",
-    )
 
     # Total prize pool in USD. Informational — not used in scoring.
     purse_usd: Mapped[int | None] = mapped_column(Integer, nullable=True)

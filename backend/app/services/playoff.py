@@ -589,6 +589,21 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
     }
     field_released = len(field_golfer_ids) > 0
 
+    # Pre-load all draft preferences for this round in one query (instead of
+    # one query per slot × ~64 slots). Keyed by pod_member_id, ordered by rank.
+    all_member_ids = [m.id for pod in playoff_round.pods for m in pod.members]
+    all_prefs: list[PlayoffDraftPreference] = []
+    if all_member_ids:
+        all_prefs = (
+            db.query(PlayoffDraftPreference)
+            .filter(PlayoffDraftPreference.pod_member_id.in_(all_member_ids))
+            .order_by(PlayoffDraftPreference.pod_member_id, PlayoffDraftPreference.rank)
+            .all()
+        )
+    prefs_by_member: dict[int, list[PlayoffDraftPreference]] = {}
+    for pref in all_prefs:
+        prefs_by_member.setdefault(pref.pod_member_id, []).append(pref)
+
     for pod in playoff_round.pods:
         idx = playoff_round.round_number - 1
         picks_per_player = (
@@ -607,12 +622,7 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
         for slot_number, draft_position in enumerate(slot_order, start=1):
             member = next(m for m in pod.members if m.draft_position == draft_position)
 
-            prefs = (
-                db.query(PlayoffDraftPreference)
-                .filter_by(pod_member_id=member.id)
-                .order_by(PlayoffDraftPreference.rank)
-                .all()
-            )
+            prefs = prefs_by_member.get(member.id, [])
 
             # Find best available pick from this player's preferences.
             # Skip golfers already claimed by a higher-priority slot AND golfers
@@ -724,45 +734,46 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
         .filter_by(league_id=config.league_id, tournament_id=tournament.id)
         .first()
     )
-    multiplier = lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
+    multiplier = lt.multiplier if lt and lt.multiplier is not None else 1.0
 
-    # Validate that earnings are published for every assigned pick before modifying
-    # any records.  TournamentEntry.earnings_usd is null until ESPN releases official
-    # prize money; treating null as $0 would produce wrong scores and wrong winners.
-    # If any earnings are missing, abort so the manager can try again later.
+    # ── Bulk pre-load picks and entries (2 queries instead of ~192) ─────────
+    pod_ids = [pod.id for pod in playoff_round.pods]
+
+    # All playoff picks for this round, keyed by (pod_id, pod_member_id).
+    all_picks: list[PlayoffPick] = (
+        db.query(PlayoffPick).filter(PlayoffPick.pod_id.in_(pod_ids)).all()
+    )
+    picks_by_member: dict[tuple[int, int], list[PlayoffPick]] = {}
+    for pick in all_picks:
+        picks_by_member.setdefault((pick.pod_id, pick.pod_member_id), []).append(pick)
+
+    # All tournament entries for this tournament, keyed by golfer_id.
+    entries_by_golfer: dict = {
+        e.golfer_id: e
+        for e in db.query(TournamentEntry).filter_by(tournament_id=tournament.id).all()
+    }
+
+    # ── Validate earnings then score in a single pass ────────────────────
+    # First check all picks have earnings before modifying any records.
+    for pick in all_picks:
+        entry = entries_by_golfer.get(pick.golfer_id)
+        if entry is not None and entry.earnings_usd is None:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Earnings are not yet available for all golfers in this round. "
+                    "Please wait for official tournament results to be published "
+                    "and try again."
+                ),
+            )
+
+    # Score picks and compute member totals.
     for pod in playoff_round.pods:
         for member in pod.members:
-            member_picks = (
-                db.query(PlayoffPick).filter_by(pod_id=pod.id, pod_member_id=member.id).all()
-            )
-            for pick in member_picks:
-                entry = (
-                    db.query(TournamentEntry)
-                    .filter_by(tournament_id=tournament.id, golfer_id=pick.golfer_id)
-                    .first()
-                )
-                if entry is not None and entry.earnings_usd is None:
-                    raise HTTPException(
-                        status_code=422,
-                        detail=(
-                            "Earnings are not yet available for all golfers in this round. "
-                            "Please wait for official tournament results to be published "
-                            "and try again."
-                        ),
-                    )
-
-    for pod in playoff_round.pods:
-        for member in pod.members:
-            member_picks = (
-                db.query(PlayoffPick).filter_by(pod_id=pod.id, pod_member_id=member.id).all()
-            )
+            member_picks = picks_by_member.get((pod.id, member.id), [])
             total = 0.0
             for pick in member_picks:
-                entry = (
-                    db.query(TournamentEntry)
-                    .filter_by(tournament_id=tournament.id, golfer_id=pick.golfer_id)
-                    .first()
-                )
+                entry = entries_by_golfer.get(pick.golfer_id)
                 earnings = (
                     float(entry.earnings_usd) if entry and entry.earnings_usd is not None else 0.0
                 )
@@ -770,8 +781,6 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
                 total += pick.points_earned
 
             # Apply no-pick penalty for each slot that went unresolved.
-            # This covers: no preference list submitted, all preferences claimed,
-            # or all preferences were for golfers not in the tournament field.
             missed_slots = picks_per_player - len(member_picks)
             if missed_slots > 0:
                 total += missed_slots * no_pick_penalty

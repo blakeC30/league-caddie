@@ -23,7 +23,13 @@ from app.models.tournament import TournamentEntryRound
 def _register_and_login(client, email: str = "user@example.com") -> dict:
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "display_name": "User"},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": "User",
+            "first_name": "Test",
+            "last_name": "User",
+        },
     )
     resp = client.post("/api/v1/auth/login", json={"email": email, "password": "password123"})
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}
@@ -43,7 +49,6 @@ def _make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
-        multiplier=1.0,
         last_synced_at=last_synced_at,
     )
     db.add(t)

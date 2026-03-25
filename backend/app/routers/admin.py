@@ -477,6 +477,13 @@ def import_members(
     skipped_already_in_league = 0
     errors: list[str] = []
 
+    # Pre-load users by email and existing members by user_id (2 queries
+    # instead of ~1,000 for a 500-member import).
+    users_by_email: dict[str, User] = {u.email.lower(): u for u in db.query(User).all()}
+    existing_member_ids: set = {
+        m.user_id for m in db.query(LeagueMember).filter_by(league_id=league.id).all()
+    }
+
     for i, row in enumerate(rows, start=2):  # start=2 because row 1 is the header
         name = row.get("name", "").strip()
         email = row.get("email", "").strip().lower()
@@ -486,7 +493,7 @@ def import_members(
             continue
 
         # Find or create user
-        user = db.query(User).filter(func.lower(User.email) == email).first()
+        user = users_by_email.get(email)
         if user:
             existing_accounts += 1
         else:
@@ -497,13 +504,11 @@ def import_members(
             )
             db.add(user)
             db.flush()
+            users_by_email[email] = user
             accounts_created += 1
 
         # Check if already a member
-        existing_membership = (
-            db.query(LeagueMember).filter_by(league_id=league.id, user_id=user.id).first()
-        )
-        if existing_membership:
+        if user.id in existing_member_ids:
             skipped_already_in_league += 1
             continue
 
@@ -516,6 +521,7 @@ def import_members(
                 status=LeagueMemberStatus.APPROVED.value,
             )
         )
+        existing_member_ids.add(user.id)
         members_added += 1
 
     db.commit()
@@ -607,6 +613,41 @@ def import_picks(
             detail="CSV must have 'email' and 'golfer_name' columns",
         )
 
+    # ── Pre-load all reference data (5 bulk queries instead of ~2500) ────
+    # Users by lowercase email
+    all_users = db.query(User).all()
+    users_by_email: dict[str, User] = {u.email.lower(): u for u in all_users}
+
+    # Approved league members by user_id
+    members_set: set = {
+        m.user_id
+        for m in db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+        .all()
+    }
+
+    # Golfers by name
+    all_golfers = db.query(Golfer).all()
+    golfers_by_name: dict[str, Golfer] = {g.name: g for g in all_golfers}
+
+    # Existing picks for this league/season (for no-repeat check)
+    existing_picks = (
+        db.query(Pick)
+        .filter(
+            Pick.league_id == league.id,
+            Pick.season_id == season.id,
+        )
+        .all()
+    )
+    # (user_id, golfer_id) → tournament_id for picks NOT in this tournament
+    used_golfers: dict[tuple, Pick] = {}
+    for p in existing_picks:
+        if p.tournament_id != tournament.id:
+            used_golfers[(p.user_id, p.golfer_id)] = p
+
+    # Tournament names for conflict messages
+    tournament_names: dict = {t.id: t.name for t in db.query(Tournament.id, Tournament.name).all()}
+
     # ── Phase 1: Validate all rows before writing anything ──────────
     validated_rows: list[dict] = []
     validation_errors: list[str] = []
@@ -628,48 +669,26 @@ def import_picks(
             continue
 
         # Validate user exists and is a league member
-        user = db.query(User).filter(func.lower(User.email) == email).first()
+        user = users_by_email.get(email)
         if not user:
             validation_errors.append(f"Row {i}: user not found: {email}")
             continue
 
-        membership = (
-            db.query(LeagueMember)
-            .filter_by(
-                league_id=league.id,
-                user_id=user.id,
-                status=LeagueMemberStatus.APPROVED.value,
-            )
-            .first()
-        )
-        if not membership:
+        if user.id not in members_set:
             validation_errors.append(f"Row {i}: {email} is not a member of this league")
             continue
 
         # Validate golfer exists
-        golfer = db.query(Golfer).filter(Golfer.name == golfer_name).first()
+        golfer = golfers_by_name.get(golfer_name)
         if not golfer:
             validation_errors.append(f"Row {i}: golfer not found: {golfer_name}")
             continue
 
         # Check no-repeat rule: golfer not used by this member in another tournament
-        no_repeat_conflict = (
-            db.query(Pick)
-            .filter(
-                Pick.league_id == league.id,
-                Pick.season_id == season.id,
-                Pick.user_id == user.id,
-                Pick.golfer_id == golfer.id,
-                Pick.tournament_id != tournament.id,
-            )
-            .first()
-        )
-        if no_repeat_conflict:
-            conflict_t = db.query(Tournament).filter_by(id=no_repeat_conflict.tournament_id).first()
-            validation_errors.append(
-                f"Row {i}: {email} already used {golfer_name} "
-                f"in {conflict_t.name if conflict_t else 'another tournament'}"
-            )
+        conflict = used_golfers.get((user.id, golfer.id))
+        if conflict:
+            t_name = tournament_names.get(conflict.tournament_id, "another tournament")
+            validation_errors.append(f"Row {i}: {email} already used {golfer_name} in {t_name}")
             continue
 
         validated_rows.append({"user": user, "golfer": golfer})
@@ -688,20 +707,19 @@ def import_picks(
     picks_updated = 0
     skipped_no_pick = len(rows) - len(validated_rows)
 
+    # Pre-load existing picks for this tournament (1 query instead of N).
+    existing_for_tournament: dict = {
+        p.user_id: p
+        for p in db.query(Pick)
+        .filter_by(league_id=league.id, season_id=season.id, tournament_id=tournament.id)
+        .all()
+    }
+
     for vrow in validated_rows:
         user = vrow["user"]
         golfer = vrow["golfer"]
 
-        existing = (
-            db.query(Pick)
-            .filter_by(
-                league_id=league.id,
-                season_id=season.id,
-                user_id=user.id,
-                tournament_id=tournament.id,
-            )
-            .first()
-        )
+        existing = existing_for_tournament.get(user.id)
 
         if existing:
             existing.golfer_id = golfer.id

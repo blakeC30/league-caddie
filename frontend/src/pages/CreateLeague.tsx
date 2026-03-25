@@ -14,7 +14,7 @@ import { useTournaments } from "../hooks/usePick";
 import { useStripePricing } from "../hooks/useLeague";
 import { useAppConfig } from "../hooks/useAppConfig";
 import { useAuthStore } from "../store/authStore";
-import { fmtTournamentName, isoWeekKey } from "../utils";
+import { fmtTournamentName, isoWeekKey, suggestedMultiplier } from "../utils";
 import { Spinner } from "../components/Spinner";
 
 export function CreateLeague() {
@@ -39,31 +39,13 @@ export function CreateLeague() {
   const [multipliers, setMultipliers] = useState<Record<string, number>>({});
   const initializedRef = useRef(false);
 
-  // Detect the default multiplier by name since the global tournaments table may
-  // store 1.0 for everything (per-league overrides live in league_tournaments).
-  function defaultMultiplierFor(t: Tournament): number {
-    if (t.multiplier > 1.0) return t.multiplier; // already set correctly in DB
-    const name = t.name.toLowerCase();
-    if (name.includes("players championship") || name.includes("the players")) return 1.5;
-    if (
-      name.includes("masters") ||
-      name.includes("u.s. open") ||
-      name.includes("us open") ||
-      name.includes("the open") ||
-      name.includes("open championship") ||
-      name.includes("pga championship")
-    )
-      return 2.0;
-    return 1.0;
-  }
-
   // Pre-select only upcoming (scheduled) tournaments; exclude completed/in-progress.
   useEffect(() => {
     if (allTournaments && !initializedRef.current) {
       setSelectedIds(
         new Set(allTournaments.filter((t) => t.status === "scheduled").map((t) => t.id))
       );
-      setMultipliers(Object.fromEntries(allTournaments.map((t) => [t.id, defaultMultiplierFor(t)])));
+      setMultipliers(Object.fromEntries(allTournaments.map((t) => [t.id, suggestedMultiplier(t.name)])));
       initializedRef.current = true;
     }
   }, [allTournaments]);
@@ -298,7 +280,7 @@ export function CreateLeague() {
                               {weekTournaments.map((t) => {
                                 const checked = selectedIds.has(t.id);
                                 const isPast = t.status === "completed";
-                                const effectiveMultiplier = multipliers[t.id] ?? t.multiplier;
+                                const effectiveMultiplier = multipliers[t.id] ?? suggestedMultiplier(t.name);
                                 return (
                                   <div
                                     key={t.id}

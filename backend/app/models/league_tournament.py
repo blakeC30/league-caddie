@@ -38,7 +38,7 @@ class LeagueTournament(Base):
         nullable=False,
     )
 
-    # Per-league multiplier override. NULL = inherit from tournament.multiplier.
+    # Per-league multiplier. NULL defaults to 1.0 at scoring time.
     multiplier: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

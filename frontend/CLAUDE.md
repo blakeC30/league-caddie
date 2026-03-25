@@ -43,6 +43,7 @@ src/
 │   ├── PlayoffBracket.tsx  # Public bracket view — all rounds, pods, clickable pod cards
 │   ├── PlayoffDraft.tsx    # Per-pod draft — submission status, preference editor, resolved picks
 │   ├── JoinLeague.tsx      # Invite-link landing page (auth gate + confirm form)
+│   ├── Roster.tsx          # League member roster — display name, first/last name, email
 │   ├── Settings.tsx        # User account settings — display name, league membership
 │   ├── Pricing.tsx         # Public pricing tiers — standalone page (no Layout), reads ?league_id=
 │   ├── BillingSuccess.tsx  # Post-Stripe success page — standalone (no Layout), reads ?session_id & ?league_id
@@ -73,6 +74,7 @@ src/
 /leagues/:leagueId              → Dashboard
 /leagues/:leagueId/pick         → MakePick
 /leagues/:leagueId/picks        → MyPicks
+/leagues/:leagueId/roster       → Roster (all members — name, email table)
 /leagues/:leagueId/leaderboard  → Leaderboard
 /leagues/:leagueId/rules        → LeagueRules (all members — read-only rules + league config)
 /leagues/:leagueId/manage       → ManageLeague (manager only — self-redirects non-managers)
@@ -100,6 +102,7 @@ Always use these exact key shapes — mismatches cause stale data:
 | `["myLeagues"]` | `useMyLeagues()` |
 | `["league", leagueId]` | `useLeague(leagueId)` |
 | `["leagueMembers", leagueId]` | `useLeagueMembers(leagueId)` |
+| `["roster", leagueId]` | `useRoster(leagueId)` |
 | `["leagueTournaments", leagueId]` | `useLeagueTournaments(leagueId)` |
 | `["pendingRequests", leagueId]` | `usePendingRequests(leagueId)` |
 | `["myRequests"]` | `useMyRequests()` |

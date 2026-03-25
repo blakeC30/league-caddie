@@ -75,16 +75,26 @@ def list_tournaments(
     status: str | None = Query(
         default=None, description="Filter by status: scheduled, in_progress, completed"
     ),
+    year: int | None = Query(
+        default=None,
+        description="Filter by season year (defaults to current year)",
+    ),
     _: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
-    List tournaments, optionally filtered by status.
+    List tournaments, optionally filtered by status and/or year.
 
-    Default (no filter) returns all tournaments sorted by start_date descending
-    so the most recent/upcoming appear first.
+    Default (no year) scopes to the current calendar year so the response
+    stays bounded as seasons accumulate.
     """
-    query = db.query(Tournament)
+    import datetime as dt
+
+    effective_year = year if year is not None else dt.date.today().year
+    query = db.query(Tournament).filter(
+        Tournament.start_date >= dt.date(effective_year, 1, 1),
+        Tournament.start_date <= dt.date(effective_year, 12, 31),
+    )
 
     if status is not None:
         valid = {s.value for s in TournamentStatus}

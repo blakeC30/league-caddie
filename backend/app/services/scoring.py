@@ -4,7 +4,7 @@ Scoring service.
 Calculates season standings from picks stored in the database.
 
 Scoring rules:
-  - points_earned = golfer_earnings_usd * tournament.multiplier
+  - points_earned = golfer_earnings_usd * league_tournaments.multiplier (default 1.0)
   - If a user has no pick row for a completed tournament → league.no_pick_penalty is applied
   - Standings are sorted by total_points descending (highest wins)
 

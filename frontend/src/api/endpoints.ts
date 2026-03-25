@@ -41,7 +41,6 @@ export interface Tournament {
   name: string;
   start_date: string; // "YYYY-MM-DD"
   end_date: string;
-  multiplier: number;
   purse_usd: number | null;
   status: "scheduled" | "in_progress" | "completed";
   is_team_event: boolean;
@@ -303,8 +302,8 @@ export const configApi = {
 // ---------------------------------------------------------------------------
 
 export const authApi = {
-  register: (email: string, password: string, display_name: string) =>
-    api.post<TokenResponse>("/auth/register", { email, password, display_name }).then((r) => r.data),
+  register: (email: string, password: string, display_name: string, first_name: string, last_name: string) =>
+    api.post<TokenResponse>("/auth/register", { email, password, display_name, first_name, last_name }).then((r) => r.data),
 
   login: (email: string, password: string) =>
     api.post<TokenResponse>("/auth/login", { email, password }).then((r) => r.data),

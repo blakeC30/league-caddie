@@ -90,7 +90,13 @@ def _login_user(client, email: str) -> dict:
 def _register_and_login(client, email: str) -> dict:
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "display_name": "User"},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": "User",
+            "first_name": "Test",
+            "last_name": "User",
+        },
     )
     resp = client.post("/api/v1/auth/login", json={"email": email, "password": "password123"})
     return {"Authorization": f"Bearer {resp.json()['access_token']}"}

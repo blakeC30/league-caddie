@@ -459,12 +459,18 @@ def change_pick(
     """
     league, _ = league_and_member
 
-    pick = (
-        _picks_with_relations(db.query(Pick))
+    # Lock the row first (plain query — FOR UPDATE is incompatible with outer joins).
+    # Then load relations via the identity map (SQLAlchemy caches the locked row).
+    locked = (
+        db.query(Pick)
         .filter_by(id=pick_id, league_id=league.id, user_id=current_user.id)
         .with_for_update()
         .first()
     )
+    if not locked:
+        pick = None
+    else:
+        pick = _picks_with_relations(db.query(Pick)).filter_by(id=pick_id).first()
     if not pick:
         log.warning(
             "Pick not found for change: pick_id=%s user=%s league=%s",

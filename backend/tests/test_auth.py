@@ -13,6 +13,8 @@ class TestRegister:
                 "email": "new@example.com",
                 "password": "strongpass",
                 "display_name": "New User",
+                "first_name": "New",
+                "last_name": "User",
             },
         )
         assert resp.status_code == 201
@@ -25,6 +27,8 @@ class TestRegister:
             "email": "dup@example.com",
             "password": "password123",
             "display_name": "Dup",
+            "first_name": "Dup",
+            "last_name": "User",
         }
         client.post("/api/v1/auth/register", json=payload)
         resp = client.post("/api/v1/auth/register", json=payload)
@@ -38,6 +42,8 @@ class TestRegister:
                 "email": "Upper@Example.COM",
                 "password": "password123",
                 "display_name": "Upper",
+                "first_name": "Upper",
+                "last_name": "User",
             },
         )
         assert resp.status_code == 201
@@ -60,6 +66,8 @@ class TestLogin:
                 "email": "login@example.com",
                 "password": "correctpass",
                 "display_name": "Login",
+                "first_name": "Login",
+                "last_name": "User",
             },
         )
         resp = client.post(
@@ -79,6 +87,8 @@ class TestLogin:
                 "email": "wrong@example.com",
                 "password": "correctpass",
                 "display_name": "Wrong",
+                "first_name": "Wrong",
+                "last_name": "User",
             },
         )
         resp = client.post(
@@ -107,6 +117,8 @@ class TestLogin:
                 "email": "cookie@example.com",
                 "password": "password123",
                 "display_name": "Cookie",
+                "first_name": "Cookie",
+                "last_name": "User",
             },
         )
         resp = client.post(
@@ -146,6 +158,8 @@ class TestRefresh:
                 "email": "refresh@example.com",
                 "password": "password123",
                 "display_name": "Refresh",
+                "first_name": "Refresh",
+                "last_name": "User",
             },
         )
         client.post(

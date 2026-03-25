@@ -38,6 +38,7 @@ const PlayoffBracket = lazy(() => import("./pages/PlayoffBracket").then(m => ({ 
 const LeagueRules = lazy(() => import("./pages/LeagueRules").then(m => ({ default: m.LeagueRules })));
 const PlatformAdmin = lazy(() => import("./pages/PlatformAdmin").then(m => ({ default: m.PlatformAdmin })));
 const Settings = lazy(() => import("./pages/Settings").then(m => ({ default: m.Settings })));
+const Roster = lazy(() => import("./pages/Roster").then(m => ({ default: m.Roster })));
 
 function PageFallback() {
   return (
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="/leagues/:leagueId/pick" element={<Suspense fallback={<PageFallback />}><MakePick /></Suspense>} />
         <Route path="/leagues/:leagueId/picks" element={<Suspense fallback={<PageFallback />}><MyPicks /></Suspense>} />
         <Route path="/leagues/:leagueId/tournaments/:tournamentId" element={<Suspense fallback={<PageFallback />}><TournamentDetail /></Suspense>} />
+        <Route path="/leagues/:leagueId/roster" element={<Suspense fallback={<PageFallback />}><Roster /></Suspense>} />
         <Route path="/leagues/:leagueId/leaderboard" element={<Suspense fallback={<PageFallback />}><Leaderboard /></Suspense>} />
         <Route path="/leagues/:leagueId/manage" element={<Suspense fallback={<PageFallback />}><ManageLeague /></Suspense>} />
         <Route path="/leagues/:leagueId/playoff" element={<Suspense fallback={<PageFallback />}><PlayoffBracket /></Suspense>} />

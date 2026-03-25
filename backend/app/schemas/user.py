@@ -16,6 +16,8 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str
+    first_name: str
+    last_name: str
     is_platform_admin: bool
     pick_reminders_enabled: bool
     created_at: datetime
@@ -30,6 +32,8 @@ class UserUpdate(BaseModel):
     """Fields the user is allowed to change about themselves."""
 
     display_name: str | None = Field(default=None, min_length=1, max_length=100)
+    first_name: str | None = Field(default=None, min_length=1, max_length=50)
+    last_name: str | None = Field(default=None, min_length=1, max_length=50)
     pick_reminders_enabled: bool | None = None
 
 

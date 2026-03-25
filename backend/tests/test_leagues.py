@@ -63,7 +63,6 @@ def make_tournament(db: Session, days_from_now: int = 7) -> Tournament:
         start_date=start,
         end_date=start + timedelta(days=3),
         status=TournamentStatus.SCHEDULED.value,
-        multiplier=1.0,
     )
     db.add(t)
     db.commit()
@@ -79,7 +78,13 @@ def _login_headers(client, email: str, password: str = "password123") -> dict:
 def _register_and_login(client, email: str, display_name: str = "User") -> dict:
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "display_name": display_name},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": display_name,
+            "first_name": "Test",
+            "last_name": "User",
+        },
     )
     return _login_headers(client, email)
 
@@ -648,7 +653,6 @@ class TestTournamentSchedule:
             start_date=monday,
             end_date=monday + timedelta(days=3),
             status=TournamentStatus.SCHEDULED.value,
-            multiplier=1.0,
         )
         t2 = Tournament(
             pga_tour_id=f"R{uuid.uuid4().hex[:6]}",
@@ -656,7 +660,6 @@ class TestTournamentSchedule:
             start_date=thursday,
             end_date=thursday + timedelta(days=3),
             status=TournamentStatus.SCHEDULED.value,
-            multiplier=1.0,
         )
         db.add_all([t1, t2])
         db.commit()

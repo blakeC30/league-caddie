@@ -71,7 +71,7 @@ class Pick(Base):
     )
 
     # Null until the tournament is complete and the scoring service runs.
-    # Formula: golfer earnings_usd * tournament.multiplier
+    # Formula: golfer earnings_usd * league_tournaments.multiplier (or 1.0)
     points_earned: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # When the user submitted the pick. The API rejects picks where

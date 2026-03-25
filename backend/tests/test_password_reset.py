@@ -23,7 +23,13 @@ from app.services.auth import generate_reset_token
 def _register(client, email="reset@example.com", password="password123"):
     resp = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": password, "display_name": "Reset User"},
+        json={
+            "email": email,
+            "password": password,
+            "display_name": "Reset User",
+            "first_name": "Reset",
+            "last_name": "User",
+        },
     )
     assert resp.status_code == 201
     return resp.json()["access_token"]

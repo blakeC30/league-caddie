@@ -51,7 +51,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [memberSearch, setMemberSearch] = useState("");
   const [breakdownPage, setBreakdownPage] = useState(0);
-  const BREAKDOWN_PAGE_SIZE = 50;
+  const BREAKDOWN_PAGE_SIZE = 25;
 
   // Reset pagination when tournament changes
   useEffect(() => { setBreakdownPage(0); setMemberSearch(""); }, [selectedId]);
@@ -497,11 +497,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
               <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-white to-transparent sm:hidden" />
               </div>
               {breakdownTotalPages > 1 && (
-                <div className="flex items-center justify-between gap-4 px-4 py-2 border-t border-gray-100 bg-white">
-                  <span className="text-xs text-gray-400 tabular-nums">
-                    {breakdownPage * BREAKDOWN_PAGE_SIZE + 1}–{Math.min((breakdownPage + 1) * BREAKDOWN_PAGE_SIZE, filteredRows.length)} of {filteredRows.length}{memberSearch ? " results" : ""}
-                  </span>
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center gap-3 px-4 py-2 border-t border-gray-100 bg-white">
                     <button
                       type="button"
                       onClick={() => setBreakdownPage((p) => Math.max(0, p - 1))}
@@ -510,6 +506,9 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                     >
                       ← Prev
                     </button>
+                    <span className="text-xs text-gray-400 tabular-nums">
+                      {breakdownPage * BREAKDOWN_PAGE_SIZE + 1}–{Math.min((breakdownPage + 1) * BREAKDOWN_PAGE_SIZE, filteredRows.length)} of {filteredRows.length}{memberSearch ? " results" : ""}
+                    </span>
                     <button
                       type="button"
                       onClick={() => setBreakdownPage((p) => Math.min(breakdownTotalPages - 1, p + 1))}
@@ -518,7 +517,6 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                     >
                       Next →
                     </button>
-                  </div>
                 </div>
               )}
             </div>

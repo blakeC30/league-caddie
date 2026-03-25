@@ -65,6 +65,12 @@ class User(Base):
         index=True,
     )
     display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    first_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="", server_default=""
+    )
+    last_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="", server_default=""
+    )
 
     # Platform admins can trigger scraper syncs and manage tournaments.
     # Regular users are not platform admins (they can be league admins, which is different).

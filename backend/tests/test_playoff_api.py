@@ -50,7 +50,13 @@ def _register(client, email: str, display_name: str = "Player") -> str:
     """Register a user and return their access token."""
     resp = client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "display_name": display_name},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": display_name,
+            "first_name": "Test",
+            "last_name": "Player",
+        },
     )
     assert resp.status_code == 201, resp.json()
     return resp.json()["access_token"]
@@ -130,11 +136,10 @@ def _make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
-        multiplier=multiplier,
     )
     db.add(t)
     db.flush()
-    db.add(LeagueTournament(league_id=league.id, tournament_id=t.id))
+    db.add(LeagueTournament(league_id=league.id, tournament_id=t.id, multiplier=multiplier))
     db.commit()
     db.refresh(t)
     return t

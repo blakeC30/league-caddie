@@ -80,7 +80,6 @@ def make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
-        multiplier=1.0,
     )
     db.add(t)
     db.flush()
@@ -637,7 +636,13 @@ class TestAdminOverridePick:
         member_email = "ao_member@example.com"
         client.post(
             "/api/v1/auth/register",
-            json={"email": member_email, "password": "password123", "display_name": "Mbr"},
+            json={
+                "email": member_email,
+                "password": "password123",
+                "display_name": "Mbr",
+                "first_name": "Mbr",
+                "last_name": "User",
+            },
         )
         member = db.query(User).filter_by(email=member_email).first()
         db.add(

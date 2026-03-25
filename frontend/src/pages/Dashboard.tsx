@@ -494,19 +494,49 @@ export function Dashboard() {
                   )}
                 </tbody>
               </table>
-              {standings.rows.length > 5 && (
-                <Link
-                  to={`/leagues/${leagueId}/leaderboard?view=standings&expand=1`}
-                  className="block text-center text-xs text-gray-400 hover:text-green-700 py-2 transition-colors"
-                >
-                  View all {standings.rows.length} members →
-                </Link>
-              )}
+              <div className="flex items-center justify-center px-3 py-2">
+                {standings.rows.length > 5 ? (
+                  <Link
+                    to={`/leagues/${leagueId}/leaderboard?view=standings&expand=1`}
+                    className="text-xs text-gray-400 hover:text-green-700 transition-colors"
+                  >
+                    View all {standings.rows.length} members →
+                  </Link>
+                ) : (
+                  <span />
+                )}
+              </div>
             </div>
           );
         })() : (
           <div className="flex justify-center py-4"><Spinner /></div>
         )}
+      </div>
+
+      {/* Quick links */}
+      <div className="flex justify-center gap-2">
+        <Link
+          to={`/leagues/${leagueId}/roster`}
+          className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg py-2.5 px-3 hover:border-green-300 hover:bg-green-50/30 transition-colors group"
+        >
+          <div className="w-7 h-7 bg-green-100 text-green-700 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors flex-shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H9m6 0a5.972 5.972 0 0 0-.786-3.07M9 19.128v-.003c0-1.113.285-2.16.786-3.07M9 19.128H3.375a4.125 4.125 0 0 1 7.533-2.493M9 19.128a5.972 5.972 0 0 1 .786-3.07m5.428 0a6.002 6.002 0 0 0-6.428 0M12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+            </svg>
+          </div>
+          <span className="text-xs font-medium text-gray-700 group-hover:text-green-800">League Roster</span>
+        </Link>
+        <Link
+          to={`/leagues/${leagueId}/rules`}
+          className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg py-2.5 px-3 hover:border-green-300 hover:bg-green-50/30 transition-colors group"
+        >
+          <div className="w-7 h-7 bg-green-100 text-green-700 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors flex-shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            </svg>
+          </div>
+          <span className="text-xs font-medium text-gray-700 group-hover:text-green-800">League Rules</span>
+        </Link>
       </div>
     </div>
   );

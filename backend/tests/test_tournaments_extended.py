@@ -23,7 +23,13 @@ from app.models.tournament import TournamentEntryRound, TournamentStatus
 def _register_and_login(client, email: str = "user@example.com") -> dict:
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "display_name": "User"},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": "User",
+            "first_name": "Test",
+            "last_name": "User",
+        },
     )
     resp = client.post("/api/v1/auth/login", json={"email": email, "password": "password123"})
     assert resp.status_code == 200, resp.json()
@@ -45,7 +51,6 @@ def _make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
-        multiplier=1.0,
         is_team_event=is_team_event,
         last_synced_at=last_synced_at,
     )

@@ -64,7 +64,13 @@ def _make_league(db, creator: User, name: str = "Test League") -> League:
 def _register_and_login(client, email: str, display_name: str = "User") -> dict:
     client.post(
         "/api/v1/auth/register",
-        json={"email": email, "password": "password123", "display_name": display_name},
+        json={
+            "email": email,
+            "password": "password123",
+            "display_name": display_name,
+            "first_name": "Test",
+            "last_name": "User",
+        },
     )
     return _login(client, email)
 

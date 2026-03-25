@@ -38,7 +38,7 @@ app/
 │   ├── auth.py       # RegisterRequest, LoginRequest, GoogleAuthRequest, TokenResponse
 │   ├── user.py       # UserOut, UserUpdate
 │   ├── league.py     # LeagueCreate/Update/Out, LeagueMemberOut, RoleUpdate,
-│   │                 #   LeagueJoinPreview, LeagueRequestOut
+│   │                 #   LeagueJoinPreview, LeagueRequestOut, RosterMemberOut
 │   ├── tournament.py # TournamentOut, LeagueTournamentOut (adds effective_multiplier + all_r1_teed_off), GolferInFieldOut (field endpoint — golfer + tee_time)
 │   ├── golfer.py     # GolferOut
 │   ├── pick.py       # PickCreate, PickUpdate, PickOut
@@ -112,6 +112,7 @@ All routes are prefixed with `/api/v1`.
 | GET | `/leagues/{league_id}` | member | League details |
 | PATCH | `/leagues/{league_id}` | manager | Update name/penalty |
 | GET | `/leagues/{league_id}/members` | member | Approved members only |
+| GET | `/leagues/{league_id}/roster` | member | Roster: display_name, first_name, last_name, email for approved members |
 | PATCH | `/leagues/{league_id}/members/{user_id}/role` | manager | |
 | DELETE | `/leagues/{league_id}/members/{user_id}` | manager | |
 | GET | `/leagues/{league_id}/requests` | manager | Pending join requests |
@@ -206,7 +207,7 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 
 | Table | Key Columns |
 |-------|-------------|
-| `users` | id (UUID), email (unique), password_hash (nullable), google_id (nullable), display_name, is_platform_admin |
+| `users` | id (UUID), email (unique), password_hash (nullable), google_id (nullable), display_name, first_name (VARCHAR 50, default ''), last_name (VARCHAR 50, default ''), is_platform_admin |
 | `password_reset_tokens` | id (UUID), user_id (FK→users, CASCADE), token_hash (SHA-256 hex, indexed), expires_at, used_at (nullable — set on redemption), created_at |
 | `leagues` | id (UUID), name, invite_code (unique, 16-char token), is_public, accepting_requests, auto_accept_requests, no_pick_penalty (default=-50000) — no description column |
 | `league_members` | league_id, user_id, role ("manager"\|"member"), status ("pending"\|"approved") |
@@ -275,6 +276,7 @@ Existing migration files (in order):
 23. `n0o2p4q6r8s0` — add `stripe_customers`, `league_purchases`, `league_purchase_events` tables; data migration backfills all existing leagues as Elite tier for 2026 at no cost
 24. `o1p3q5r7s9t1` — preserve financial records on league deletion: add `deleted_leagues` audit table; `league_purchases.league_id` + `league_purchase_events.league_id` changed to nullable with `ON DELETE SET NULL`; `deleted_league_id` FK column added to both tables
 25. `p2q4r6s8t0u2` — add `leagues.auto_accept_requests` (BOOLEAN NOT NULL DEFAULT FALSE); when True, join requests are auto-approved subject to member-limit checks
+26. `v8w0x2y4z6a8` — add `first_name` (VARCHAR 50, NOT NULL, DEFAULT '') and `last_name` (VARCHAR 50, NOT NULL, DEFAULT '') to `users` table
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)

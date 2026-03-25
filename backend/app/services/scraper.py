@@ -79,6 +79,7 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -1028,9 +1029,6 @@ def parse_schedule_response(data: dict) -> list[dict]:
                 "start_date": start_date,
                 "end_date": end_date,
                 "status": _map_espn_status(status_name),
-                # multiplier defaults to 1.0; platform admin sets 2.0 for majors manually
-                # (ESPN doesn't label which events are majors in a machine-readable way)
-                "multiplier": 1.0,
             }
         )
 
@@ -1062,9 +1060,7 @@ def upsert_tournaments(
     every row whose status changed in this call. The caller (sync_schedule) uses
     this to publish SQS events for meaningful status changes.
 
-    Only mutable fields (name, end_date, status) are updated on an existing
-    row. multiplier is NOT overwritten because platform admins set it manually
-    for majors and we don't want a sync to reset it.
+    Only mutable fields (name, end_date, status) are updated on an existing row.
 
     competition_id and is_team_event are set on creation and updated only if
     competition_id is not already set (safe to re-run; avoids overwriting
@@ -1101,7 +1097,6 @@ def upsert_tournaments(
                     start_date=item["start_date"],
                     end_date=item["end_date"],
                     status=item["status"],
-                    multiplier=item.get("multiplier", 1.0),
                 )
             )
             created += 1
@@ -1353,20 +1348,11 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
     When league_id is provided, only scores picks for that league. When None,
     scores all picks across all leagues (used by the worker and safety nets).
 
-    For each pick we need the golfer's prize earnings. We first check the
-    TournamentEntry row (may already have earnings from a previous sync), and
-    fall back to fetching from the ESPN core API. This keeps requests minimal:
-    one API call per pick, and only for picks that haven't been scored yet.
-
-      points_earned = earnings_usd * tournament.multiplier
-
-    If the golfer missed the cut (no earnings), points_earned = 0.
-
-    Team events (e.g. Zurich Classic):
-      The earnings endpoint uses the team's ESPN competitor ID, not the
-      individual golfer's ID. We look this up from TournamentEntry.team_competitor_id.
-      ESPN reports team earnings under 'officialAmount'; we divide by 2 for
-      each golfer's individual share.
+    Uses bulk SQL updates instead of per-pick Python loops:
+      1. Pre-step: fetch missing earnings from ESPN for entries with NULL earnings_usd
+      2. Bulk UPDATE: join picks → tournament_entries → league_tournaments to compute
+         points_earned = COALESCE(earnings_usd, 0) * COALESCE(lt.multiplier, 1.0)
+      3. Zero-out: picks with no matching TournamentEntry get points_earned = 0
 
     Returns the number of picks scored.
     """
@@ -1374,53 +1360,27 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
         log.warning("score_picks called on non-completed tournament %s", tournament.name)
         return 0
 
-    # Pre-load all TournamentEntry rows for this tournament into a dict keyed
-    # by golfer_id. Avoids one DB query per pick. ~150 rows per tournament.
-    entries_by_golfer: dict[uuid.UUID, TournamentEntry] = {
-        e.golfer_id: e
-        for e in db.query(TournamentEntry).filter_by(tournament_id=tournament.id).all()
-    }
-
-    # Cache earnings fetched from ESPN during this run so each golfer is
-    # fetched at most once, even when multiple league members picked them.
-    earnings_cache: dict[uuid.UUID, int | None] = {}
-
-    # Pre-load per-league multiplier overrides for all leagues in this batch.
-    lt_cache: dict[uuid.UUID, LeagueTournament] = {
-        lt.league_id: lt
-        for lt in db.query(LeagueTournament).filter_by(tournament_id=tournament.id).all()
-    }
-
-    # Discover which leagues have picks for this tournament, then process
-    # one league at a time. This keeps memory bounded: only one league's
-    # picks are loaded at once (~200-500 ORM objects), while the shared
-    # caches (entries, earnings, multipliers) persist across leagues.
-    league_id_query = db.query(Pick.league_id).filter_by(tournament_id=tournament.id).distinct()
-    if league_id is not None:
-        league_id_query = league_id_query.filter(Pick.league_id == league_id)
-    league_ids_with_picks = [row[0] for row in league_id_query.all()]
-
-    count = 0
-    scored_season_ids: set[int] = set()
-
-    for lid in league_ids_with_picks:
-        picks = db.query(Pick).filter_by(tournament_id=tournament.id, league_id=lid).all()
-
-        for pick in picks:
-            entry = entries_by_golfer.get(pick.golfer_id)
-
-            earnings: float | None = None
-
-            if entry and entry.earnings_usd is not None:
-                earnings = float(entry.earnings_usd)
-            elif pick.golfer_id in earnings_cache:
-                raw = earnings_cache[pick.golfer_id]
-                earnings = float(raw) if raw is not None else None
+    # ── Pre-step: fetch missing earnings from ESPN ────────────────────────
+    # Only entries with NULL earnings_usd need fetching. After backfill this
+    # is typically 0 entries — this is a safety net for edge cases.
+    null_entries = (
+        db.query(TournamentEntry)
+        .filter(
+            TournamentEntry.tournament_id == tournament.id,
+            TournamentEntry.earnings_usd.is_(None),
+        )
+        .all()
+    )
+    if null_entries:
+        earnings_cache: dict[uuid.UUID, int | None] = {}
+        for entry in null_entries:
+            if entry.golfer_id in earnings_cache:
+                raw = earnings_cache[entry.golfer_id]
             else:
-                if tournament.is_team_event and entry and entry.team_competitor_id:
+                if tournament.is_team_event and entry.team_competitor_id:
                     competitor_id = entry.team_competitor_id
                 else:
-                    golfer = db.query(Golfer).filter_by(id=pick.golfer_id).first()
+                    golfer = db.query(Golfer).filter_by(id=entry.golfer_id).first()
                     competitor_id = golfer.pga_tour_id if golfer else None
 
                 raw = None
@@ -1431,28 +1391,74 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
                         competition_id=tournament.competition_id,
                         is_team_event=tournament.is_team_event,
                     )
-                    if raw is not None:
-                        earnings = float(raw)
-                        if entry:
-                            entry.earnings_usd = raw
+                earnings_cache[entry.golfer_id] = raw
 
-                earnings_cache[pick.golfer_id] = raw
-
-            lt = lt_cache.get(pick.league_id)
-            effective_multiplier = (
-                lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
-            )
-            pick.points_earned = (earnings or 0.0) * effective_multiplier
-            count += 1
-            scored_season_ids.add(pick.season_id)
-
-        # Flush after each league so pick updates are written before
-        # the next batch loads (SQLAlchemy identity map stays bounded).
+            if raw is not None:
+                entry.earnings_usd = raw
         db.flush()
 
-    # Refresh standings cache (write-through) for all seasons that had picks scored.
+    # ── Bulk UPDATE: score all picks in one SQL statement ─────────────────
+    # points_earned = COALESCE(te.earnings_usd, 0) * COALESCE(lt.multiplier, 1.0)
+    # Multiplier comes exclusively from league_tournaments; defaults to 1.0
+    # if the league didn't set one (tournament.multiplier is not used).
+    league_filter = "AND picks.league_id = :league_id" if league_id is not None else ""
+
+    bulk_sql = sa_text(f"""
+        UPDATE picks
+        SET points_earned = sub.earned
+        FROM (
+            SELECT
+                p.id AS pick_id,
+                COALESCE(te.earnings_usd, 0)
+                  * COALESCE(lt.multiplier, 1.0) AS earned
+            FROM picks p
+            JOIN tournament_entries te
+                ON te.tournament_id = p.tournament_id
+               AND te.golfer_id = p.golfer_id
+            LEFT JOIN league_tournaments lt
+                ON lt.league_id = p.league_id
+               AND lt.tournament_id = p.tournament_id
+            WHERE p.tournament_id = :tournament_id
+              {"AND p.league_id = :league_id" if league_id is not None else ""}
+        ) sub
+        WHERE picks.id = sub.pick_id
+    """)
+
+    params: dict = {"tournament_id": tournament.id}
+    if league_id is not None:
+        params["league_id"] = league_id
+
+    result = db.execute(bulk_sql, params)
+    matched_count = result.rowcount
+
+    # ── Zero-out: picks with no matching TournamentEntry ──────────────────
+    # Covers golfers who withdrew before field sync (no entry row exists).
+    zero_sql = sa_text(f"""
+        UPDATE picks
+        SET points_earned = 0
+        WHERE picks.tournament_id = :tournament_id
+          AND NOT EXISTS (
+            SELECT 1 FROM tournament_entries te
+            WHERE te.tournament_id = picks.tournament_id
+              AND te.golfer_id = picks.golfer_id
+          )
+          {league_filter}
+    """)
+
+    zero_result = db.execute(zero_sql, params)
+    zero_count = zero_result.rowcount
+    count = matched_count + zero_count
+
+    # ── Refresh standings cache ───────────────────────────────────────────
     if count > 0:
         from app.services.scoring import refresh_standings_cache
+
+        season_query = (
+            db.query(Pick.season_id).filter(Pick.tournament_id == tournament.id).distinct()
+        )
+        if league_id is not None:
+            season_query = season_query.filter(Pick.league_id == league_id)
+        scored_season_ids = {row[0] for row in season_query.all()}
 
         for season in db.query(Season).filter(Season.id.in_(scored_season_ids)).all():
             refresh_standings_cache(db, season)
@@ -1811,16 +1817,33 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
         # Delete all round rows for this tournament so stale ESPN data is fully replaced.
         # Entry-level fields (status, earnings, finish_position) are reset to None so
         # the upcoming upsert writes fresh values from ESPN unconditionally.
-        entries = db.query(TournamentEntry).filter_by(tournament_id=tournament.id).all()
-        for entry in entries:
-            db.query(TournamentEntryRound).filter_by(tournament_entry_id=entry.id).delete()
-            entry.status = None
-            entry.finish_position = None
-            entry.earnings_usd = None
+        entry_ids_sq = (
+            db.query(TournamentEntry.id)
+            .filter(TournamentEntry.tournament_id == tournament.id)
+            .scalar_subquery()
+        )
+        rounds_deleted = (
+            db.query(TournamentEntryRound)
+            .filter(TournamentEntryRound.tournament_entry_id.in_(entry_ids_sq))
+            .delete(synchronize_session=False)
+        )
+        entries_cleared = (
+            db.query(TournamentEntry)
+            .filter(TournamentEntry.tournament_id == tournament.id)
+            .update(
+                {
+                    TournamentEntry.status: None,
+                    TournamentEntry.finish_position: None,
+                    TournamentEntry.earnings_usd: None,
+                },
+                synchronize_session=False,
+            )
+        )
         db.commit()
         log.info(
-            "Force sync: cleared %d entries' round data for '%s'",
-            len(entries),
+            "Force sync: cleared %d entries (%d rounds) for '%s'",
+            entries_cleared,
+            rounds_deleted,
             tournament.name,
         )
 

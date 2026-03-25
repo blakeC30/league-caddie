@@ -62,6 +62,10 @@ def update_me(
 ):
     if body.display_name is not None:
         current_user.display_name = body.display_name
+    if body.first_name is not None:
+        current_user.first_name = body.first_name
+    if body.last_name is not None:
+        current_user.last_name = body.last_name
     if body.pick_reminders_enabled is not None:
         current_user.pick_reminders_enabled = body.pick_reminders_enabled
     db.commit()
@@ -315,7 +319,7 @@ def get_league_summaries(
         if current_lt is not None:
             t = current_lt.tournament
             effective_multiplier = (
-                current_lt.multiplier if current_lt.multiplier is not None else t.multiplier
+                current_lt.multiplier if current_lt.multiplier is not None else 1.0
             )
             check_tee_times = t.status in (
                 TournamentStatus.IN_PROGRESS.value,

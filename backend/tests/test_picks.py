@@ -74,7 +74,6 @@ def make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=TournamentStatus.SCHEDULED.value,
-        multiplier=1.0,
     )
     db.add(t)
     db.flush()
@@ -211,6 +210,8 @@ class TestSubmitPick:
                 "email": "outsider@example.com",
                 "password": "password123",
                 "display_name": "Outsider",
+                "first_name": "Out",
+                "last_name": "Sider",
             },
         )
         login = client.post(

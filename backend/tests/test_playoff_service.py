@@ -102,11 +102,10 @@ def _make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
-        multiplier=multiplier,
     )
     db.add(t)
     db.flush()
-    db.add(LeagueTournament(league_id=league.id, tournament_id=t.id))
+    db.add(LeagueTournament(league_id=league.id, tournament_id=t.id, multiplier=multiplier))
     db.commit()
     db.refresh(t)
     return t
@@ -439,7 +438,6 @@ class TestScoreRound:
             start_date=start,
             end_date=start + timedelta(days=3),
             status="completed",
-            multiplier=2.0,  # global says 2x
         )
         db.add(t)
         db.flush()

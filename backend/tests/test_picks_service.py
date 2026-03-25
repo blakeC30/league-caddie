@@ -98,7 +98,6 @@ def _make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
-        multiplier=1.0,
     )
     db.add(t)
     db.commit()
