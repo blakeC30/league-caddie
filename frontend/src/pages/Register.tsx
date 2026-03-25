@@ -21,6 +21,18 @@ export function Register() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!displayName.trim()) {
+      setError("Please enter a display name.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter a password.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -72,7 +84,7 @@ export function Register() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
               Display name
@@ -149,6 +161,17 @@ export function Register() {
           >
             {loading ? "Creating account…" : "Create account"}
           </button>
+
+          <p className="text-center text-xs text-gray-400 leading-relaxed">
+            By creating an account, you agree to our{" "}
+            <Link to="/terms" target="_blank" className="text-green-700 underline hover:text-green-600">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link to="/privacy" target="_blank" className="text-green-700 underline hover:text-green-600">
+              Privacy Policy
+            </Link>
+          </p>
         </form>
 
         {/* Divider */}

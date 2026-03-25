@@ -23,6 +23,8 @@ import { ResetPassword } from "./pages/ResetPassword";
 import { JoinLeague } from "./pages/JoinLeague";
 import { BillingSuccess } from "./pages/BillingSuccess";
 import { BillingCanceled } from "./pages/BillingCanceled";
+import { PrivacyPolicy } from "./pages/PrivacyPolicy";
+import { TermsOfService } from "./pages/TermsOfService";
 import { NotFound } from "./pages/NotFound";
 
 // Lazy-loaded pages — fetched on first navigation to reduce initial bundle
@@ -58,6 +60,8 @@ export default function App() {
       <Route path="/join/:inviteCode" element={<JoinLeague />} />
       <Route path="/billing/success" element={<BillingSuccess />} />
       <Route path="/billing/canceled" element={<BillingCanceled />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<TermsOfService />} />
 
       {/* Auth-guarded — all share the Layout shell */}
       <Route element={<Layout />}>

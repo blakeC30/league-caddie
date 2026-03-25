@@ -19,6 +19,14 @@ export function Login() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!email.trim()) {
+      setError("Please enter your email address.");
+      return;
+    }
+    if (!password) {
+      setError("Please enter your password.");
+      return;
+    }
     setError("");
     setLoading(true);
     try {
@@ -66,7 +74,7 @@ export function Login() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
               Email
@@ -137,6 +145,17 @@ export function Login() {
             width="100%"
           />
         </div>
+
+        <p className="text-center text-xs text-gray-400 leading-relaxed">
+          By signing in, you agree to our{" "}
+          <Link to="/terms" target="_blank" className="text-green-700 underline hover:text-green-600">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link to="/privacy" target="_blank" className="text-green-700 underline hover:text-green-600">
+            Privacy Policy
+          </Link>
+        </p>
       </div>
 
       {/* Footer link */}

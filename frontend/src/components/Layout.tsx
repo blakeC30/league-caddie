@@ -145,18 +145,30 @@ export function Layout() {
 
       {/* Footer — hidden on mobile inside a league (bottom tab bar takes that space) */}
       <footer className={`bg-green-950 border-t border-green-900 py-6 ${leagueId ? "hidden sm:block" : ""}`}>
-        <div className="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-green-700">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-green-500">
-            <FlagIcon className="w-4 h-4 flex-shrink-0" />
-            League Caddie
-          </span>
-          <span>© {new Date().getFullYear()} · League Caddie</span>
-          <a href="mailto:support@league-caddie.com" className="hover:text-green-400 transition-colors">
-            Contact Us
-          </a>
-          <Link to="/leagues" className="hover:text-green-400 transition-colors">
-            My Leagues
-          </Link>
+        <div className="max-w-5xl mx-auto px-4 space-y-3">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-green-700">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-green-500">
+              <FlagIcon className="w-4 h-4 flex-shrink-0" />
+              League Caddie
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+              <Link to="/leagues" className="hover:text-green-400 transition-colors">
+                My Leagues
+              </Link>
+              <Link to="/terms" className="hover:text-green-400 transition-colors">
+                Terms of Service
+              </Link>
+              <Link to="/privacy" className="hover:text-green-400 transition-colors">
+                Privacy Policy
+              </Link>
+              <a href="mailto:support@league-caddie.com" className="hover:text-green-400 transition-colors">
+                Contact Us
+              </a>
+            </div>
+          </div>
+          <p className="text-center text-xs text-green-800">
+            © {new Date().getFullYear()} League Caddie LLC
+          </p>
         </div>
       </footer>
 

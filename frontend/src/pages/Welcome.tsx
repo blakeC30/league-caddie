@@ -474,23 +474,33 @@ export function Welcome() {
 
       {/* ── Footer ── */}
       <footer className="py-8 px-6 bg-green-950 border-t border-green-900">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-green-700">
-          <span className="inline-flex items-center gap-1.5 font-semibold text-green-500">
-            <FlagIcon className="w-4 h-4 flex-shrink-0" />
-            League Caddie
-          </span>
-          <span>© {new Date().getFullYear()} · League Caddie</span>
-          <div className="flex gap-4">
-            <a href="mailto:support@league-caddie.com" className="hover:text-green-400 transition-colors">
-              Contact Us
-            </a>
-            <Link to="/register" className="hover:text-green-400 transition-colors">
-              Create account
-            </Link>
-            <Link to="/login" className="hover:text-green-400 transition-colors">
-              Sign in
-            </Link>
+        <div className="max-w-6xl mx-auto space-y-3">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-green-700">
+            <span className="inline-flex items-center gap-1.5 font-semibold text-green-500">
+              <FlagIcon className="w-4 h-4 flex-shrink-0" />
+              League Caddie
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+              <Link to="/register" className="hover:text-green-400 transition-colors">
+                Create account
+              </Link>
+              <Link to="/login" className="hover:text-green-400 transition-colors">
+                Sign in
+              </Link>
+              <Link to="/terms" className="hover:text-green-400 transition-colors">
+                Terms of Service
+              </Link>
+              <Link to="/privacy" className="hover:text-green-400 transition-colors">
+                Privacy Policy
+              </Link>
+              <a href="mailto:support@league-caddie.com" className="hover:text-green-400 transition-colors">
+                Contact Us
+              </a>
+            </div>
           </div>
+          <p className="text-center text-xs text-green-800">
+            © {new Date().getFullYear()} League Caddie LLC
+          </p>
         </div>
       </footer>
     </div>
