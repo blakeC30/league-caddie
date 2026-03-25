@@ -154,18 +154,28 @@ def require_active_purchase(
     Gate league operational features behind an active season purchase.
 
     Returns None (bypass) when:
-      - The league was created by a platform admin, OR
+      - The league is an admin league (is_admin_league=True), OR
       - The current user is a platform admin.
 
-    Callers that receive None should treat the league as having Elite-tier
-    limits (500 members, all features available).
+    Uses denormalized flags on the League row for the common path (zero extra
+    queries). Only falls through to a LeaguePurchase query when the flag is
+    True and the caller needs the actual purchase object (member_limit, tier).
 
     Raises HTTP 402 when no paid purchase row exists for the current year.
     """
-    creator = db.get(User, league.created_by)
-    if (creator and creator.is_platform_admin) or current_user.is_platform_admin:
+    if league.is_admin_league or current_user.is_platform_admin:
         return None
 
+    if not league.has_active_purchase:
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                "This league requires an active season pass. Visit the Manage page to purchase."
+            ),
+        )
+
+    # Flag says active — load the actual purchase for callers that need
+    # member_limit or tier info. This is 1 query instead of the previous 2.
     current_year = datetime.now(UTC).year
     purchase = (
         db.query(LeaguePurchase)
@@ -177,6 +187,9 @@ def require_active_purchase(
         .first()
     )
     if not purchase:
+        # Flag is stale — the purchase was deleted or expired. Clear the flag.
+        league.has_active_purchase = False
+        db.flush()
         raise HTTPException(
             status_code=402,
             detail=(

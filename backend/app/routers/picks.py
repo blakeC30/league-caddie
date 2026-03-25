@@ -462,6 +462,7 @@ def change_pick(
     pick = (
         _picks_with_relations(db.query(Pick))
         .filter_by(id=pick_id, league_id=league.id, user_id=current_user.id)
+        .with_for_update()
         .first()
     )
     if not pick:
@@ -681,10 +682,12 @@ def admin_override_pick(
 
     # If the tournament is already completed, score this league's picks immediately
     # so points_earned is populated without waiting for the next scheduled sync.
+    # score_picks refreshes the standings cache internally (write-through).
     if tournament and tournament.status == TournamentStatus.COMPLETED.value:
         score_picks(db, tournament, league_id=league.id)
+    else:
+        invalidate_standings_cache(db, season)
 
-    invalidate_standings_cache(db, season)
     db.commit()
 
     return _picks_with_relations(db.query(Pick)).filter_by(id=pick_id).first()

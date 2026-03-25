@@ -39,10 +39,12 @@ export function MyPicks() {
   const viewingUserId = selectedUserId ?? currentUser?.id ?? null;
   const isViewingSelf = !selectedUserId || selectedUserId === currentUser?.id;
 
-  // When viewing another member, fetch only their picks server-side (not the entire league).
+  // When viewing another member, fetch only their picks server-side.
+  // Skipped entirely when viewing self (myPicksData is used instead).
   const { data: allPicks } = useAllPicks(
     leagueId!,
     isViewingSelf ? undefined : (viewingUserId ?? undefined),
+    !isViewingSelf,  // enabled — only fetch when viewing another member
   );
 
   // Current user always uses myPicksData (includes in-progress tournament picks).

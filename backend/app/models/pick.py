@@ -19,7 +19,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, ForeignKey, UniqueConstraint, func
+from sqlalchemy import DateTime, Float, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -44,6 +44,10 @@ class Pick(Base):
             "tournament_id",
             name="uq_pick_league_season_user_tournament",
         ),
+        # score_picks filters by tournament_id across all leagues.
+        Index("ix_picks_tournament_id", "tournament_id"),
+        # calculate_standings filters by (league_id, season_id) then groups by tournament_id.
+        Index("ix_picks_league_season_tournament", "league_id", "season_id", "tournament_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

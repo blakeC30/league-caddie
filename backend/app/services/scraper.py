@@ -1129,11 +1129,36 @@ def upsert_field(
     entries_synced = 0
     entry_by_pga_id: dict[str, TournamentEntry] = {}  # track for position recompute
 
+    # ── Bulk pre-load existing data (3 queries instead of ~900) ──────────
+    # 1. All golfers that appear in the incoming data, keyed by pga_tour_id.
+    incoming_pga_ids = [g["pga_tour_id"] for g in golfers]
+    existing_golfers: dict[str, Golfer] = {
+        gl.pga_tour_id: gl
+        for gl in db.query(Golfer).filter(Golfer.pga_tour_id.in_(incoming_pga_ids)).all()
+    }
+
+    # 2. All tournament entries for this tournament, keyed by golfer_id.
+    existing_entries: dict[uuid.UUID, TournamentEntry] = {
+        e.golfer_id: e
+        for e in db.query(TournamentEntry).filter_by(tournament_id=tournament.id).all()
+    }
+
+    # 3. All entry rounds for this tournament's entries, keyed by (entry_id, round_number).
+    entry_ids = [e.id for e in existing_entries.values()]
+    existing_rounds: dict[tuple[int, int], TournamentEntryRound] = {}
+    if entry_ids:
+        for r in (
+            db.query(TournamentEntryRound)
+            .filter(TournamentEntryRound.tournament_entry_id.in_(entry_ids))
+            .all()
+        ):
+            existing_rounds[(r.tournament_entry_id, r.round_number)] = r
+
+    # ── Upsert loop (dict lookups, no per-row queries) ───────────────────
+    new_golfers_added = False
     for g in golfers:
         # Upsert golfer profile.
-        # name=None means the golfer was already in DB (known_golfer_ids cache hit);
-        # skip updating to avoid overwriting good data with None.
-        golfer = db.query(Golfer).filter_by(pga_tour_id=g["pga_tour_id"]).first()
+        golfer = existing_golfers.get(g["pga_tour_id"])
         if golfer:
             if g["name"] is not None:
                 golfer.name = g["name"]
@@ -1146,24 +1171,24 @@ def upsert_field(
                 country=g.get("country"),
             )
             db.add(golfer)
-        db.flush()  # ensure golfer.id is populated
+            existing_golfers[g["pga_tour_id"]] = golfer
+            new_golfers_added = True
 
-        # Upsert tournament entry.
-        entry = (
-            db.query(TournamentEntry)
-            .filter_by(tournament_id=tournament.id, golfer_id=golfer.id)
-            .first()
-        )
+    # Single flush to populate IDs for all new golfers at once.
+    if new_golfers_added:
+        db.flush()
 
+    for g in golfers:
+        golfer = existing_golfers[g["pga_tour_id"]]
         result = results_by_id.get(g["pga_tour_id"], {})
 
+        # Upsert tournament entry.
+        entry = existing_entries.get(golfer.id)
         if entry:
             if result.get("finish_position") is not None:
                 entry.finish_position = result["finish_position"]
             if result.get("earnings_usd") is not None:
                 entry.earnings_usd = result["earnings_usd"]
-            # Always overwrite status — None means "active/finished" and must be
-            # able to clear a previously incorrect value (e.g. a bad backfill).
             entry.status = result.get("status")
             if result.get("tee_time") is not None:
                 entry.tee_time = result["tee_time"]
@@ -1180,26 +1205,17 @@ def upsert_field(
                 team_competitor_id=result.get("team_competitor_id"),
             )
             db.add(entry)
+            existing_entries[golfer.id] = entry
             entries_synced += 1
 
-        # Upsert per-round data into tournament_entry_rounds.
-        # Each round dict came from _fetch_competitor_rounds via the /linescores endpoint.
-        # flush() ensures entry.id is set before we reference it as a FK.
+        # Upsert per-round data.
         rounds = result.get("rounds", [])
         if rounds:
-            db.flush()  # populate entry.id if this is a new entry
+            if not entry.id:
+                db.flush()  # populate entry.id for new entries
             for rd in rounds:
-                round_row = (
-                    db.query(TournamentEntryRound)
-                    .filter_by(
-                        tournament_entry_id=entry.id,
-                        round_number=rd["round_number"],
-                    )
-                    .first()
-                )
+                round_row = existing_rounds.get((entry.id, rd["round_number"]))
                 if round_row:
-                    # Update all mutable fields — data may change while a tournament
-                    # is in progress (scores finalize, position updates, etc.).
                     if rd.get("tee_time") is not None:
                         round_row.tee_time = rd["tee_time"]
                     if rd.get("score") is not None:
@@ -1209,24 +1225,22 @@ def upsert_field(
                     if rd.get("position") is not None:
                         round_row.position = rd["position"]
                     round_row.is_playoff = rd.get("is_playoff", False)
-                    # Always overwrite thru/started_on_back — they change every sync.
                     round_row.thru = rd.get("thru")
                     if rd.get("started_on_back") is not None:
                         round_row.started_on_back = rd["started_on_back"]
                 else:
-                    db.add(
-                        TournamentEntryRound(
-                            tournament_entry_id=entry.id,
-                            round_number=rd["round_number"],
-                            tee_time=rd.get("tee_time"),
-                            score=rd.get("score"),
-                            score_to_par=rd.get("score_to_par"),
-                            position=rd.get("position"),
-                            is_playoff=rd.get("is_playoff", False),
-                            thru=rd.get("thru"),
-                            started_on_back=rd.get("started_on_back"),
-                        )
+                    new_round = TournamentEntryRound(
+                        tournament_entry_id=entry.id,
+                        round_number=rd["round_number"],
+                        tee_time=rd.get("tee_time"),
+                        score=rd.get("score"),
+                        score_to_par=rd.get("score_to_par"),
+                        position=rd.get("position"),
+                        is_playoff=rd.get("is_playoff", False),
+                        thru=rd.get("thru"),
+                        started_on_back=rd.get("started_on_back"),
                     )
+                    db.add(new_round)
 
         entry_by_pga_id[g["pga_tour_id"]] = entry
         golfers_synced += 1
@@ -1360,14 +1374,8 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
         log.warning("score_picks called on non-completed tournament %s", tournament.name)
         return 0
 
-    query = db.query(Pick).filter_by(tournament_id=tournament.id)
-    if league_id is not None:
-        query = query.filter(Pick.league_id == league_id)
-    picks = query.all()
-    count = 0
-
     # Pre-load all TournamentEntry rows for this tournament into a dict keyed
-    # by golfer_id. Avoids one DB query per pick.
+    # by golfer_id. Avoids one DB query per pick. ~150 rows per tournament.
     entries_by_golfer: dict[uuid.UUID, TournamentEntry] = {
         e.golfer_id: e
         for e in db.query(TournamentEntry).filter_by(tournament_id=tournament.id).all()
@@ -1375,73 +1383,79 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
 
     # Cache earnings fetched from ESPN during this run so each golfer is
     # fetched at most once, even when multiple league members picked them.
-    # Key = golfer_id, value = earnings (int) or None if ESPN returned nothing.
     earnings_cache: dict[uuid.UUID, int | None] = {}
 
     # Pre-load per-league multiplier overrides for all leagues in this batch.
-    # Key = league_id, value = LeagueTournament row (or missing = use global).
-    lt_cache: dict[uuid.UUID, LeagueTournament | None] = {}
+    lt_cache: dict[uuid.UUID, LeagueTournament] = {
+        lt.league_id: lt
+        for lt in db.query(LeagueTournament).filter_by(tournament_id=tournament.id).all()
+    }
 
-    for pick in picks:
-        entry = entries_by_golfer.get(pick.golfer_id)
+    # Discover which leagues have picks for this tournament, then process
+    # one league at a time. This keeps memory bounded: only one league's
+    # picks are loaded at once (~200-500 ORM objects), while the shared
+    # caches (entries, earnings, multipliers) persist across leagues.
+    league_id_query = db.query(Pick.league_id).filter_by(tournament_id=tournament.id).distinct()
+    if league_id is not None:
+        league_id_query = league_id_query.filter(Pick.league_id == league_id)
+    league_ids_with_picks = [row[0] for row in league_id_query.all()]
 
-        earnings: float | None = None
+    count = 0
+    scored_season_ids: set[int] = set()
 
-        if entry and entry.earnings_usd is not None:
-            # Already stored from a previous sync — use it directly.
-            earnings = float(entry.earnings_usd)
-        elif pick.golfer_id in earnings_cache:
-            # Already fetched from ESPN during this run — reuse cached value.
-            raw = earnings_cache[pick.golfer_id]
-            earnings = float(raw) if raw is not None else None
-        else:
-            # Not stored yet — fetch from ESPN core API for this specific pick.
-            # For team events, use the team_competitor_id as the competitor_id;
-            # for individual events, use the golfer's own pga_tour_id.
-            if tournament.is_team_event and entry and entry.team_competitor_id:
-                competitor_id = entry.team_competitor_id
+    for lid in league_ids_with_picks:
+        picks = db.query(Pick).filter_by(tournament_id=tournament.id, league_id=lid).all()
+
+        for pick in picks:
+            entry = entries_by_golfer.get(pick.golfer_id)
+
+            earnings: float | None = None
+
+            if entry and entry.earnings_usd is not None:
+                earnings = float(entry.earnings_usd)
+            elif pick.golfer_id in earnings_cache:
+                raw = earnings_cache[pick.golfer_id]
+                earnings = float(raw) if raw is not None else None
             else:
-                golfer = db.query(Golfer).filter_by(id=pick.golfer_id).first()
-                competitor_id = golfer.pga_tour_id if golfer else None
+                if tournament.is_team_event and entry and entry.team_competitor_id:
+                    competitor_id = entry.team_competitor_id
+                else:
+                    golfer = db.query(Golfer).filter_by(id=pick.golfer_id).first()
+                    competitor_id = golfer.pga_tour_id if golfer else None
 
-            raw = None
-            if competitor_id:
-                raw = _fetch_golfer_earnings(
-                    tournament.pga_tour_id,
-                    competitor_id,
-                    competition_id=tournament.competition_id,
-                    is_team_event=tournament.is_team_event,
-                )
-                if raw is not None:
-                    earnings = float(raw)
-                    # Persist so future calls skip the API hit.
-                    if entry:
-                        entry.earnings_usd = raw
+                raw = None
+                if competitor_id:
+                    raw = _fetch_golfer_earnings(
+                        tournament.pga_tour_id,
+                        competitor_id,
+                        competition_id=tournament.competition_id,
+                        is_team_event=tournament.is_team_event,
+                    )
+                    if raw is not None:
+                        earnings = float(raw)
+                        if entry:
+                            entry.earnings_usd = raw
 
-            earnings_cache[pick.golfer_id] = raw
+                earnings_cache[pick.golfer_id] = raw
 
-        # Use the league's per-tournament multiplier override if set; otherwise
-        # fall back to the tournament's global multiplier.
-        if pick.league_id not in lt_cache:
-            lt_cache[pick.league_id] = (
-                db.query(LeagueTournament)
-                .filter_by(league_id=pick.league_id, tournament_id=tournament.id)
-                .first()
+            lt = lt_cache.get(pick.league_id)
+            effective_multiplier = (
+                lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
             )
-        lt = lt_cache[pick.league_id]
-        effective_multiplier = (
-            lt.multiplier if lt and lt.multiplier is not None else tournament.multiplier
-        )
-        pick.points_earned = (earnings or 0.0) * effective_multiplier
-        count += 1
+            pick.points_earned = (earnings or 0.0) * effective_multiplier
+            count += 1
+            scored_season_ids.add(pick.season_id)
 
-    # Invalidate standings cache for all seasons that had picks scored.
+        # Flush after each league so pick updates are written before
+        # the next batch loads (SQLAlchemy identity map stays bounded).
+        db.flush()
+
+    # Refresh standings cache (write-through) for all seasons that had picks scored.
     if count > 0:
-        from app.services.scoring import invalidate_standings_cache
+        from app.services.scoring import refresh_standings_cache
 
-        scored_season_ids = {p.season_id for p in picks if p.points_earned is not None}
         for season in db.query(Season).filter(Season.id.in_(scored_season_ids)).all():
-            invalidate_standings_cache(db, season)
+            refresh_standings_cache(db, season)
 
     db.commit()
     log.info("Scored %d picks for '%s'", count, tournament.name)
@@ -1846,7 +1860,7 @@ def sync_tournament(db: Session, pga_tour_id: str, *, force: bool = False) -> di
             _publish_schedule_transitions([(str(tournament.id), old_status, new_status)], db=db)
 
     # Pass IDs of golfers already in DB so fetch functions skip re-fetching them.
-    known_ids = {g.pga_tour_id for g in db.query(Golfer).all()}
+    known_ids = {row[0] for row in db.query(Golfer.pga_tour_id).all()}
 
     # Fetch per-round linescores for all tournament states:
     #   - SCHEDULED: gets tee times for upcoming rounds (pick-locking needs this).
@@ -1954,23 +1968,46 @@ def full_sync(db: Session, year: int, *, force: bool = False) -> dict:
 
     tournaments = tournaments_to_sync
 
-    tournament_results = []
-    errors = []
+    # Capture identity info before parallelizing — ORM attributes may not be
+    # accessible from a different session.
+    sync_targets = [(t.pga_tour_id, t.name) for t in tournaments]
 
-    for t in tournaments:
-        # Capture identity info before any DB operation so logging still works
-        # even if the session rolls back and expires these attributes.
-        t_id = t.pga_tour_id
-        t_name = t.name
+    tournament_results: list[dict] = []
+    errors: list[dict] = []
+
+    def _sync_one(pga_tour_id: str, name: str) -> dict:
+        """Sync a single tournament in its own DB session."""
+        from app.database import SessionLocal
+
+        session = SessionLocal()
         try:
-            result = sync_tournament(db, t_id, force=force)
-            tournament_results.append(result)
+            result = sync_tournament(session, pga_tour_id, force=force)
+            session.commit()
+            return result
         except Exception as exc:
-            # A failed flush invalidates the current transaction. Roll it back
-            # so subsequent iterations start with a clean session state.
-            db.rollback()
-            log.error("Failed to sync tournament '%s': %s", t_name, exc)
-            errors.append({"pga_tour_id": t_id, "name": t_name, "error": str(exc)})
+            session.rollback()
+            raise RuntimeError(f"{name}: {exc}") from exc
+        finally:
+            session.close()
+
+    # Parallelize tournament syncs — each gets its own DB session and makes
+    # independent ESPN API calls. Cap at 3 workers to avoid overwhelming
+    # ESPN's API and the Postgres connection pool.
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    max_workers = min(3, len(sync_targets)) or 1
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_to_name = {
+            pool.submit(_sync_one, t_id, t_name): (t_id, t_name) for t_id, t_name in sync_targets
+        }
+        for future in as_completed(future_to_name):
+            t_id, t_name = future_to_name[future]
+            try:
+                result = future.result()
+                tournament_results.append(result)
+            except Exception as exc:
+                log.error("Failed to sync tournament '%s': %s", t_name, exc)
+                errors.append({"pga_tour_id": t_id, "name": t_name, "error": str(exc)})
 
     # Publish TOURNAMENT_COMPLETED for any completed tournament that has
     # unscored playoff rounds. This covers the case where the original SQS

@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # "not available yet" message. Flip to False once the platform opens publicly.
     LEAGUE_CREATION_RESTRICTED: bool = False
 
+    # --- Database pool ---
+    # Tune per container: API needs more connections than scraper/worker.
+    # Override via DB_POOL_SIZE / DB_MAX_OVERFLOW env vars.
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+
     # --- Cookies ---
     # Domain for httpOnly cookies. Set to ".league-caddie.com" in production
     # so cookies work on both league-caddie.com and www.league-caddie.com.

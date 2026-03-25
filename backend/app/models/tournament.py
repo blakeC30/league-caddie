@@ -160,7 +160,7 @@ class TournamentEntry(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
 
     tournament_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tournaments.id"), nullable=False
+        UUID(as_uuid=True), ForeignKey("tournaments.id"), nullable=False, index=True
     )
     golfer_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("golfers.id"), nullable=False

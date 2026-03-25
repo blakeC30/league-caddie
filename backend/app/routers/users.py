@@ -185,7 +185,73 @@ def get_league_summaries(
         )
     config_by_league: dict[uuid.UUID, PlayoffConfig] = {c.league_id: c for c in playoff_configs}
 
+    # 6b. Batch-load all active playoff rounds for these configs (avoids N+1 per league)
+    config_ids = [c.id for c in playoff_configs]
+    all_playoff_rounds: list[PlayoffRound] = []
+    if config_ids:
+        all_playoff_rounds = (
+            db.query(PlayoffRound)
+            .filter(
+                PlayoffRound.playoff_config_id.in_(config_ids),
+                PlayoffRound.status.in_(["pending", "drafting", "locked"]),
+            )
+            .all()
+        )
+    # Index by (config_id, tournament_id) for O(1) lookup
+    round_by_config_tournament: dict[tuple, PlayoffRound] = {}
+    for pr in all_playoff_rounds:
+        if pr.tournament_id:
+            round_by_config_tournament[(pr.playoff_config_id, pr.tournament_id)] = pr
+
+    # 6c. Batch-load pod memberships for current user across all active rounds
+    active_round_ids = [pr.id for pr in all_playoff_rounds]
+    all_pod_members: list[PlayoffPodMember] = []
+    if active_round_ids:
+        all_pod_members = (
+            db.query(PlayoffPodMember)
+            .join(PlayoffPod, PlayoffPodMember.pod_id == PlayoffPod.id)
+            .filter(
+                PlayoffPod.playoff_round_id.in_(active_round_ids),
+                PlayoffPodMember.user_id == current_user.id,
+            )
+            .all()
+        )
+    # Build pod_id → round_id mapping from the already-loaded rounds
+    pod_id_to_round_id: dict[int, int] = {}
+    if all_pod_members:
+        pod_ids = [pm.pod_id for pm in all_pod_members]
+        pods = db.query(PlayoffPod).filter(PlayoffPod.id.in_(pod_ids)).all()
+        pod_id_to_round_id = {p.id: p.playoff_round_id for p in pods}
+
+    # Index by round_id for O(1) lookup
+    pod_member_by_round: dict[int, PlayoffPodMember] = {}
+    for pm in all_pod_members:
+        round_id = pod_id_to_round_id.get(pm.pod_id)
+        if round_id:
+            pod_member_by_round[round_id] = pm
+
+    # 6d. Batch-load playoff picks for current user's pod memberships
+    pod_member_ids = [pm.id for pm in all_pod_members]
+    all_playoff_picks: list[PlayoffPick] = []
+    if pod_member_ids:
+        all_playoff_picks = (
+            db.query(PlayoffPick)
+            .filter(PlayoffPick.pod_member_id.in_(pod_member_ids))
+            .options(joinedload(PlayoffPick.golfer))
+            .order_by(PlayoffPick.draft_slot)
+            .all()
+        )
+    # Index by (pod_member_id, tournament_id) for O(1) lookup
+    picks_by_member_tournament: dict[tuple, list[PlayoffPick]] = {}
+    for pp in all_playoff_picks:
+        key = (pp.pod_member_id, pp.tournament_id)
+        picks_by_member_tournament.setdefault(key, []).append(pp)
+
     # 7. Build summaries
+    # Cache _all_r1_teed_off per tournament_id to avoid duplicate aggregate
+    # queries when multiple leagues share the same current tournament.
+    tee_off_cache: dict[uuid.UUID, bool] = {}
+
     results: list[LeagueSummaryOut] = []
     for m in memberships:
         league = leagues_by_id[m.league_id]
@@ -255,7 +321,12 @@ def get_league_summaries(
                 TournamentStatus.IN_PROGRESS.value,
                 TournamentStatus.SCHEDULED.value,
             )
-            r1_teed_off = _all_r1_teed_off(db, t.id) if check_tee_times else False
+            if check_tee_times:
+                if t.id not in tee_off_cache:
+                    tee_off_cache[t.id] = _all_r1_teed_off(db, t.id)
+                r1_teed_off = tee_off_cache[t.id]
+            else:
+                r1_teed_off = False
 
             current_tournament_out = LeagueSummaryTournament(
                 id=t.id,
@@ -304,41 +375,14 @@ def get_league_summaries(
         config = config_by_league.get(m.league_id)
         if config and config.playoff_size > 0 and current_lt is not None:
             t = current_lt.tournament
-            # Check if this tournament is assigned to an active playoff round
-            active_round = (
-                db.query(PlayoffRound)
-                .filter(
-                    PlayoffRound.playoff_config_id == config.id,
-                    PlayoffRound.tournament_id == t.id,
-                    PlayoffRound.status.in_(["pending", "drafting", "locked"]),
-                )
-                .first()
-            )
+            # Look up from batch-loaded data (no per-league DB queries)
+            active_round = round_by_config_tournament.get((config.id, t.id))
             if active_round:
                 is_playoff_week = True
-                # Check if current user is in a pod
-                pod_member = (
-                    db.query(PlayoffPodMember)
-                    .join(PlayoffPod, PlayoffPodMember.pod_id == PlayoffPod.id)
-                    .filter(
-                        PlayoffPod.playoff_round_id == active_round.id,
-                        PlayoffPodMember.user_id == current_user.id,
-                    )
-                    .first()
-                )
+                pod_member = pod_member_by_round.get(active_round.id)
                 if pod_member:
                     is_in_playoffs = True
-                    # Get playoff picks for current tournament
-                    playoff_picks = (
-                        db.query(PlayoffPick)
-                        .filter(
-                            PlayoffPick.pod_member_id == pod_member.id,
-                            PlayoffPick.tournament_id == t.id,
-                        )
-                        .options(joinedload(PlayoffPick.golfer))
-                        .order_by(PlayoffPick.draft_slot)
-                        .all()
-                    )
+                    playoff_picks = picks_by_member_tournament.get((pod_member.id, t.id), [])
                     my_playoff_picks_out = [
                         LeagueSummaryPlayoffPick(golfer_name=pp.golfer.name) for pp in playoff_picks
                     ]

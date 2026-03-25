@@ -134,6 +134,18 @@ class League(Base):
         server_default="false",
     )
 
+    # Denormalized flags for fast purchase gating (avoids 2 extra DB queries
+    # per request in require_active_purchase).
+    # is_admin_league: True for leagues created by platform admins (permanently exempt).
+    # has_active_purchase: True when a paid LeaguePurchase exists for the current season.
+    # Updated by: league creation, Stripe webhook, admin import.
+    is_admin_league: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    has_active_purchase: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+
     # Points applied to a user's season total when they miss a week (no pick
     # submitted before the tournament starts). Negative by convention.
     # Stored as an integer because earnings are in whole dollars.

@@ -37,11 +37,11 @@ export function useMyPicks(leagueId: string) {
   });
 }
 
-export function useAllPicks(leagueId: string, userId?: string) {
+export function useAllPicks(leagueId: string, userId?: string, enabled = true) {
   return useQuery({
     queryKey: ["allPicks", leagueId, userId ?? "all"],
     queryFn: () => picksApi.all(leagueId, userId),
-    enabled: !!leagueId,
+    enabled: !!leagueId && enabled,
   });
 }
 

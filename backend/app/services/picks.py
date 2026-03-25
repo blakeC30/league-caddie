@@ -58,17 +58,34 @@ def validate_new_pick(
     Validate all rules for a new pick submission.
     Raises HTTPException with an informative message on any failure.
     """
-    tournament = db.query(Tournament).filter_by(id=tournament_id).first()
-    if not tournament:
+    # ── Group 1: Tournament context (1 query) ──────────────────────────────
+    # Fetch tournament + league schedule membership + playoff round in one go.
+    tournament_row = (
+        db.query(Tournament, LeagueTournament, PlayoffRound)
+        .outerjoin(
+            LeagueTournament,
+            (LeagueTournament.tournament_id == Tournament.id)
+            & (LeagueTournament.league_id == league_id),
+        )
+        .outerjoin(
+            PlayoffConfig,
+            (PlayoffConfig.league_id == league_id) & (PlayoffConfig.season_id == season.id),
+        )
+        .outerjoin(
+            PlayoffRound,
+            (PlayoffRound.playoff_config_id == PlayoffConfig.id)
+            & (PlayoffRound.tournament_id == Tournament.id),
+        )
+        .filter(Tournament.id == tournament_id)
+        .first()
+    )
+
+    if not tournament_row:
         log.warning("Pick validation failed: tournament=%s not found", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
 
-    # League schedule check: the admin must have explicitly added this tournament.
-    in_schedule = (
-        db.query(LeagueTournament)
-        .filter_by(league_id=league_id, tournament_id=tournament_id)
-        .first()
-    )
+    tournament, in_schedule, playoff_round = tournament_row
+
     if not in_schedule:
         log.warning(
             "Pick validation failed: tournament=%s not in league=%s schedule",
@@ -80,19 +97,6 @@ def validate_new_pick(
             detail="This tournament is not in your league's schedule",
         )
 
-    # Block regular picks for playoff-designated tournaments. Playoff rounds use
-    # a preference/draft mechanism (PlayoffPick rows), not regular Pick records.
-    # Allowing a regular pick here would create a ghost record that doesn't count
-    # in standings but would still consume the golfer under the no-repeat rule.
-    playoff_round = (
-        db.query(PlayoffRound)
-        .join(PlayoffConfig, PlayoffRound.playoff_config_id == PlayoffConfig.id)
-        .filter(
-            PlayoffConfig.league_id == league_id,
-            PlayoffRound.tournament_id == tournament_id,
-        )
-        .first()
-    )
     if playoff_round:
         log.warning(
             "Pick validation failed: tournament=%s is a playoff tournament in league=%s",
@@ -115,17 +119,20 @@ def validate_new_pick(
         )
         raise HTTPException(status_code=400, detail="Tournament is already completed")
 
-    # Picks for a scheduled (upcoming) tournament are only allowed once the global
-    # PGA Tour schedule is clear: no tournament anywhere is in progress, and the
-    # most recently completed tournament's earnings have been published by ESPN.
-    # A league may skip PGA events; the real-world constraint (standings must be
-    # settled) applies globally regardless of the league's own schedule.
+    # ── Group 2: Pick window check (1 query) ─────────────────────────────
+    # For scheduled tournaments, fetch global tournament state in one query
+    # to determine: any in-progress? globally next? last completed?
     if tournament.status == TournamentStatus.SCHEDULED.value:
-        # Block while any PGA tournament globally is still in progress.
-        active = (
-            db.query(Tournament)
-            .filter(Tournament.status == TournamentStatus.IN_PROGRESS.value)
-            .first()
+        global_tournaments = (
+            db.query(Tournament.id, Tournament.name, Tournament.status, Tournament.start_date)
+            .filter(Tournament.status != TournamentStatus.COMPLETED.value)
+            .order_by(Tournament.start_date.asc())
+            .all()
+        )
+
+        active = next(
+            (t for t in global_tournaments if t.status == TournamentStatus.IN_PROGRESS.value),
+            None,
         )
         if active:
             log.warning(
@@ -140,14 +147,9 @@ def validate_new_pick(
                 ),
             )
 
-        # Block if the pick target is not the globally-next scheduled PGA tournament.
-        # Members cannot pick ahead — the league's pick target must align with what
-        # would naturally be next on the PGA Tour schedule.
-        globally_next = (
-            db.query(Tournament)
-            .filter(Tournament.status == TournamentStatus.SCHEDULED.value)
-            .order_by(Tournament.start_date.asc())
-            .first()
+        globally_next = next(
+            (t for t in global_tournaments if t.status == TournamentStatus.SCHEDULED.value),
+            None,
         )
         if globally_next and tournament.id != globally_next.id:
             log.warning(
@@ -163,10 +165,8 @@ def validate_new_pick(
                 ),
             )
 
-        # Block if the globally last-completed tournament's earnings haven't been
-        # published by ESPN yet.  score_picks() caches earnings in
-        # TournamentEntry.earnings_usd; if the field is synced but no earnings exist,
-        # official prize money hasn't been released and standings would be incorrect.
+        # Check earnings on last completed tournament (separate lightweight query —
+        # only runs for scheduled picks, not the hot path during live tournaments).
         last_completed = (
             db.query(Tournament)
             .filter(Tournament.status == TournamentStatus.COMPLETED.value)
@@ -174,20 +174,15 @@ def validate_new_pick(
             .first()
         )
         if last_completed:
-            entries_exist = (
-                db.query(TournamentEntry)
+            earnings_check = (
+                db.query(
+                    sqlfunc.count(TournamentEntry.id).label("total"),
+                    sqlfunc.count(TournamentEntry.earnings_usd).label("with_earnings"),
+                )
                 .filter(TournamentEntry.tournament_id == last_completed.id)
                 .first()
             )
-            any_earnings = (
-                db.query(TournamentEntry)
-                .filter(
-                    TournamentEntry.tournament_id == last_completed.id,
-                    TournamentEntry.earnings_usd.isnot(None),
-                )
-                .first()
-            )
-            if entries_exist and not any_earnings:
+            if earnings_check and earnings_check.total > 0 and earnings_check.with_earnings == 0:
                 log.warning(
                     "Pick validation failed: earnings not published for completed tournament=%s",
                     str(last_completed.id),
@@ -215,43 +210,66 @@ def validate_new_pick(
             detail="Picks can only be submitted for upcoming or live tournaments",
         )
 
-    golfer = db.query(Golfer).filter_by(id=golfer_id).first()
-    if not golfer:
+    # ── Group 3: Golfer validation (1 query) ─────────────────────────────
+    # Fetch golfer + field entry + no-repeat + duplicate check in one query.
+    golfer_row = (
+        db.query(
+            Golfer,
+            TournamentEntry,
+            db.query(Pick)
+            .filter_by(
+                league_id=league_id,
+                season_id=season.id,
+                user_id=user_id,
+                golfer_id=golfer_id,
+            )
+            .exists()
+            .label("already_used"),
+            db.query(Pick)
+            .filter_by(
+                league_id=league_id,
+                season_id=season.id,
+                user_id=user_id,
+                tournament_id=tournament_id,
+            )
+            .exists()
+            .label("has_pick_for_tournament"),
+        )
+        .outerjoin(
+            TournamentEntry,
+            (TournamentEntry.golfer_id == Golfer.id)
+            & (TournamentEntry.tournament_id == tournament_id),
+        )
+        .filter(Golfer.id == golfer_id)
+        .first()
+    )
+
+    if not golfer_row:
         log.warning("Pick validation failed: golfer=%s not found", str(golfer_id))
         raise HTTPException(status_code=404, detail="Golfer not found")
 
-    # Determine whether the official field has been released for this tournament.
-    # The field is considered released as soon as any TournamentEntry rows exist.
-    # Before release, any known golfer can be picked (they may or may not play).
+    golfer, entry, already_used, has_pick_for_tournament = golfer_row
+
+    # Determine whether the field has been released (any entries exist for this tournament).
     field_released = (
         db.query(TournamentEntry).filter_by(tournament_id=tournament_id).first() is not None
     )
 
-    entry: TournamentEntry | None = None
-    if field_released:
-        entry = (
-            db.query(TournamentEntry)
-            .filter_by(tournament_id=tournament_id, golfer_id=golfer_id)
-            .first()
+    if field_released and not entry:
+        log.warning(
+            "Pick validation failed: golfer=%s not in tournament=%s field",
+            str(golfer_id),
+            str(tournament_id),
         )
-        if not entry:
-            log.warning(
-                "Pick validation failed: golfer=%s not in tournament=%s field",
-                str(golfer_id),
-                str(tournament_id),
-            )
-            raise HTTPException(
-                status_code=400,
-                detail="Golfer is not entered in this tournament",
-            )
+        raise HTTPException(
+            status_code=400,
+            detail="Golfer is not entered in this tournament",
+        )
 
+    # ── Tee-time deadline check ──────────────────────────────────────────
     if tournament.status == TournamentStatus.SCHEDULED.value:
         now = datetime.now(UTC)
         if entry is not None and entry.tee_time is not None:
-            # Tee times are published — use the golfer's actual R1 tee time as the
-            # deadline, matching the rule exactly: "the pick locks when the picked
-            # golfer's Round 1 tee time passes." This unblocks late picks on
-            # tournament day when the scraper hasn't yet flipped status to IN_PROGRESS.
             if entry.tee_time <= now:
                 log.warning(
                     "Pick validation failed: golfer=%s already teed off, user=%s tournament=%s",
@@ -264,11 +282,6 @@ def validate_new_pick(
                     detail="Pick deadline has passed — golfer has already teed off",
                 )
         else:
-            # Tee times not yet available — fall back to start_date as the proxy.
-            # start_date is a calendar date (no time component), so comparing it to
-            # date.today() (server UTC) is correct: once the tournament day arrives,
-            # picks are blocked until tee times are synced and the specific golfer's
-            # time can be checked.
             if tournament.start_date <= date.today():
                 log.warning(
                     "Pick validation failed: tournament=%s already started, user=%s",
@@ -280,7 +293,6 @@ def validate_new_pick(
                     detail="Pick deadline has passed — the tournament has already started",
                 )
     else:
-        # IN_PROGRESS: field must be released and the golfer must not have teed off.
         now = datetime.now(UTC)
         if not field_released or entry is None or entry.tee_time is None or entry.tee_time <= now:
             log.warning(
@@ -297,18 +309,8 @@ def validate_new_pick(
                 ),
             )
 
-    # No-repeat: has this golfer already been picked this season?
-    repeated = (
-        db.query(Pick)
-        .filter_by(
-            league_id=league_id,
-            season_id=season.id,
-            user_id=user_id,
-            golfer_id=golfer_id,
-        )
-        .first()
-    )
-    if repeated:
+    # ── Group 4: No-repeat + duplicate (from Group 3 results) ────────────
+    if already_used:
         log.warning(
             "Pick validation failed: user=%s already picked golfer=%s this season in league=%s",
             str(user_id),
@@ -320,18 +322,7 @@ def validate_new_pick(
             detail=f"You have already picked {golfer.name} this season",
         )
 
-    # One pick per tournament.
-    duplicate = (
-        db.query(Pick)
-        .filter_by(
-            league_id=league_id,
-            season_id=season.id,
-            user_id=user_id,
-            tournament_id=tournament_id,
-        )
-        .first()
-    )
-    if duplicate:
+    if has_pick_for_tournament:
         log.warning(
             "Pick validation failed: user=%s already has pick for tournament=%s in league=%s",
             str(user_id),

@@ -21,6 +21,7 @@ import datetime
 import logging
 from datetime import UTC
 
+from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import (
@@ -53,6 +54,29 @@ def invalidate_standings_cache_for_league(db: Session, league_id) -> None:
     season = db.query(Season).filter_by(league_id=league_id, is_active=True).first()
     if season:
         invalidate_standings_cache(db, season)
+
+
+def refresh_standings_cache(db: Session, season: Season) -> None:
+    """Recompute and store standings immediately (write-through cache).
+
+    Called after score_picks and other write operations so the cache is always
+    warm. User requests hit the fresh cache instead of triggering recomputation.
+    """
+    league = db.query(League).filter_by(id=season.league_id).first()
+    if not league:
+        return
+    # Force past the TTL check by clearing first, then recomputing.
+    season.standings_cache = None
+    season.standings_cached_at = None
+    db.flush()
+    calculate_standings(db, league, season)
+
+
+def refresh_standings_cache_for_league(db: Session, league_id) -> None:
+    """Find the active season for a league and refresh its standings cache."""
+    season = db.query(Season).filter_by(league_id=league_id, is_active=True).first()
+    if season:
+        refresh_standings_cache(db, season)
 
 
 def calculate_standings(db: Session, league: League, season: Season) -> list[dict]:
@@ -138,41 +162,49 @@ def calculate_standings(db: Session, league: League, season: Season) -> list[dic
             for m in members
         ]
 
-    # Load all settled picks (points already calculated) for this league/season.
-    picks = (
-        db.query(Pick)
+    # Aggregate picks per user in SQL — avoids loading 15,000+ Pick ORM objects.
+    # Returns (user_id, sum_points, pick_count, best_week) per user.
+    completed_count = len(completed_ids)
+    pick_stats = (
+        db.query(
+            Pick.user_id,
+            sqlfunc.coalesce(sqlfunc.sum(Pick.points_earned), 0.0).label("sum_points"),
+            sqlfunc.count(Pick.id).label("pick_count"),
+            sqlfunc.coalesce(sqlfunc.max(Pick.points_earned), 0.0).label("best_week"),
+        )
         .filter(
             Pick.league_id == league.id,
             Pick.season_id == season.id,
             Pick.tournament_id.in_(completed_ids),
             Pick.points_earned.is_not(None),
         )
+        .group_by(Pick.user_id)
         .all()
     )
-
-    # Index picks by user for O(1) lookup.
-    picks_by_user: dict = {}
-    for pick in picks:
-        picks_by_user.setdefault(pick.user_id, []).append(pick)
+    stats_by_user = {row.user_id: row for row in pick_stats}
 
     standings = []
     for member in members:
-        user_picks = picks_by_user.get(member.user_id, [])
-        picked_ids = {p.tournament_id for p in user_picks}
-        total = sum(p.points_earned for p in user_picks)  # type: ignore[misc]
+        row = stats_by_user.get(member.user_id)
+        if row:
+            pick_count = row.pick_count
+            sum_points = float(row.sum_points)
+            best_week = float(row.best_week)
+        else:
+            pick_count = 0
+            sum_points = 0.0
+            best_week = 0.0
 
-        missed = completed_ids - picked_ids
-        total += len(missed) * league.no_pick_penalty
-
-        best_week = max((p.points_earned for p in user_picks), default=0.0)  # type: ignore[misc]
+        missed_count = completed_count - pick_count
+        total_points = sum_points + missed_count * league.no_pick_penalty
 
         standings.append(
             {
                 "user_id": member.user_id,
                 "display_name": member.user.display_name,
-                "total_points": total,
-                "pick_count": len(picked_ids),
-                "missed_count": len(missed),
+                "total_points": total_points,
+                "pick_count": pick_count,
+                "missed_count": missed_count,
                 "best_week": best_week,
                 "joined_at": member.joined_at,
             }

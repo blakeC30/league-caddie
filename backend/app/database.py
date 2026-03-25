@@ -18,7 +18,20 @@ from app.config import settings
 # pool_pre_ping=True sends a lightweight "ping" before using any connection
 # from the pool. This prevents errors if the database has restarted since
 # the connection was first created.
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+#
+# Pool sizing is configured per container via DB_POOL_SIZE / DB_MAX_OVERFLOW
+# env vars. Defaults: pool_size=5, max_overflow=10 (15 total).
+# Recommended per container:
+#   API:     pool_size=10, max_overflow=20 (30 total — handles traffic spikes)
+#   Scraper: pool_size=2,  max_overflow=3  (5 total — one sync at a time)
+#   Worker:  pool_size=2,  max_overflow=5  (7 total — one SQS message at a time)
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_recycle=1800,  # recycle connections after 30 min to prevent stale handles
+)
 
 # SessionLocal is a factory. Calling SessionLocal() creates a new Session object.
 # autocommit=False means we have to explicitly commit changes.

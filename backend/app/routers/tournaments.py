@@ -13,7 +13,10 @@ Endpoints:
 """
 
 import logging
+import threading
 import uuid
+from collections import OrderedDict
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session, joinedload
@@ -32,6 +35,37 @@ from app.schemas.tournament import (
 )
 
 log = logging.getLogger(__name__)
+
+# In-memory leaderboard cache keyed by (tournament_id, last_synced_at).
+# The leaderboard only changes when the scraper syncs, so all users viewing
+# the same tournament between syncs get the cached result.  LRU eviction
+# keeps memory bounded (~20 entries max ≈ a few MB).
+_LEADERBOARD_CACHE_MAX = 20
+_leaderboard_cache: OrderedDict[tuple[uuid.UUID, datetime | None], LeaderboardOut] = OrderedDict()
+_leaderboard_cache_lock = threading.Lock()
+
+
+def _get_cached_leaderboard(
+    tournament_id: uuid.UUID, last_synced_at: datetime | None
+) -> LeaderboardOut | None:
+    key = (tournament_id, last_synced_at)
+    with _leaderboard_cache_lock:
+        if key in _leaderboard_cache:
+            _leaderboard_cache.move_to_end(key)
+            return _leaderboard_cache[key]
+    return None
+
+
+def _set_cached_leaderboard(
+    tournament_id: uuid.UUID, last_synced_at: datetime | None, data: LeaderboardOut
+) -> None:
+    key = (tournament_id, last_synced_at)
+    with _leaderboard_cache_lock:
+        _leaderboard_cache[key] = data
+        _leaderboard_cache.move_to_end(key)
+        while len(_leaderboard_cache) > _LEADERBOARD_CACHE_MAX:
+            _leaderboard_cache.popitem(last=False)
+
 
 router = APIRouter(prefix="/tournaments", tags=["tournaments"])
 
@@ -105,15 +139,15 @@ def get_tournament_field(
 
     entries = (
         db.query(TournamentEntry)
-        .filter_by(tournament_id=tournament_id)
+        .filter(
+            TournamentEntry.tournament_id == tournament_id,
+            (TournamentEntry.status != "WD") | (TournamentEntry.status.is_(None)),
+        )
         .options(joinedload(TournamentEntry.golfer))
         .join(TournamentEntry.golfer)
         .order_by(Golfer.world_ranking.asc().nulls_last())
         .all()
     )
-
-    # Exclude withdrawn golfers — they are no longer competing and cannot be picked.
-    entries = [e for e in entries if e.status != "WD"]
 
     return [
         GolferInFieldOut(
@@ -145,6 +179,12 @@ def get_leaderboard(
     if not tournament:
         log.warning("Leaderboard requested for unknown tournament: %s", str(tournament_id))
         raise HTTPException(status_code=404, detail="Tournament not found")
+
+    # Return cached leaderboard if available (same tournament + same sync timestamp).
+    cached = _get_cached_leaderboard(tournament_id, tournament.last_synced_at)
+    if cached is not None:
+        return cached
+
     if tournament.status == TournamentStatus.SCHEDULED.value:
         # Allow the leaderboard if at least one golfer's R1 tee time has passed —
         # the scraper may not have flipped the status to in_progress yet.
@@ -327,7 +367,7 @@ def get_leaderboard(
             )
         )
 
-    return LeaderboardOut(
+    result = LeaderboardOut(
         tournament_id=str(tournament_id),
         tournament_name=tournament.name,
         tournament_status=tournament.status,
@@ -335,6 +375,8 @@ def get_leaderboard(
         last_synced_at=tournament.last_synced_at,
         entries=result_entries,
     )
+    _set_cached_leaderboard(tournament_id, tournament.last_synced_at, result)
+    return result
 
 
 @router.get("/{tournament_id}/sync-status", response_model=TournamentSyncStatusOut)

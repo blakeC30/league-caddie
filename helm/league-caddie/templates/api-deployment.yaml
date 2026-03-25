@@ -93,6 +93,11 @@ spec:
                   name: {{ include "league-caddie.secretName" . }}
                   key: STRIPE_WEBHOOK_SECRET
 
+            # --- DB pool (per-container) ---
+            - name: DB_POOL_SIZE
+              value: "10"
+            - name: DB_MAX_OVERFLOW
+              value: "20"
             # --- ConfigMap (non-secret) ---
             - name: ENVIRONMENT
               valueFrom:

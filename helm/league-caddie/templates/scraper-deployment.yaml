@@ -66,6 +66,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "league-caddie.secretName" . }}
                   key: AWS_SECRET_ACCESS_KEY
+            # --- DB pool (per-container) ---
+            - name: DB_POOL_SIZE
+              value: "2"
+            - name: DB_MAX_OVERFLOW
+              value: "3"
             - name: ENVIRONMENT
               valueFrom:
                 configMapKeyRef:

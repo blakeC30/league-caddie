@@ -738,10 +738,10 @@ def import_picks(
                 exc,
             )
 
-    # Invalidate standings cache
-    from app.services.scoring import invalidate_standings_cache
+    # Refresh standings cache (write-through)
+    from app.services.scoring import refresh_standings_cache
 
-    invalidate_standings_cache(db, season)
+    refresh_standings_cache(db, season)
     db.commit()
 
     result = {

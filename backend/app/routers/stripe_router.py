@@ -551,6 +551,11 @@ def _handle_checkout_complete(session: dict, db: Session) -> None:
             )
         )
 
+        # Mark the league as having an active purchase (denormalized flag).
+        league_obj = db.query(League).filter_by(id=league_id).first()
+        if league_obj:
+            league_obj.has_active_purchase = True
+
         db.commit()
         log.info(
             "Created league %s %r for user %s (tier=%r season=%s)",
@@ -633,6 +638,11 @@ def _handle_checkout_complete(session: dict, db: Session) -> None:
             paid_at=paid_at,
         )
     )
+
+    # Mark the league as having an active purchase (denormalized flag).
+    league_obj = db.query(League).filter_by(id=league_id).first()
+    if league_obj:
+        league_obj.has_active_purchase = True
 
     db.commit()
     log.info(

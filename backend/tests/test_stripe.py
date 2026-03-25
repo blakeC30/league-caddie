@@ -50,7 +50,13 @@ def _make_user(db, email: str, *, is_platform_admin: bool = False) -> User:
 
 
 def _make_league(db, creator: User) -> League:
-    league = League(name="Test League", created_by=creator.id)
+    is_admin = getattr(creator, "is_platform_admin", False)
+    league = League(
+        name="Test League",
+        created_by=creator.id,
+        is_admin_league=is_admin,
+        has_active_purchase=is_admin,
+    )
     db.add(league)
     db.flush()
     db.add(
@@ -81,6 +87,7 @@ def _make_purchase(db, league: League, *, tier: str = "elite") -> LeaguePurchase
         paid_at=datetime.now(UTC),
     )
     db.add(purchase)
+    league.has_active_purchase = True
     db.commit()
     db.refresh(purchase)
     return purchase
