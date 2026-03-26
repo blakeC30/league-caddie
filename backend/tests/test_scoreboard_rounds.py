@@ -6,8 +6,17 @@ Covers:
   - Round transition detection (scoreboard mode fallback to linescores)
 """
 
+import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+from app.models import (
+    Golfer,
+    Tournament,
+    TournamentEntry,
+    TournamentEntryRound,
+    TournamentStatus,
+)
 from app.services.scraper import _fetch_scoreboard_rounds
 
 
@@ -196,3 +205,228 @@ class TestFetchScoreboardRounds:
             result = _fetch_scoreboard_rounds("500")
 
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Round transition detection — integration tests using the DB
+# ---------------------------------------------------------------------------
+
+
+def _make_db_tournament(db, *, status="in_progress") -> Tournament:
+    """Create a tournament in the test DB."""
+    t = Tournament(
+        pga_tour_id=str(uuid.uuid4())[:8],
+        name="Test Tournament",
+        start_date=datetime.now(UTC).date() - timedelta(days=1),
+        end_date=datetime.now(UTC).date() + timedelta(days=2),
+        status=status,
+    )
+    db.add(t)
+    db.flush()
+    return t
+
+
+def _make_db_golfer(db, pga_id: str = "12345") -> Golfer:
+    g = Golfer(pga_tour_id=pga_id, name=f"Golfer {pga_id}")
+    db.add(g)
+    db.flush()
+    return g
+
+
+def _make_db_entry(db, tournament, golfer, *, tee_time=None) -> TournamentEntry:
+    e = TournamentEntry(
+        tournament_id=tournament.id,
+        golfer_id=golfer.id,
+        tee_time=tee_time,
+    )
+    db.add(e)
+    db.flush()
+    return e
+
+
+def _make_db_round(db, entry, round_number, *, tee_time=None) -> TournamentEntryRound:
+    r = TournamentEntryRound(
+        tournament_entry_id=entry.id,
+        round_number=round_number,
+        tee_time=tee_time,
+    )
+    db.add(r)
+    db.flush()
+    return r
+
+
+class TestScoreboardModeDecision:
+    """Test the use_scoreboard decision logic in sync_tournament.
+
+    These tests verify the conditions under which sync_tournament chooses
+    scoreboard mode vs linescores mode, including round transition detection.
+    """
+
+    def _get_use_scoreboard(self, db, tournament, event_data: dict, force=False):
+        """Replicate the use_scoreboard decision logic from sync_tournament."""
+        from sqlalchemy import func as sqlfunc
+
+        from app.services.picks import all_r1_teed_off
+
+        if tournament.status != TournamentStatus.IN_PROGRESS.value or force:
+            return False
+
+        if not all_r1_teed_off(db, tournament.id):
+            return False
+
+        espn_period = None
+        try:
+            espn_period = int(event_data.get("status", {}).get("period", 0))
+        except (TypeError, ValueError):
+            pass
+
+        max_round_with_tee = (
+            db.query(sqlfunc.max(TournamentEntryRound.round_number))
+            .join(
+                TournamentEntry,
+                TournamentEntryRound.tournament_entry_id == TournamentEntry.id,
+            )
+            .filter(
+                TournamentEntry.tournament_id == tournament.id,
+                TournamentEntryRound.tee_time.isnot(None),
+            )
+            .scalar()
+        ) or 0
+
+        if espn_period and espn_period > max_round_with_tee:
+            return False
+
+        return True
+
+    def test_scheduled_tournament_uses_linescores(self, db):
+        """Scheduled tournaments always use linescores (need tee times)."""
+        t = _make_db_tournament(db, status="scheduled")
+        assert self._get_use_scoreboard(db, t, {}) is False
+
+    def test_completed_tournament_uses_linescores(self, db):
+        """Completed tournaments always use linescores (full historical data)."""
+        t = _make_db_tournament(db, status="completed")
+        assert self._get_use_scoreboard(db, t, {}) is False
+
+    def test_force_sync_uses_linescores(self, db):
+        """Force sync always uses linescores even if all R1 teed off."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "force1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        db.commit()
+
+        assert self._get_use_scoreboard(db, t, {"status": {"period": 1}}, force=True) is False
+
+    def test_r1_not_teed_off_uses_linescores(self, db):
+        """Before all R1 tee times pass, linescores are used for pick-locking accuracy."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "notteed1")
+        # Tee time in the future — not yet teed off
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) + timedelta(hours=2))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) + timedelta(hours=2))
+        db.commit()
+
+        assert self._get_use_scoreboard(db, t, {"status": {"period": 1}}) is False
+
+    def test_all_r1_teed_off_same_round_uses_scoreboard(self, db):
+        """After all R1 teed off and ESPN is on the same round, use scoreboard."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "teed1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        db.commit()
+
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 1}})
+        assert result is True
+
+    def test_round_transition_r1_to_r2_uses_linescores(self, db):
+        """When ESPN reports Round 2 but we only have R1 tee times, use linescores."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "trans1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=20))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=20))
+        db.commit()
+
+        # ESPN says Round 2, but we only have R1 tee times
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 2}})
+        assert result is False
+
+    def test_round_transition_resolved_uses_scoreboard(self, db):
+        """After R2 tee times are fetched, scoreboard mode resumes."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "resolved1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=20))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=20))
+        _make_db_round(db, e, 2, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        db.commit()
+
+        # ESPN says Round 2 and we have R2 tee times
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 2}})
+        assert result is True
+
+    def test_round_transition_r2_to_r3(self, db):
+        """Round 3 start with only R1+R2 tee times triggers linescores."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "r3trans1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=30))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=30))
+        _make_db_round(db, e, 2, tee_time=datetime.now(UTC) - timedelta(hours=10))
+        db.commit()
+
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 3}})
+        assert result is False
+
+    def test_r2_tee_times_null_stays_in_linescores(self, db):
+        """R2 round exists but tee_time is NULL — ESPN hasn't published yet."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "nulltee1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=20))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=20))
+        _make_db_round(db, e, 2, tee_time=None)  # No tee time yet
+        db.commit()
+
+        # ESPN period=2, but max round with tee_time is still 1
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 2}})
+        assert result is False
+
+    def test_no_espn_period_defaults_to_scoreboard(self, db):
+        """If event_data has no period info, no transition is detected."""
+        t = _make_db_tournament(db)
+        g = _make_db_golfer(db, "noperiod1")
+        e = _make_db_entry(db, t, g, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        _make_db_round(db, e, 1, tee_time=datetime.now(UTC) - timedelta(hours=3))
+        db.commit()
+
+        # Empty event_data — espn_period will be 0 (falsy), skip transition check
+        result = self._get_use_scoreboard(db, t, {})
+        assert result is True
+
+    def test_multiple_golfers_all_teed_off(self, db):
+        """Scoreboard mode works with multiple golfers, all teed off."""
+        t = _make_db_tournament(db)
+        for i in range(5):
+            g = _make_db_golfer(db, f"multi{i}")
+            tee = datetime.now(UTC) - timedelta(hours=3, minutes=i * 10)
+            e = _make_db_entry(db, t, g, tee_time=tee)
+            _make_db_round(db, e, 1, tee_time=tee)
+        db.commit()
+
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 1}})
+        assert result is True
+
+    def test_one_golfer_not_teed_off_blocks_scoreboard(self, db):
+        """If even one golfer hasn't teed off in R1, stay in linescores."""
+        t = _make_db_tournament(db)
+        g1 = _make_db_golfer(db, "block1")
+        g2 = _make_db_golfer(db, "block2")
+        past = datetime.now(UTC) - timedelta(hours=3)
+        future = datetime.now(UTC) + timedelta(hours=1)
+        e1 = _make_db_entry(db, t, g1, tee_time=past)
+        _make_db_round(db, e1, 1, tee_time=past)
+        e2 = _make_db_entry(db, t, g2, tee_time=future)
+        _make_db_round(db, e2, 1, tee_time=future)
+        db.commit()
+
+        result = self._get_use_scoreboard(db, t, {"status": {"period": 1}})
+        assert result is False

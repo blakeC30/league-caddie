@@ -79,6 +79,7 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+from sqlalchemy import func as sqlfunc
 from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
@@ -2136,13 +2137,50 @@ def sync_tournament(
     # Optimization: once all R1 tee times have passed (picks are locked), use the
     # scoreboard (1 request) instead of per-golfer /linescores (135 requests).
     # Only for in_progress tournaments and non-force syncs.
+    #
+    # Exception: on round transitions (new round started but we don't have tee
+    # times for it yet), fall back to linescores for one cycle to fetch the new
+    # round's tee times, then resume scoreboard mode on the next cycle.
     use_scoreboard = False
     if tournament.status == TournamentStatus.IN_PROGRESS.value and not force:
         from app.services.picks import all_r1_teed_off as _check_teed_off
 
         if _check_teed_off(db, tournament.id):
-            use_scoreboard = True
-            log.info("Tournament '%s': all R1 teed off — using scoreboard mode", tournament.name)
+            # Check for round transition: does the event detail report a round
+            # number higher than the max round we have tee times for?
+            espn_period = None
+            try:
+                espn_period = int(event_data.get("status", {}).get("period", 0))
+            except (TypeError, ValueError):
+                pass
+
+            max_round_with_tee = (
+                db.query(sqlfunc.max(TournamentEntryRound.round_number))
+                .join(
+                    TournamentEntry,
+                    TournamentEntryRound.tournament_entry_id == TournamentEntry.id,
+                )
+                .filter(
+                    TournamentEntry.tournament_id == tournament.id,
+                    TournamentEntryRound.tee_time.isnot(None),
+                )
+                .scalar()
+            ) or 0
+
+            if espn_period and espn_period > max_round_with_tee:
+                log.info(
+                    "Tournament '%s': round transition (ESPN R%d, "
+                    "DB tee R%d) — linescores for tee times",
+                    tournament.name,
+                    espn_period,
+                    max_round_with_tee,
+                )
+            else:
+                use_scoreboard = True
+                log.info(
+                    "Tournament '%s': scoreboard mode (all R1 teed off)",
+                    tournament.name,
+                )
 
     try:
         if tournament.is_team_event:
