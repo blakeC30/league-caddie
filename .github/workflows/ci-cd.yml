@@ -412,3 +412,6 @@ jobs:
 
       - name: Verify rollout (prod)
         run: kubectl rollout status deployment -n prod --timeout=120s
+
+      - name: Prune old container images
+        run: sudo k3s crictl rmi --prune 2>/dev/null || true
