@@ -177,8 +177,16 @@ export function PicksTable({
           ? { playoffPickNames }
           : undefined;
 
-        const hasMissedRegularPick = !isPlayoffTournament && !pick && completedTournaments.some((t) => t.id === tournament.id);
-        const hasPlayoffPenalty = isPlayoffTournament && tournament.status === "completed" && playoffData && playoffData.picks.length === 0;
+        // Only show missed-pick styling when picks are revealed. When viewing
+        // another member, unrevealed tournaments (next scheduled or live before
+        // all R1 tee-off) have no pick data — the red border would leak that
+        // the member hasn't picked.
+        const isPickHidden = !isViewingSelf && (
+          tournament.id === nextTournament?.id ||
+          (tournament.id === liveTournament?.id && !liveTournament?.all_r1_teed_off)
+        );
+        const hasMissedRegularPick = !isPickHidden && !isPlayoffTournament && !pick && completedTournaments.some((t) => t.id === tournament.id);
+        const hasPlayoffPenalty = !isPickHidden && isPlayoffTournament && tournament.status === "completed" && playoffData && playoffData.picks.length === 0;
         const rowClass = `bg-white border rounded-xl p-5 flex items-center justify-between gap-4 transition-all ${
           hasMissedRegularPick || hasPlayoffPenalty
             ? "border-red-100"

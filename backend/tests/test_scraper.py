@@ -99,11 +99,11 @@ SCOREBOARD_PAYLOAD_NESTED = {
 
 class TestParseScheduleResponse:
     def test_extracts_both_events(self):
-        result = parse_schedule_response(SCOREBOARD_PAYLOAD)
+        result, _ = parse_schedule_response(SCOREBOARD_PAYLOAD)
         assert len(result) == 2
 
     def test_extracts_correct_fields(self):
-        result = parse_schedule_response(SCOREBOARD_PAYLOAD)
+        result, _ = parse_schedule_response(SCOREBOARD_PAYLOAD)
         masters = next(t for t in result if t["pga_tour_id"] == "401580001")
 
         assert masters["name"] == "The Masters"
@@ -116,22 +116,22 @@ class TestParseScheduleResponse:
 
     def test_handles_nested_leagues_structure(self):
         """ESPN sometimes wraps events under leagues[i].events."""
-        result = parse_schedule_response(SCOREBOARD_PAYLOAD_NESTED)
+        result, _ = parse_schedule_response(SCOREBOARD_PAYLOAD_NESTED)
         assert len(result) == 2
 
     def test_status_mapping(self):
-        result = parse_schedule_response(SCOREBOARD_PAYLOAD)
+        result, _ = parse_schedule_response(SCOREBOARD_PAYLOAD)
         pebble = next(t for t in result if t["pga_tour_id"] == "401580002")
         assert pebble["status"] == "scheduled"
 
     def test_skips_events_without_id(self):
         data = {"events": [{"name": "No ID Event", "date": "2025-01-01T00:00Z"}]}
-        result = parse_schedule_response(data)
+        result, _ = parse_schedule_response(data)
         assert result == []
 
     def test_skips_events_without_date(self):
         data = {"events": [{"id": "123", "name": "No Date", "competitions": [{}]}]}
-        result = parse_schedule_response(data)
+        result, _ = parse_schedule_response(data)
         assert result == []
 
     def test_falls_back_to_event_date_if_no_competition(self):
@@ -146,38 +146,38 @@ class TestParseScheduleResponse:
                 }
             ]
         }
-        result = parse_schedule_response(data)
+        result, _ = parse_schedule_response(data)
         assert len(result) == 1
         assert result[0]["start_date"] == date(2025, 7, 1)
         # end_date falls back to start_date + 3 days
         assert result[0]["end_date"] == date(2025, 7, 4)
 
     def test_empty_response(self):
-        assert parse_schedule_response({}) == []
-        assert parse_schedule_response({"events": []}) == []
+        assert parse_schedule_response({}) == ([], {})
+        assert parse_schedule_response({"events": []}) == ([], {})
 
     def test_individual_event_not_team(self):
         """Standard individual tournaments must have is_team_event=False."""
-        result = parse_schedule_response(SCOREBOARD_PAYLOAD)
+        result, _ = parse_schedule_response(SCOREBOARD_PAYLOAD)
         masters = next(t for t in result if t["pga_tour_id"] == "401580001")
         assert masters["is_team_event"] is False
 
     def test_individual_event_competition_id_matches_event_id(self):
         """For standard tournaments, competition_id should equal pga_tour_id."""
-        result = parse_schedule_response(SCOREBOARD_PAYLOAD)
+        result, _ = parse_schedule_response(SCOREBOARD_PAYLOAD)
         masters = next(t for t in result if t["pga_tour_id"] == "401580001")
         assert masters["competition_id"] == "401580001"
 
     def test_team_event_detected(self):
         """Zurich-style events with type='team' competitors must set is_team_event=True."""
-        result = parse_schedule_response(TEAM_EVENT_PAYLOAD)
+        result, _ = parse_schedule_response(TEAM_EVENT_PAYLOAD)
         assert len(result) == 1
         zurich = result[0]
         assert zurich["is_team_event"] is True
 
     def test_team_event_competition_id_differs_from_event_id(self):
         """Team events expose a different competition id (e.g. '11450' vs '401703507')."""
-        result = parse_schedule_response(TEAM_EVENT_PAYLOAD)
+        result, _ = parse_schedule_response(TEAM_EVENT_PAYLOAD)
         zurich = result[0]
         assert zurich["pga_tour_id"] == "401703507"
         assert zurich["competition_id"] == "11450"
