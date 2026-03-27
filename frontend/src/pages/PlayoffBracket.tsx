@@ -15,7 +15,7 @@ import { useAuthStore } from "../store/authStore";
 import { useBracket } from "../hooks/usePlayoff";
 import { Spinner } from "../components/Spinner";
 import { useStandings } from "../hooks/usePick";
-import { useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
+import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { FlagIcon } from "../components/FlagIcon";
 import { fmtTournamentName } from "../utils";
 import { tournamentsApi } from "../api/endpoints";
@@ -220,7 +220,7 @@ function StatusPill({ status }: { status: string }) {
     drafting:  "bg-amber-100 text-amber-700",
     locked:    "bg-yellow-100 text-yellow-800",
     scoring:   "bg-orange-100 text-orange-700",
-    completed: "bg-green-100 text-green-700",
+    completed: "bg-gray-100 text-gray-600",
   };
   const label: Record<string, string> = {
     pending: "Upcoming",
@@ -248,12 +248,14 @@ function PodModal({
   leagueId,
   currentUserId,
   picksPerRound,
+  noPickPenalty,
   onClose,
 }: {
   selected: SelectedPod;
   leagueId: string;
   currentUserId: string | null;
   picksPerRound?: number[];
+  noPickPenalty?: number;
   onClose: () => void;
 }) {
   // Extract live-pod fields before any early returns (Rules of Hooks).
@@ -475,6 +477,11 @@ function PodModal({
                     return (
                       <div key={`no-pick-${member.user_id}-${i}`} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-gray-50">
                         <span className="flex-1 text-xs font-medium text-red-400">No pick</span>
+                        {isCompleted && noPickPenalty != null && (
+                          <span className="text-xs font-semibold text-red-500 tabular-nums">
+                            ${Math.round(noPickPenalty).toLocaleString()}
+                          </span>
+                        )}
                       </div>
                     );
                   })}
@@ -648,6 +655,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
   useEffect(() => {
     document.title = "Playoff Bracket — League Caddie";
   }, []);
+  const { data: league } = useLeague(leagueId!);
   const { data: bracket, isLoading: bracketLoading } = useBracket(leagueId!);
   const { data: standingsData, isLoading: standingsLoading } = useStandings(leagueId!);
   const { data: leagueTournaments } = useLeagueTournaments(leagueId!);
@@ -792,6 +800,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
             leagueId={leagueId!}
             currentUserId={currentUser?.id ?? null}
             picksPerRound={config.picks_per_round}
+            noPickPenalty={league?.no_pick_penalty}
             onClose={() => setSelectedPod(null)}
           />
         )}
@@ -894,6 +903,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
           leagueId={leagueId!}
           currentUserId={currentUser?.id ?? null}
           picksPerRound={config.picks_per_round}
+          noPickPenalty={league?.no_pick_penalty}
           onClose={() => setSelectedPod(null)}
         />
       )}

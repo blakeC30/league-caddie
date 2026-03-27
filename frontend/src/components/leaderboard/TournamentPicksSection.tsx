@@ -539,6 +539,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                       g.pickers.some((p) => p.user_id === currentUserId)
                     )?.golfer_name ?? null
                   }
+                  effectiveMultiplier={selectedTournament?.effective_multiplier}
                 />
               )}
             </div>

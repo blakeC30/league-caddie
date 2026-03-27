@@ -14,6 +14,7 @@ export interface PickBarChartProps {
   noPickMembers: string[];
   isCompleted: boolean;
   myGolferName: string | null; // golfer the current user picked, or null if no pick
+  effectiveMultiplier?: number;
 }
 
 type Bar = {
@@ -21,11 +22,12 @@ type Bar = {
   fullName: string;
   count: number;
   points: number | null;
+  earnings: number | null;
   names: string[];
 };
 
-export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName }: PickBarChartProps) {
-  const [tooltip, setTooltip] = useState<string | null>(null);
+export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName, effectiveMultiplier }: PickBarChartProps) {
+  const [tooltip, setTooltip] = useState<{ header: string; names: string } | null>(null);
 
   const bars = useMemo(() => {
     // Sort by pick count desc, then alphabetically by last name for ties.
@@ -39,6 +41,7 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName 
       fullName: g.golfer_name,
       count: g.pick_count,
       points: isCompleted ? (g.pickers[0]?.points_earned ?? null) : null,
+      earnings: isCompleted ? (g.earnings_usd ?? 0) : null,
       names: g.pickers.map((p) => p.display_name),
     }));
 
@@ -49,6 +52,7 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName 
         fullName: "No Pick",
         count: noPickMembers.length,
         points: null,
+        earnings: null,
         names: noPickMembers,
       });
     }
@@ -79,11 +83,22 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName 
     return "text-gray-400";
   }
 
-  function buildTooltip(b: Bar): string {
-    if (b.names.length) {
-      return `${b.fullName}: ${[...b.names].sort((a, c) => a.localeCompare(c)).join(", ")}`;
+  function buildTooltip(b: Bar): { header: string; names: string } {
+    let earningsStr = "";
+    if (b.earnings != null) {
+      const mult = effectiveMultiplier ?? 1;
+      if (mult > 1) {
+        const multiplied = Math.round(b.earnings * mult);
+        earningsStr = ` — $${b.earnings.toLocaleString()} (${mult}× = $${multiplied.toLocaleString()})`;
+      } else {
+        earningsStr = ` — $${b.earnings.toLocaleString()}`;
+      }
     }
-    return b.label === "No Pick" ? "No pick submitted" : b.fullName;
+    const header = b.label === "No Pick" ? "No Pick" : `${b.fullName}${earningsStr}`;
+    const names = b.names.length
+      ? [...b.names].sort((a, c) => a.localeCompare(c)).join(", ")
+      : "";
+    return { header, names };
   }
 
   return (
@@ -98,8 +113,8 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName 
                 key={b.fullName}
                 className="flex-1 h-full flex flex-col justify-end items-center cursor-pointer group"
                 onClick={() => {
-                  const text = buildTooltip(b);
-                  setTooltip((prev) => (prev === text ? null : text));
+                  const tt = buildTooltip(b);
+                  setTooltip((prev) => (prev?.header === tt.header ? null : tt));
                 }}
               >
                 {/* Count label sits directly above the bar, pushed down by flex justify-end */}
@@ -136,7 +151,10 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName 
 
       {/* Tooltip */}
       {tooltip && (
-        <p className="text-xs text-gray-600 bg-gray-100 rounded px-3 py-1.5 mt-1">{tooltip}</p>
+        <div className="text-xs bg-gray-100 rounded-lg px-3 py-2 mt-1 space-y-1">
+          <p className="font-semibold text-gray-800">{tooltip.header}</p>
+          {tooltip.names && <p className="text-gray-600">{tooltip.names}</p>}
+        </div>
       )}
     </div>
   );
