@@ -510,6 +510,7 @@ def _fetch_tournament_data(
     fetch_round_data: bool = False,
     scoreboard_athletes: dict[str, dict] | None = None,
     use_scoreboard_rounds: bool = False,
+    prefetched_sb_rounds: dict[str, list[dict]] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """
     Fetch the golfer field and finish order for one individual (non-team) tournament.
@@ -596,7 +597,8 @@ def _fetch_tournament_data(
     _used_scoreboard = False
     if fetch_round_data and all_athlete_ids:
         if use_scoreboard_rounds:
-            sb_rounds = _fetch_scoreboard_rounds(pga_tour_id)
+            # Use prefetched scoreboard data if available, otherwise fetch.
+            sb_rounds = prefetched_sb_rounds or _fetch_scoreboard_rounds(pga_tour_id)
             if sb_rounds is not None:
                 rounds_by_athlete = sb_rounds
                 _used_scoreboard = True
@@ -790,6 +792,7 @@ def _fetch_team_field(
     fetch_round_data: bool = False,
     scoreboard_athletes: dict[str, dict] | None = None,
     use_scoreboard_rounds: bool = False,
+    prefetched_sb_rounds: dict[str, list[dict]] | None = None,
 ) -> tuple[list[dict], list[dict]]:
     """
     Fetch the individual golfer field for a team-format tournament.
@@ -890,7 +893,7 @@ def _fetch_team_field(
     _used_scoreboard_team = False
     if fetch_round_data and team_entries:
         if use_scoreboard_rounds:
-            sb_rounds = _fetch_scoreboard_rounds(pga_tour_id)
+            sb_rounds = prefetched_sb_rounds or _fetch_scoreboard_rounds(pga_tour_id)
             if sb_rounds is not None:
                 rounds_by_athlete = sb_rounds
                 _used_scoreboard_team = True
@@ -2141,19 +2144,29 @@ def sync_tournament(
     # Exception: on round transitions (new round started but we don't have tee
     # times for it yet), fall back to linescores for one cycle to fetch the new
     # round's tee times, then resume scoreboard mode on the next cycle.
+    #
+    # Round transition detection: fetch the scoreboard, find the max round number
+    # across all competitors, and compare with the max round that has tee_time
+    # data in our DB. If scoreboard shows a higher round → linescores needed.
     use_scoreboard = False
+    _prefetched_sb_rounds: dict[str, list[dict]] | None = None
     if tournament.status == TournamentStatus.IN_PROGRESS.value and not force:
         from app.services.picks import all_r1_teed_off as _check_teed_off
 
         if _check_teed_off(db, tournament.id):
-            # Check for round transition: does the event detail report a round
-            # number higher than the max round we have tee times for?
-            espn_period = None
-            try:
-                espn_period = int(event_data.get("status", {}).get("period", 0))
-            except (TypeError, ValueError):
-                pass
+            # Fetch the scoreboard to check for round transitions AND
+            # potentially use as round data (avoids fetching it twice).
+            _prefetched_sb_rounds = _fetch_scoreboard_rounds(pga_tour_id)
 
+            # Max round in the scoreboard data.
+            sb_max_round = 0
+            if _prefetched_sb_rounds:
+                for rounds in _prefetched_sb_rounds.values():
+                    for rd in rounds:
+                        if rd["round_number"] > sb_max_round:
+                            sb_max_round = rd["round_number"]
+
+            # Max round in our DB that has tee_time populated.
             max_round_with_tee = (
                 db.query(sqlfunc.max(TournamentEntryRound.round_number))
                 .join(
@@ -2167,18 +2180,17 @@ def sync_tournament(
                 .scalar()
             ) or 0
 
-            if espn_period and espn_period > max_round_with_tee:
+            if sb_max_round > max_round_with_tee:
                 log.info(
-                    "Tournament '%s': round transition (ESPN R%d, "
-                    "DB tee R%d) — linescores for tee times",
+                    "Tournament '%s': round transition (scoreboard R%d, DB tee R%d) — linescores",
                     tournament.name,
-                    espn_period,
+                    sb_max_round,
                     max_round_with_tee,
                 )
             else:
                 use_scoreboard = True
                 log.info(
-                    "Tournament '%s': scoreboard mode (all R1 teed off)",
+                    "Tournament '%s': scoreboard mode (all R1 teed off, no round transition)",
                     tournament.name,
                 )
 
@@ -2193,6 +2205,7 @@ def sync_tournament(
                 fetch_round_data=should_fetch_round_data,
                 scoreboard_athletes=scoreboard_athletes,
                 use_scoreboard_rounds=use_scoreboard,
+                prefetched_sb_rounds=_prefetched_sb_rounds,
             )
         else:
             golfers, results = _fetch_tournament_data(
@@ -2201,6 +2214,7 @@ def sync_tournament(
                 fetch_round_data=should_fetch_round_data,
                 scoreboard_athletes=scoreboard_athletes,
                 use_scoreboard_rounds=use_scoreboard,
+                prefetched_sb_rounds=_prefetched_sb_rounds,
             )
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.error("Failed to fetch field for %s: %s", pga_tour_id, exc)
