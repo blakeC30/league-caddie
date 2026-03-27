@@ -549,6 +549,16 @@ export function TournamentDetail() {
       )
     : 0;
 
+  // True when every golfer who has data for the current round has finished it
+  // (thru=18). Used to decide whether to show next-round tee times or "F".
+  const allFinishedCurrentRound = !isCompleted && currentRoundNumber > 0
+    && leaderboard.entries.every((e) => {
+      const rd = e.rounds.find((x) => x.round_number === currentRoundNumber);
+      // Golfers with no data for this round (CUT/WD) don't block the check.
+      if (!rd) return true;
+      return rd.thru === 18;
+    });
+
   // For team events, deduplicate entries so each pair appears once.
   // Both partners share the same position/score — we keep the first occurrence
   // of each team (by sort order) and skip the partner entry when we encounter it.
@@ -816,18 +826,13 @@ export function TournamentDetail() {
                           const notStarted = currentRd === null || (currentRd.thru === null || currentRd.thru === 0);
                           const todayStp = !notStarted ? currentRd!.score_to_par : null;
                           const nextRd = entry.rounds.find((x) => x.round_number === currentRoundNumber + 1) ?? null;
-                          // Only show the next round's tee time if it's today — showing
-                          // tomorrow's tee time when the current round just finished is confusing.
-                          const nextRdIsToday = nextRd?.tee_time
-                            ? new Date(nextRd.tee_time).toDateString() === new Date().toDateString()
-                            : false;
                           const thruLabel = notStarted
                             ? currentRd?.tee_time
                                 ? new Date(currentRd.tee_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
                                   (currentRd.started_on_back ? "*" : "")
                                 : "—"
                             : currentRd!.thru === 18
-                            ? nextRd?.tee_time && nextRdIsToday
+                            ? allFinishedCurrentRound && nextRd?.tee_time
                                 ? new Date(nextRd.tee_time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) +
                                   (nextRd.started_on_back ? "*" : "")
                                 : "F"
