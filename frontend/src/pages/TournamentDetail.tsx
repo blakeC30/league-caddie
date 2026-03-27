@@ -359,6 +359,7 @@ export function TournamentDetail() {
   const { leagueId, tournamentId } = useParams<{ leagueId: string; tournamentId: string }>();
   const location = useLocation();
   const [expandedGolferId, setExpandedGolferId] = useState<string | null>(null);
+  const [leaderboardSearch, setLeaderboardSearch] = useState("");
 
   useEffect(() => {
     document.title = "Tournament — League Caddie";
@@ -617,6 +618,12 @@ export function TournamentDetail() {
       });
     }
 
+    // Apply search filter
+    if (leaderboardSearch.trim()) {
+      const q = leaderboardSearch.toLowerCase();
+      entries = entries.filter((e) => e.golfer_name.toLowerCase().includes(q));
+    }
+
     return entries;
   })();
 
@@ -680,10 +687,28 @@ export function TournamentDetail() {
         )}
       </div>
 
-      {/* Leaderboard table */}
+      {/* Search + Leaderboard table */}
       {leaderboard.entries.length === 0 ? (
         <p className="text-gray-400 text-sm">No field data available yet.</p>
-      ) : (
+      ) : (<>
+        <div className="relative w-full">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Search golfers..."
+            value={leaderboardSearch}
+            onChange={(e) => setLeaderboardSearch(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+          />
+        </div>
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
@@ -900,7 +925,7 @@ export function TournamentDetail() {
             </table>
           </div>
         </div>
-      )}
+      </>)}
     </div>
   );
 }

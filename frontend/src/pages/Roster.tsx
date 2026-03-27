@@ -129,7 +129,7 @@ export function Roster() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+            <table className="min-w-full text-sm min-w-[500px]">
               <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
                 <tr>
                   <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">
@@ -142,7 +142,7 @@ export function Roster() {
                     Last Name
                   </th>
                   {showEmails && (
-                    <th className="hidden sm:table-cell px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">
+                    <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">
                       Email
                     </th>
                   )}
@@ -164,7 +164,7 @@ export function Roster() {
                       {member.last_name || <span className="text-gray-300">—</span>}
                     </td>
                     {showEmails && (
-                      <td className="hidden sm:table-cell px-4 py-3 text-gray-500">
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                         {member.email}
                       </td>
                     )}

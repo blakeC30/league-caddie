@@ -367,8 +367,8 @@ export function PlatformAdmin() {
             No tournaments found. Run a full sync first.
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
               <thead>
                 <tr className="border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   <th className="text-left px-5 py-3">Tournament</th>
