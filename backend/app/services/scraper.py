@@ -409,13 +409,17 @@ def _fetch_competitor_status(
         return competitor_id, None, None, None
 
 
-def _fetch_scoreboard_rounds(pga_tour_id: str) -> dict[str, list[dict]] | None:
+def _fetch_scoreboard_rounds(
+    pga_tour_id: str,
+) -> tuple[dict[str, list[dict]], int] | None:
     """
     Fetch round data from the site API scoreboard instead of per-golfer /linescores.
 
-    Returns {athlete_id: [round_dicts]} in the same format as _fetch_competitor_rounds,
-    but with tee_time/position/started_on_back/isPlayoff set to None/False (not available
-    from the scoreboard — preserved from the previous linescore fetch by upsert_field).
+    Returns a tuple of:
+      - {athlete_id: [round_dicts]} in the same format as _fetch_competitor_rounds,
+        but with tee_time/position/started_on_back/isPlayoff set to None/False
+      - max_round_seen: the highest round number ESPN has for ANY competitor,
+        including empty/future rounds. Used for round transition detection.
 
     Returns None if the tournament is not found in the scoreboard response.
 
@@ -445,6 +449,7 @@ def _fetch_scoreboard_rounds(pga_tour_id: str) -> dict[str, list[dict]] | None:
         return None
 
     rounds_by_athlete: dict[str, list[dict]] = {}
+    max_round_seen = 0  # Highest round ESPN knows about (including empty/future)
     for c in competitors:
         aid = str(c.get("id", ""))
         if not aid:
@@ -456,6 +461,10 @@ def _fetch_scoreboard_rounds(pga_tour_id: str) -> dict[str, list[dict]] | None:
             if period is None:
                 continue
             round_number = int(period)
+
+            # Track max round including empty ones — critical for transition detection.
+            if round_number > max_round_seen:
+                max_round_seen = round_number
 
             # Strokes
             raw_score = rd.get("value")
@@ -477,7 +486,8 @@ def _fetch_scoreboard_rounds(pga_tour_id: str) -> dict[str, list[dict]] | None:
             holes = rd.get("linescores", [])
             thru = len(holes) if holes else None
 
-            # Skip empty rounds (e.g. Round 2 not started yet shows 0 holes, None score)
+            # Skip empty rounds for upsert (no data to write), but max_round_seen
+            # already captured the round number above for transition detection.
             if score is None and (thru is None or thru == 0):
                 continue
 
@@ -497,11 +507,12 @@ def _fetch_scoreboard_rounds(pga_tour_id: str) -> dict[str, list[dict]] | None:
         rounds_by_athlete[aid] = rounds
 
     log.info(
-        "Scoreboard rounds for %s: %d competitors parsed",
+        "Scoreboard rounds for %s: %d competitors parsed, max round=%d",
         pga_tour_id,
         len(rounds_by_athlete),
+        max_round_seen,
     )
-    return rounds_by_athlete
+    return rounds_by_athlete, max_round_seen
 
 
 def _fetch_tournament_data(
@@ -598,7 +609,11 @@ def _fetch_tournament_data(
     if fetch_round_data and all_athlete_ids:
         if use_scoreboard_rounds:
             # Use prefetched scoreboard data if available, otherwise fetch.
-            sb_rounds = prefetched_sb_rounds or _fetch_scoreboard_rounds(pga_tour_id)
+            if prefetched_sb_rounds is not None:
+                sb_rounds = prefetched_sb_rounds
+            else:
+                _sb_result = _fetch_scoreboard_rounds(pga_tour_id)
+                sb_rounds = _sb_result[0] if _sb_result else None
             if sb_rounds is not None:
                 rounds_by_athlete = sb_rounds
                 _used_scoreboard = True
@@ -893,7 +908,11 @@ def _fetch_team_field(
     _used_scoreboard_team = False
     if fetch_round_data and team_entries:
         if use_scoreboard_rounds:
-            sb_rounds = prefetched_sb_rounds or _fetch_scoreboard_rounds(pga_tour_id)
+            if prefetched_sb_rounds is not None:
+                sb_rounds = prefetched_sb_rounds
+            else:
+                _sb_result = _fetch_scoreboard_rounds(pga_tour_id)
+                sb_rounds = _sb_result[0] if _sb_result else None
             if sb_rounds is not None:
                 rounds_by_athlete = sb_rounds
                 _used_scoreboard_team = True
@@ -2156,15 +2175,12 @@ def sync_tournament(
         if _check_teed_off(db, tournament.id):
             # Fetch the scoreboard to check for round transitions AND
             # potentially use as round data (avoids fetching it twice).
-            _prefetched_sb_rounds = _fetch_scoreboard_rounds(pga_tour_id)
-
-            # Max round in the scoreboard data.
-            sb_max_round = 0
-            if _prefetched_sb_rounds:
-                for rounds in _prefetched_sb_rounds.values():
-                    for rd in rounds:
-                        if rd["round_number"] > sb_max_round:
-                            sb_max_round = rd["round_number"]
+            # max_round_seen includes empty/future rounds that ESPN knows about
+            # (critical: these are stripped from the rounds data for upsert,
+            # but we need them to detect that a new round has started).
+            _sb_result = _fetch_scoreboard_rounds(pga_tour_id)
+            _prefetched_sb_rounds = _sb_result[0] if _sb_result else None
+            sb_max_round = _sb_result[1] if _sb_result else 0
 
             # Max round in our DB that has tee_time populated.
             max_round_with_tee = (

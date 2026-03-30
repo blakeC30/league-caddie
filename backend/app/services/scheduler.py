@@ -307,7 +307,35 @@ def _run_live_score_sync() -> None:
             .all()
         )
 
-        all_tournaments = active_tournaments + starting_today
+        # Recently completed tournaments (within 6 hours) — catches the case
+        # where ESPN marks a tournament completed before publishing earnings.
+        # score_picks runs on every sync_tournament call for completed tournaments,
+        # so re-syncing fills in earnings once ESPN publishes them.
+        from app.models import Pick
+
+        recently_completed = (
+            db.query(Tournament)
+            .filter(
+                Tournament.status == TournamentStatus.COMPLETED.value,
+                Tournament.last_synced_at.isnot(None),
+                Tournament.last_synced_at >= datetime.now(tz=UTC) - timedelta(hours=6),
+            )
+            .all()
+        )
+        # Only include if they have picks with points_earned = 0 or NULL
+        # (i.e., scoring may be incomplete due to missing earnings).
+        needs_resync = [
+            t
+            for t in recently_completed
+            if db.query(Pick)
+            .filter(
+                Pick.tournament_id == t.id,
+                (Pick.points_earned.is_(None)) | (Pick.points_earned == 0),
+            )
+            .first()
+        ]
+
+        all_tournaments = active_tournaments + starting_today + needs_resync
         if not all_tournaments:
             return  # Nothing to do — skip silently
 
