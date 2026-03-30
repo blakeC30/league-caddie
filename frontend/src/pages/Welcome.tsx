@@ -117,7 +117,7 @@ export function Welcome() {
                 step: "02",
                 title: "Earn their prize money",
                 description:
-                  "Your points equal the real prize money your golfer earns on Tour. Majors are worth double. Miss a week and you lose points.",
+                  "Your points equal the real prize money your golfer earns on Tour. League managers can boost big events with multipliers. Miss a week and you lose points.",
                 icon: (
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -201,7 +201,7 @@ export function Welcome() {
               {
                 icon: <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 0 0 2.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 0 1 2.916.52 6.003 6.003 0 0 1-5.395 4.972m0 0a6.726 6.726 0 0 1-2.749 1.35m0 0a6.772 6.772 0 0 1-3.044 0" />,
                 title: "Tournament multipliers",
-                description: "League managers can apply a points multiplier to any tournament. Majors default to 2× — but you're in control of what matters most.",
+                description: "League managers can apply a points multiplier to any tournament — 1.5× for signature events, 2× for majors, or whatever your league decides.",
               },
               {
                 icon: <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />,
@@ -295,11 +295,11 @@ export function Welcome() {
               </h2>
               <p className="text-gray-500 leading-relaxed mb-5">
                 Your score is based on what your golfer earns on Tour. Rory wins
-                $3.6 million at the Masters? You get 3,600,000 points — doubled for the major. Watch it happen on the live tournament leaderboard as the round plays out.
+                $3.6 million at the Masters? You get 3,600,000 points — and if your league manager set a 2× multiplier, that's 7,200,000. Watch it happen live as the round plays out.
               </p>
               <p className="text-gray-500 leading-relaxed">
                 Miss a week without a pick and you'll lose points. Saving an elite golfer for a
-                major instead of burning them in a weaker field is half the game.
+                big-multiplier week instead of burning them in a standard field is half the game.
               </p>
             </div>
             <div className="space-y-4">
@@ -323,10 +323,10 @@ export function Welcome() {
                   <span className="font-medium text-gray-600">1×</span>
                 </div>
               </div>
-              {/* Major card */}
+              {/* Major card — example of a multiplied tournament */}
               <div className="bg-green-900 rounded-2xl p-5 sm:p-6 shadow-lg shadow-green-900/30">
                 <p className="text-xs text-green-300 uppercase tracking-wider font-semibold mb-3">
-                  Major championship
+                  Major championship (example 2× multiplier)
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
