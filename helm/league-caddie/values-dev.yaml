@@ -15,7 +15,7 @@ config:
   frontendUrl: "http://localhost:8080"
   cookieDomain: ""
   leagueCreationRestricted: "true"
-  sqsQueueUrl: "https://sqs.us-east-2.amazonaws.com/049429105437/league-caddie-events-dev"
+  sqsQueueUrl: ""  # Injected at deploy time via --set config.sqsQueueUrl
 
 postgres:
   database: league_caddie_dev

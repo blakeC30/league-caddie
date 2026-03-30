@@ -470,7 +470,7 @@ aws sqs create-queue \
   --attributes '{
     "VisibilityTimeout": "120",
     "ReceiveMessageWaitTimeSeconds": "20",
-    "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-2:049429105437:league-caddie-events-prod-dlq\",\"maxReceiveCount\":\"3\"}"
+    "RedrivePolicy": "{\"deadLetterTargetArn\":\"arn:aws:sqs:us-east-2:<AWS_ACCOUNT_ID>:league-caddie-events-prod-dlq\",\"maxReceiveCount\":\"3\"}"
   }'
 ```
 
@@ -493,10 +493,10 @@ or attach a managed policy with these permissions:
         "sqs:ChangeMessageVisibility"
       ],
       "Resource": [
-        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-prod",
-        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-prod-dlq",
-        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-dev",
-        "arn:aws:sqs:us-east-2:049429105437:league-caddie-events-dev-dlq"
+        "arn:aws:sqs:us-east-2:<AWS_ACCOUNT_ID>:league-caddie-events-prod",
+        "arn:aws:sqs:us-east-2:<AWS_ACCOUNT_ID>:league-caddie-events-prod-dlq",
+        "arn:aws:sqs:us-east-2:<AWS_ACCOUNT_ID>:league-caddie-events-dev",
+        "arn:aws:sqs:us-east-2:<AWS_ACCOUNT_ID>:league-caddie-events-dev-dlq"
       ]
     }
   ]
@@ -516,7 +516,7 @@ Add to the scraper and worker deployments in `helm/league-caddie/`:
 - name: AWS_REGION
   value: us-east-2
 - name: SQS_QUEUE_URL
-  value: https://sqs.us-east-2.amazonaws.com/049429105437/league-caddie-events-prod
+  value: https://sqs.us-east-2.amazonaws.com/<AWS_ACCOUNT_ID>/league-caddie-events-prod
 ```
 
 The `worker` pod is a new Kubernetes Deployment alongside the existing `scraper`

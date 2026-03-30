@@ -327,6 +327,7 @@ jobs:
   #           --set secrets.stripeSecretKey="${{ secrets.STRIPE_SECRET_KEY_DEV }}" \
   #           --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_DEV }}" \
   #           --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_DEV }}" \
+  #           --set config.sqsQueueUrl="https://sqs.us-east-2.amazonaws.com/${{ secrets.AWS_ACCOUNT_ID }}/league-caddie-events-dev" \
   #           --atomic --wait --timeout=5m
   #
   #     - name: Verify rollout (dev)
@@ -394,6 +395,7 @@ jobs:
             --set secrets.stripePublishableKey="${{ secrets.STRIPE_PUBLISHABLE_KEY_PROD }}" \
             --set secrets.stripeWebhookSecret="${{ secrets.STRIPE_WEBHOOK_SECRET_PROD }}" \
             --set secrets.resendApiKey="${{ secrets.RESEND_API_KEY }}" \
+            --set config.sqsQueueUrl="https://sqs.us-east-2.amazonaws.com/${{ secrets.AWS_ACCOUNT_ID }}/league-caddie-events-prod" \
             --set certManager.email="${{ secrets.CERT_MANAGER_EMAIL }}" \
             --rollback-on-failure --wait --timeout=10m
 
