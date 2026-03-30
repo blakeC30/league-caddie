@@ -15,6 +15,8 @@ env:
   AWS_REGION: us-east-2
   # Constructed from the AWS_ACCOUNT_ID secret — avoids hardcoding the account number.
   ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-2.amazonaws.com
+  # Tag every image with the Git SHA for immutable, traceable deploys.
+  IMAGE_TAG: ${{ github.sha }}
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
@@ -131,10 +133,11 @@ jobs:
   #
   # Builds all 4 images (api, scraper, worker, frontend).
   # On pull_request: build only — validates Dockerfiles without pushing.
-  # On push to main: build + push to ECR tagged `latest`.
+  # On push to main: build + push to ECR tagged with the Git SHA.
   #
   # Each image uses its own GHA cache scope so backend and frontend cache
-  # don't interfere with each other.
+  # don't interfere with each other. Old images are cleaned by ECR lifecycle
+  # policies (set up manually per repo), not inline in this workflow.
   #
   # ECR repo names match the `repository` field in values.yaml exactly:
   #   league-caddie/backend → api target, league-caddie/scraper → scraper target,
@@ -152,7 +155,7 @@ jobs:
       # ECR login only needed when pushing (i.e. push to main, not PRs).
       - name: Configure AWS credentials
         if: github.event_name != 'pull_request'
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -170,14 +173,9 @@ jobs:
           file: ./backend/Dockerfile
           target: api
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/league-caddie/backend:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/backend:${{ env.IMAGE_TAG }}
           cache-from: type=gha,scope=backend-api
           cache-to: type=gha,scope=backend-api,mode=max
-      - name: Clean dangling — backend
-        if: github.event_name != 'pull_request'
-        run: |
-          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/backend --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
-          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/backend --image-ids "$IMAGE_IDS"; fi
 
       # ── Backend: scraper target ─────────────────────────────────────────────
       - name: Build scraper
@@ -187,14 +185,9 @@ jobs:
           file: ./backend/Dockerfile
           target: scraper
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:${{ env.IMAGE_TAG }}
           cache-from: type=gha,scope=backend-scraper
           cache-to: type=gha,scope=backend-scraper,mode=max
-      - name: Clean dangling — scraper
-        if: github.event_name != 'pull_request'
-        run: |
-          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/scraper --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
-          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/scraper --image-ids "$IMAGE_IDS"; fi
 
       # ── Backend: worker target ──────────────────────────────────────────────
       - name: Build worker
@@ -204,14 +197,9 @@ jobs:
           file: ./backend/Dockerfile
           target: worker
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/league-caddie/worker:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/worker:${{ env.IMAGE_TAG }}
           cache-from: type=gha,scope=backend-worker
           cache-to: type=gha,scope=backend-worker,mode=max
-      - name: Clean dangling — worker
-        if: github.event_name != 'pull_request'
-        run: |
-          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/worker --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
-          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/worker --image-ids "$IMAGE_IDS"; fi
 
       # ── Frontend ────────────────────────────────────────────────────────────
       - name: Build frontend
@@ -222,14 +210,9 @@ jobs:
           build-args: |
             VITE_GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
+          tags: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:${{ env.IMAGE_TAG }}
           no-cache: true
           cache-to: type=gha,scope=frontend,mode=max
-      - name: Clean dangling — frontend
-        if: github.event_name != 'pull_request'
-        run: |
-          IMAGE_IDS=$(aws ecr list-images --repository-name league-caddie/frontend --filter tagStatus=UNTAGGED --query 'imageIds[*]' --output json)
-          if [ "$IMAGE_IDS" != "[]" ] && [ -n "$IMAGE_IDS" ]; then aws ecr batch-delete-image --repository-name league-caddie/frontend --image-ids "$IMAGE_IDS"; fi
 
   # ────────────────────────────────────────────────────────────────────────────
   # scan
@@ -244,7 +227,7 @@ jobs:
 
     steps:
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -256,28 +239,28 @@ jobs:
       - name: Scan api
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/backend:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/backend:${{ env.IMAGE_TAG }}
           exit-code: "1"
           severity: CRITICAL
 
       - name: Scan scraper
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/scraper:${{ env.IMAGE_TAG }}
           exit-code: "1"
           severity: CRITICAL
 
       - name: Scan worker
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/worker:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/worker:${{ env.IMAGE_TAG }}
           exit-code: "1"
           severity: CRITICAL
 
       - name: Scan frontend
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:latest
+          image-ref: ${{ env.ECR_REGISTRY }}/league-caddie/frontend:${{ env.IMAGE_TAG }}
           exit-code: "1"
           severity: CRITICAL
 
@@ -300,7 +283,7 @@ jobs:
   #     - uses: azure/setup-helm@v4
   #
   #     - name: Configure AWS credentials
-  #       uses: aws-actions/configure-aws-credentials@v4
+  #       uses: aws-actions/configure-aws-credentials@v5
   #       with:
   #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
   #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -333,7 +316,7 @@ jobs:
   #           --namespace dev --create-namespace \
   #           -f helm/league-caddie/values-dev.yaml \
   #           --set image.registry=${{ env.ECR_REGISTRY }} \
-  #           --set image.tag=latest \
+  #           --set image.tag=${{ env.IMAGE_TAG }} \
   #           --set secrets.secretKey="${{ secrets.JWT_SECRET_DEV }}" \
   #           --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_DEV }}" \
   #           --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
@@ -363,7 +346,7 @@ jobs:
       - uses: azure/setup-helm@v4
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -399,7 +382,7 @@ jobs:
             --namespace prod --create-namespace \
             -f helm/league-caddie/values-prod.yaml \
             --set image.registry=${{ env.ECR_REGISTRY }} \
-            --set image.tag=latest \
+            --set image.tag=${{ env.IMAGE_TAG }} \
             --set secrets.secretKey="${{ secrets.JWT_SECRET_PROD }}" \
             --set secrets.postgresPassword="${{ secrets.POSTGRES_PASSWORD_PROD }}" \
             --set secrets.googleClientId="${{ secrets.GOOGLE_CLIENT_ID }}" \
@@ -413,5 +396,17 @@ jobs:
       - name: Verify rollout (prod)
         run: kubectl rollout status deployment -n prod --timeout=120s
 
-      - name: Prune old container images
-        run: sudo k3s crictl rmi --prune 2>/dev/null || true
+      # Tag the deployed SHA as :prod so ECR lifecycle policies never delete
+      # the image that's actually running in production.
+      - name: Pin deployed images as :prod
+        run: |
+          for REPO in league-caddie/backend league-caddie/scraper league-caddie/worker league-caddie/frontend; do
+            MANIFEST=$(aws ecr batch-get-image \
+              --repository-name "$REPO" \
+              --image-ids imageTag=${{ env.IMAGE_TAG }} \
+              --query 'images[0].imageManifest' --output text)
+            aws ecr put-image \
+              --repository-name "$REPO" \
+              --image-tag prod \
+              --image-manifest "$MANIFEST" 2>/dev/null || true
+          done
