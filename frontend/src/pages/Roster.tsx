@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useRoster, useLeagueMembers } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
-import { Spinner } from "../components/Spinner";
+import { RosterSkeleton } from "../components/Skeleton";
 
 const PAGE_SIZE = 25;
 
@@ -56,11 +56,7 @@ export function Roster() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="w-8 h-8 text-green-600" />
-      </div>
-    );
+    return <RosterSkeleton />;
   }
 
   return (
@@ -98,6 +94,7 @@ export function Roster() {
             <input
               type="text"
               placeholder="Search members..."
+              aria-label="Search members"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"

@@ -84,8 +84,7 @@ export function ManageLeague() {
 
   // Track editing state from TournamentScheduleSection for cross-section computations
   const [editingSelectedIds, setEditingSelectedIds] = useState<Set<string>>(new Set());
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_editingMultipliers, setEditingMultipliers] = useState<Record<string, number>>({});
+  const [, setEditingMultipliers] = useState<Record<string, number>>({});
 
   // Eligible future tournaments from EDITING state (for schedule save blocking).
   const editingEligibleFutureTournaments = useMemo(

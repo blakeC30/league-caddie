@@ -187,9 +187,11 @@ def require_active_purchase(
         .first()
     )
     if not purchase:
-        # Flag is stale — the purchase was deleted or expired. Clear the flag.
+        # Flag is stale — the purchase was deleted or expired. Clear the flag
+        # and commit immediately so the correction persists even though we're
+        # about to raise an exception (which may roll back the transaction).
         league.has_active_purchase = False
-        db.flush()
+        db.commit()
         raise HTTPException(
             status_code=402,
             detail=(

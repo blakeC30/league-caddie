@@ -158,9 +158,9 @@ def google_auth(
 
     google_id = claims["sub"]
     email = claims.get("email", "").lower()
-    name = claims.get("name", email)
-    first_name = claims.get("given_name", "")
-    last_name = claims.get("family_name", "")
+    name = claims.get("name", email)[:50]
+    first_name = claims.get("given_name", "")[:50]
+    last_name = claims.get("family_name", "")[:50]
 
     # Try to find the user by google_id first, then by email (account linking).
     user = db.query(User).filter_by(google_id=google_id).first()
@@ -169,6 +169,11 @@ def google_auth(
         if user:
             # Link the Google account to the existing email account.
             user.google_id = google_id
+            # Backfill empty name fields from the Google profile.
+            if not user.first_name and first_name:
+                user.first_name = first_name
+            if not user.last_name and last_name:
+                user.last_name = last_name
             db.commit()
 
     if not user:

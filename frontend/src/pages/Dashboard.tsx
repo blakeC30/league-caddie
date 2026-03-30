@@ -14,7 +14,7 @@ import { useMyPicks, useStandings, useTournaments } from "../hooks/usePick";
 import { useAuthStore } from "../store/authStore";
 import { GolferAvatar } from "../components/GolferAvatar";
 import { useBracket, usePlayoffConfig, useMyPlayoffPod, useMyPlayoffPicks } from "../hooks/usePlayoff";
-import { Spinner } from "../components/Spinner";
+import { DashboardSkeleton, SkeletonStandingsTable } from "../components/Skeleton";
 import type { StandingsRow } from "../api/endpoints";
 
 function StandingsTr({
@@ -78,13 +78,9 @@ export function Dashboard() {
   // Only show the playoff button after the bracket is seeded (regular season complete + earnings published).
   const playoffSeeded = hasPlayoff && bracket && bracket.rounds.length > 0;
 
-  // Show spinner while core data is loading (prevents empty state flash on lazy load)
+  // Show skeleton while core data is loading (prevents empty state flash on lazy load)
   if (tournamentsLoading || !league) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="w-8 h-8 text-green-600" />
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Purchase gate — show before main content if no League Plan
@@ -652,7 +648,7 @@ export function Dashboard() {
             </div>
           );
         })() : (
-          <div className="flex justify-center py-4"><Spinner /></div>
+          <SkeletonStandingsTable rows={5} />
         )}
       </div>
 

@@ -13,7 +13,7 @@ import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuthStore } from "../store/authStore";
 import { useBracket } from "../hooks/usePlayoff";
-import { Spinner } from "../components/Spinner";
+import { PlayoffBracketSkeleton } from "../components/Skeleton";
 import { useStandings } from "../hooks/usePick";
 import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { FlagIcon } from "../components/FlagIcon";
@@ -117,6 +117,7 @@ function ConnectorLines({
       style={{ top: HDR_H, left: 0 }}
       width={totalWidth}
       height={totalHeight}
+      aria-hidden="true"
     >
       {paths}
     </svg>
@@ -517,6 +518,9 @@ function PodCard({
   return (
     <div
       onClick={onClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
+      role="button"
+      tabIndex={0}
       className="bg-white rounded-2xl border border-gray-200 hover:shadow-md cursor-pointer transition-shadow overflow-hidden w-full"
     >
       <div className="bg-gradient-to-r from-green-900 to-green-700 px-4 py-2.5">
@@ -570,6 +574,9 @@ function PendingPodCard({ position, numMembers, onClick }: { position: number; n
     <div
       className={`bg-white rounded-2xl border border-dashed border-gray-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
       onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-4 py-2.5">
         <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {position}</span>
@@ -612,6 +619,9 @@ function ProjectedPodCard({
     <div
       className={`bg-white rounded-2xl border border-gray-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
       onClick={onClick}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
     >
       <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-4 py-2.5 flex items-center justify-between">
         <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {position}</span>
@@ -656,8 +666,8 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
     document.title = "Playoff Bracket — League Caddie";
   }, []);
   const { data: league } = useLeague(leagueId!);
-  const { data: bracket, isLoading: bracketLoading } = useBracket(leagueId!);
-  const { data: standingsData, isLoading: standingsLoading } = useStandings(leagueId!);
+  const { data: bracket, isLoading: bracketLoading, isError: bracketError } = useBracket(leagueId!);
+  const { data: standingsData, isLoading: standingsLoading, isError: standingsError } = useStandings(leagueId!);
   const { data: leagueTournaments } = useLeagueTournaments(leagueId!);
   const { data: members } = useLeagueMembers(leagueId ?? "");
   const isManager = members?.some((m) => m.user_id === currentUser?.id && m.role === "manager") ?? false;
@@ -695,9 +705,14 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
   }
 
   if (bracketLoading || standingsLoading) {
+    return <PlayoffBracketSkeleton />;
+  }
+
+  if (bracketError || standingsError) {
     return (
-      <div className="flex items-center justify-center h-48">
-        <Spinner />
+      <div className="bg-red-50 rounded-2xl border border-red-200 p-10 text-center space-y-2">
+        <p className="font-semibold text-red-700">Failed to load playoff data</p>
+        <p className="text-sm text-red-400">Please try refreshing the page.</p>
       </div>
     );
   }

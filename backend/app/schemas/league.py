@@ -9,7 +9,7 @@ from app.schemas.user import UserOut
 
 
 class LeagueCreate(BaseModel):
-    name: str = Field(min_length=1, max_length=60)
+    name: str = Field(min_length=1, max_length=50)
     # Default matches the house rule; league manager can override on creation.
     # Accepts positive values for convenience (frontend sends display value);
     # the validator auto-negates them so the DB always stores non-positive.
@@ -29,7 +29,7 @@ class LeagueCreate(BaseModel):
 class LeagueUpdate(BaseModel):
     """Partial update for league settings. Only provided fields are changed."""
 
-    name: str | None = Field(default=None, min_length=1, max_length=60)
+    name: str | None = Field(default=None, min_length=1, max_length=50)
     no_pick_penalty: int | None = None
     accepting_requests: bool | None = None
     auto_accept_requests: bool | None = None

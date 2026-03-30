@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { LeagueMember, LeaguePurchaseStatus, User } from "../../api/endpoints";
 import { useRemoveMember, useUpdateMemberRole } from "../../hooks/useLeague";
-import { Spinner } from "../Spinner";
+import { MembersTableSkeleton } from "../Skeleton";
 import { SectionIcon, type ConfirmModalState } from "./shared";
 
 export interface MembersSectionProps {
@@ -121,7 +121,7 @@ export function MembersSection({
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-8"><Spinner /></div>
+        <MembersTableSkeleton />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-100">
           <table className="min-w-full text-sm">

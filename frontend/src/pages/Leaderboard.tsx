@@ -17,7 +17,7 @@ import { useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { useBracket } from "../hooks/usePlayoff";
 import { useAuthStore } from "../store/authStore";
 import type { StandingsRow } from "../api/endpoints";
-import { Spinner } from "../components/Spinner";
+import { LeaderboardSkeleton } from "../components/Skeleton";
 import { PlayoffBracket } from "./PlayoffBracket";
 import { TournamentPicksSection } from "../components/leaderboard/TournamentPicksSection";
 import { StandingsTr } from "../components/leaderboard/StandingsTr";
@@ -29,7 +29,7 @@ import { StandingsTr } from "../components/leaderboard/StandingsTr";
 export function Leaderboard() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const [searchParams] = useSearchParams();
-  const { data: standings, isLoading } = useStandings(leagueId!);
+  const { data: standings, isLoading, isError } = useStandings(leagueId!);
 
   useEffect(() => {
     document.title = "Leaderboard — League Caddie";
@@ -169,13 +169,19 @@ export function Leaderboard() {
 
       {/* Season standings */}
       {pageView === "standings" && isLoading ? (
-        <div className="flex justify-center py-8"><Spinner /></div>
+        <LeaderboardSkeleton />
+      ) : pageView === "standings" && isError ? (
+        <div className="bg-red-50 rounded-2xl border border-red-200 p-10 text-center space-y-2">
+          <p className="font-semibold text-red-700">Failed to load standings</p>
+          <p className="text-sm text-red-400">Please try refreshing the page.</p>
+        </div>
       ) : pageView === "standings" && standings ? (
         <div className="space-y-3">
           {expanded && showStandingsSearch && (
             <input
               type="text"
               placeholder="Search members…"
+              aria-label="Search members"
               value={standingsSearch}
               onChange={(e) => { setStandingsSearch(e.target.value); setPage(0); }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"

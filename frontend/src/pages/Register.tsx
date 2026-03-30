@@ -138,7 +138,7 @@ export function Register() {
               required
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              maxLength={40}
+              maxLength={50}
               className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
             />
           </div>
@@ -170,6 +170,9 @@ export function Register() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
             />
+            {password.length > 0 && password.length < 8 && (
+              <p className="text-xs text-amber-600 mt-1">{8 - password.length} more character{8 - password.length !== 1 ? "s" : ""} needed</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">

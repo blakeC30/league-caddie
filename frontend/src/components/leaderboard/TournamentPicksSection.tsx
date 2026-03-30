@@ -11,7 +11,7 @@ import { useAuthStore } from "../../store/authStore";
 import { fmtTournamentName } from "../../utils";
 import type { PlayoffRoundOut } from "../../api/endpoints";
 import { useDropdownDirection } from "../../hooks/useDropdownDirection";
-import { Spinner } from "../Spinner";
+import { SkeletonBlock } from "../Skeleton";
 import { PickBarChart } from "./PickBarChart";
 import { StatCard } from "./StatCard";
 import { SortButton } from "./SortButton";
@@ -238,7 +238,26 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
       )}
 
       {selectedId && isLoading && (
-        <div className="flex justify-center py-4"><Spinner /></div>
+        <div className="space-y-4 animate-pulse">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+                <SkeletonBlock className="h-3 w-20" />
+                <SkeletonBlock className="h-6 w-14" />
+                <SkeletonBlock className="h-3 w-24" />
+              </div>
+            ))}
+          </div>
+          <SkeletonBlock className="h-8 w-36 rounded-lg" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }, (_, i) => (
+              <div key={i} className="flex items-center gap-3 px-3 py-2">
+                <SkeletonBlock className="h-4 w-28" />
+                <SkeletonBlock className="h-4 w-8 ml-auto" />
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       {selectedId && !isScheduled && !isLoading && !selectedPlayoffRound && error && (

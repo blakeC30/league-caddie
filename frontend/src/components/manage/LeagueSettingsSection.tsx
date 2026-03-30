@@ -79,7 +79,7 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
               type="text"
               value={settingsName}
               onChange={(e) => setSettingsName(e.target.value)}
-              maxLength={60}
+              maxLength={50}
               className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-700"
             />
           ) : (

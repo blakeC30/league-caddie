@@ -11,7 +11,7 @@
 import { lazy, Suspense } from "react";
 import { Route, Routes } from "react-router-dom";
 import { Toaster } from "./components/Toaster";
-import { Spinner } from "./components/Spinner";
+import { PageSkeleton } from "./components/Skeleton";
 import { Layout } from "./components/Layout";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
@@ -41,11 +41,7 @@ const Settings = lazy(() => import("./pages/Settings").then(m => ({ default: m.S
 const Roster = lazy(() => import("./pages/Roster").then(m => ({ default: m.Roster })));
 
 function PageFallback() {
-  return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <Spinner className="w-8 h-8 text-green-600" />
-    </div>
-  );
+  return <PageSkeleton />;
 }
 
 export default function App() {

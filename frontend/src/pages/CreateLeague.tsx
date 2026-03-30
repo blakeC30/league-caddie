@@ -15,7 +15,7 @@ import { useStripePricing } from "../hooks/useLeague";
 import { useAppConfig } from "../hooks/useAppConfig";
 import { useAuthStore } from "../store/authStore";
 import { fmtTournamentName, isoWeekKey, suggestedMultiplier } from "../utils";
-import { Spinner } from "../components/Spinner";
+import { TournamentListSkeleton } from "../components/Skeleton";
 
 export function CreateLeague() {
   const navigate = useNavigate();
@@ -84,7 +84,7 @@ export function CreateLeague() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || selectedIds.size === 0) return;
     setError("");
     setLoading(true);
 
@@ -156,7 +156,7 @@ export function CreateLeague() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter league name"
-                maxLength={60}
+                maxLength={50}
                 className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
               />
             </div>
@@ -248,7 +248,7 @@ export function CreateLeague() {
           </p>
 
           {!allTournaments ? (
-            <div className="flex justify-center py-4"><Spinner /></div>
+            <TournamentListSkeleton />
           ) : (
             <div className="space-y-6">
               {Object.entries(byMonth ?? {})
@@ -413,7 +413,7 @@ export function CreateLeague() {
         <div className="flex items-center gap-4 pb-8">
           <button
             type="submit"
-            disabled={loading || !name.trim() || hasConflicts || (!user?.is_platform_admin && !pricingTiers.some((t) => t.tier === selectedTier))}
+            disabled={loading || !name.trim() || selectedIds.size === 0 || hasConflicts || (!user?.is_platform_admin && !pricingTiers.some((t) => t.tier === selectedTier))}
             className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 px-8 rounded-xl transition-colors shadow-sm"
           >
             {loading ? (user?.is_platform_admin ? "Creating…" : "Redirecting…") : (user?.is_platform_admin ? "Create League" : "Continue to payment")}
@@ -426,6 +426,9 @@ export function CreateLeague() {
             Cancel
           </button>
         </div>
+        {selectedIds.size === 0 && allTournaments && allTournaments.length > 0 && (
+          <p className="text-sm text-amber-600">Select at least one tournament to continue.</p>
+        )}
       </form>
     </div>
   );

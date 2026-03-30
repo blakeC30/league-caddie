@@ -11,7 +11,7 @@ import { usersApi, type League } from "../api/endpoints";
 import { useAuth } from "../hooks/useAuth";
 import { useAuthStore } from "../store/authStore";
 import { useMyLeagues, useLeaveLeague, useLeagueMembers } from "../hooks/useLeague";
-import { Spinner } from "../components/Spinner";
+import { SkeletonBlock } from "../components/Skeleton";
 import { formatDateLong as formatDate } from "../utils";
 
 // Extracted so each row can call useLeagueMembers independently (hook rules).
@@ -282,7 +282,7 @@ export function Settings() {
                 type="text"
                 value={displayName}
                 onChange={(e) => { setDisplayName(e.target.value); setSaved(false); }}
-                maxLength={40}
+                maxLength={50}
                 className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
               />
               <p className="text-xs text-gray-400">
@@ -419,7 +419,14 @@ export function Settings() {
         </div>
 
         {leaguesLoading ? (
-          <div className="flex justify-center py-4"><Spinner /></div>
+          <div className="space-y-2 animate-pulse">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex items-center justify-between px-4 py-3 border border-gray-100 rounded-xl">
+                <SkeletonBlock className="h-4 w-32" />
+                <SkeletonBlock className="h-4 w-16" />
+              </div>
+            ))}
+          </div>
         ) : !leagues?.length ? (
           <p className="text-sm text-gray-500">You are not a member of any leagues.</p>
         ) : (

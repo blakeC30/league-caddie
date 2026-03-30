@@ -18,6 +18,7 @@ import { useAuthStore } from "../store/authStore";
 import { useMyLeagues } from "../hooks/useLeague";
 import { useTournaments } from "../hooks/usePick";
 import { Spinner } from "../components/Spinner";
+import { TournamentListSkeleton } from "../components/Skeleton";
 
 type ConfirmAction = { label: string; description: string; onConfirm: () => void };
 
@@ -361,7 +362,7 @@ export function PlatformAdmin() {
         </p>
 
         {tournamentsLoading ? (
-          <div className="flex justify-center py-8"><Spinner /></div>
+          <TournamentListSkeleton />
         ) : sortedTournaments.length === 0 ? (
           <div className="bg-gray-50 rounded-2xl p-10 text-center text-sm text-gray-400">
             No tournaments found. Run a full sync first.

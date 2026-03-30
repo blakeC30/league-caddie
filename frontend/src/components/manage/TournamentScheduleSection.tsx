@@ -2,7 +2,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { LeagueTournamentOut, PlayoffConfigOut, Tournament } from "../../api/endpoints";
 import { useUpdateLeagueTournaments } from "../../hooks/useLeague";
 import { fmtTournamentName, isoWeekKey, suggestedMultiplier } from "../../utils";
-import { Spinner } from "../Spinner";
+import { TournamentListSkeleton } from "../Skeleton";
 import { REQUIRED_ROUNDS } from "./constants";
 import { SectionIcon } from "./shared";
 
@@ -172,7 +172,7 @@ export function TournamentScheduleSection({
       </p>
 
       {!allTournaments ? (
-        <div className="flex justify-center py-4"><Spinner /></div>
+        <TournamentListSkeleton />
       ) : (
         <div className="space-y-6">
           {Object.entries(byMonth ?? {})

@@ -20,7 +20,7 @@ import { useMyPicks, useTournamentLeaderboard, useTournamentSyncStatus, useGolfe
 import { useLeagueMembers, useLeaguePurchase, useLeagueTournaments } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
 import { GolferAvatar } from "../components/GolferAvatar";
-import { Spinner } from "../components/Spinner";
+import { TournamentDetailSkeleton, SkeletonBlock } from "../components/Skeleton";
 import { fmtTournamentName } from "../utils";
 import type { LeaderboardEntry, HoleResult } from "../api/endpoints";
 
@@ -215,7 +215,10 @@ function ScorecardPanel({
           </div>
 
           {isLoading ? (
-            <div className="py-2"><Spinner className="w-4 h-4 text-gray-300" /></div>
+            <div className="py-2 animate-pulse space-y-1.5">
+              <SkeletonBlock className="h-3 w-full" />
+              <SkeletonBlock className="h-3 w-3/4" />
+            </div>
           ) : !scorecard || scorecard.holes.length === 0 ? (
             <p className="text-sm text-gray-400 py-2">
               {isPlayoff
@@ -420,11 +423,7 @@ export function TournamentDetail() {
   }
 
   if (isLoading) {
-    return (
-      <div className="max-w-4xl mx-auto flex justify-center py-10">
-        <Spinner />
-      </div>
-    );
+    return <TournamentDetailSkeleton />;
   }
 
   if (error || !leaderboard) {
@@ -440,12 +439,7 @@ export function TournamentDetail() {
       );
 
       if (fieldLoading) {
-        return (
-          <div className="max-w-4xl mx-auto space-y-4">
-            {backLink}
-            <div className="flex justify-center py-10"><Spinner /></div>
-          </div>
-        );
+        return <TournamentDetailSkeleton />;
       }
 
       const golferWithTeeTimes = (field ?? []).filter((g) => g.tee_time != null);

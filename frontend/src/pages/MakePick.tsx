@@ -14,7 +14,7 @@ import { useMyPicks, useSubmitPick, useTournamentField, useChangePick, useAllGol
 import { useAuthStore } from "../store/authStore";
 import { useMyPlayoffPod, useMyPreferences } from "../hooks/usePlayoff";
 import { fmtTournamentName, formatDate, formatPurse } from "../utils";
-import { Spinner } from "../components/Spinner";
+import { MakePickSkeleton, SkeletonBlock } from "../components/Skeleton";
 
 export function MakePick() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -74,8 +74,8 @@ export function MakePick() {
   const podIdForPrefs = myPod?.is_in_playoffs ? (myPod.active_pod_id ?? null) : null;
   const { data: myPreferences = [] } = useMyPreferences(leagueId!, podIdForPrefs);
 
-  const { data: field } = useTournamentField(tournament?.id);
-  const { data: allGolfers } = useAllGolfers();
+  const { data: field, isError: fieldError } = useTournamentField(tournament?.id);
+  const { data: allGolfers, isError: golfersError } = useAllGolfers();
 
   const existingPick = myPicks?.find((p) => p.tournament_id === tournament?.id);
 
@@ -106,13 +106,9 @@ export function MakePick() {
   );
   const hasTeedOffGolfers = teedOffGolferIds.size > 0;
 
-  // Loading guard — prevent flash of "No upcoming tournaments" while data loads
+  // Show skeleton while core data loads
   if (tournamentsLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="w-8 h-8 text-green-600" />
-      </div>
-    );
+    return <MakePickSkeleton />;
   }
 
   // Purchase gate
@@ -506,11 +502,33 @@ export function MakePick() {
     );
   }
 
+  // Error: field or golfer query failed.
+  if (fieldError || golfersError) {
+    return (
+      <div className="max-w-lg mx-auto">
+        <div className="bg-red-50 rounded-2xl border border-red-200 p-10 text-center space-y-2">
+          <p className="font-semibold text-red-700">Unable to load the tournament field</p>
+          <p className="text-sm text-red-400">Please try refreshing the page.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Still loading: field query hasn't resolved yet, or pre-field golfers haven't loaded.
   if (field === undefined || (fieldNotReleased && allGolfers === undefined)) {
     return (
-      <div className="max-w-lg mx-auto">
-        <div className="flex justify-center py-8"><Spinner /></div>
+      <div className="max-w-lg mx-auto animate-pulse">
+        <div className="divide-y divide-gray-100">
+          {Array.from({ length: 6 }, (_, i) => (
+            <div key={i} className="flex items-center gap-3 px-4 py-3">
+              <div className="w-9 h-9 rounded-full bg-gray-200 flex-shrink-0" />
+              <div className="space-y-1.5 flex-1">
+                <SkeletonBlock className="h-4 w-32" />
+                <SkeletonBlock className="h-3 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

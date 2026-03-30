@@ -8,7 +8,7 @@ import { useMyPicks, useAllPicks, useTournaments, useTournamentField } from "../
 import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
 import { useMyPlayoffPicks, useBracket, useMyPlayoffPod } from "../hooks/usePlayoff";
-import { Spinner } from "../components/Spinner";
+import { MyPicksSkeleton } from "../components/Skeleton";
 import { MemberDropdown } from "../components/picks/MemberDropdown";
 import { SeasonTotalCard } from "../components/picks/SeasonTotalCard";
 import { PicksStatCards } from "../components/picks/PicksStatCards";
@@ -180,13 +180,9 @@ export function MyPicks() {
   const finalTournamentCount = completedTournaments.filter((t) => t.status === "completed").length;
   const avgEarnings = finalTournamentCount > 0 ? totalEarned / finalTournamentCount : null;
 
-  // Loading guard — prevent flash of "No picks yet" while data loads
+  // Show skeleton while core data loads (prevents flash of "No picks yet")
   if (tournamentsLoading || isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Spinner className="w-8 h-8 text-green-600" />
-      </div>
-    );
+    return <MyPicksSkeleton />;
   }
 
   // Purchase gate

@@ -584,6 +584,10 @@ def _fetch_tournament_data(
         else:
             ids_to_fetch.append(aid)
 
+    # Deduplicate before fetching — ESPN responses can list the same athlete
+    # multiple times (e.g. in different competition groups).
+    ids_to_fetch = list(dict.fromkeys(ids_to_fetch))
+
     if ids_to_fetch:
         log.info(
             "Tournament %s: %d athletes from scoreboard, %d need API fetch",
@@ -594,11 +598,12 @@ def _fetch_tournament_data(
         with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
             futures = {pool.submit(_fetch_athlete_info, aid): aid for aid in ids_to_fetch}
             for future in concurrent.futures.as_completed(futures):
+                aid = futures[future]
                 try:
                     info = future.result()
                     athlete_info[info["pga_tour_id"]] = info
                 except Exception as exc:
-                    log.warning("Athlete fetch failed: %s", exc)
+                    log.warning("Athlete fetch failed for %s: %s", aid, exc)
 
     # Step 3 (optional): fetch per-round data.
     # When use_scoreboard_rounds=True, fetches the scoreboard (1 request) instead

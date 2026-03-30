@@ -664,7 +664,7 @@ def admin_override_pick(
     if existing:
         existing.golfer_id = body.golfer_id
         existing.points_earned = None  # reset so score_picks recalculates
-        db.commit()
+        db.flush()
         pick_id = existing.id
     else:
         pick = Pick(
@@ -675,7 +675,7 @@ def admin_override_pick(
             golfer_id=body.golfer_id,
         )
         db.add(pick)
-        db.commit()
+        db.flush()
         pick_id = pick.id
 
     log.info(
@@ -693,7 +693,6 @@ def admin_override_pick(
         score_picks(db, tournament, league_id=league.id)
     else:
         invalidate_standings_cache(db, season)
-
-    db.commit()
+        db.commit()
 
     return _picks_with_relations(db.query(Pick)).filter_by(id=pick_id).first()

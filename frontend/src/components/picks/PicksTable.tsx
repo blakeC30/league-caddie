@@ -5,7 +5,7 @@ import type { SortDir } from "./SortButton";
 import { TournamentBadge } from "../TournamentBadge";
 import { GolferAvatar } from "../GolferAvatar";
 import { FlagIcon } from "../FlagIcon";
-import { Spinner } from "../Spinner";
+import { SkeletonBlock } from "../Skeleton";
 import { fmtTournamentName, formatPoints } from "../../utils";
 import type { LeagueTournamentOut, Pick, League, MyPlayoffPodOut, PlayoffTournamentPickOut } from "../../api/endpoints";
 
@@ -98,7 +98,20 @@ export function PicksTable({
 
   if (isLoading) {
     return (
-      <div className="flex justify-center py-8"><Spinner /></div>
+      <div className="space-y-2 animate-pulse">
+        <div className="flex gap-1">
+          <SkeletonBlock className="h-7 w-16 rounded-lg" />
+          <SkeletonBlock className="h-7 w-20 rounded-lg" />
+          <SkeletonBlock className="h-7 w-10 rounded-lg" />
+        </div>
+        {Array.from({ length: 5 }, (_, i) => (
+          <div key={i} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100">
+            <SkeletonBlock className="h-4 w-32" />
+            <SkeletonBlock className="h-4 w-24" />
+            <SkeletonBlock className="h-4 w-16 ml-auto" />
+          </div>
+        ))}
+      </div>
     );
   }
 

@@ -12,7 +12,7 @@ import { useLeagueSummaries, useMyRequests, useCancelMyRequest } from "../hooks/
 import { useAppConfig } from "../hooks/useAppConfig";
 import { useAuthStore } from "../store/authStore";
 import { FlagIcon } from "../components/FlagIcon";
-import { Spinner } from "../components/Spinner";
+import { SkeletonBlock } from "../components/Skeleton";
 
 export function Leagues() {
   const navigate = useNavigate();
@@ -54,7 +54,23 @@ export function Leagues() {
 
       {/* League list */}
       {isLoading ? (
-        <div className="flex justify-center py-10"><Spinner /></div>
+        <div className="grid gap-4 sm:grid-cols-2 animate-pulse">
+          {Array.from({ length: 2 }, (_, i) => (
+            <div key={i} className="rounded-2xl border border-gray-200 overflow-hidden">
+              <div className="bg-gradient-to-br from-green-900 to-green-700 px-5 pt-5 pb-4">
+                <SkeletonBlock className="h-6 w-40 !bg-white/20" />
+              </div>
+              <div className="px-5 py-4 grid grid-cols-3 divide-x divide-gray-100">
+                <div className="pr-4 space-y-2"><SkeletonBlock className="h-3 w-10" /><SkeletonBlock className="h-7 w-8" /></div>
+                <div className="px-4 space-y-2"><SkeletonBlock className="h-3 w-12" /><SkeletonBlock className="h-7 w-16" /></div>
+                <div className="pl-4 space-y-2"><SkeletonBlock className="h-3 w-16" /><SkeletonBlock className="h-7 w-8" /></div>
+              </div>
+              <div className="border-t border-gray-100 bg-gray-50 px-5 py-3">
+                <SkeletonBlock className="h-4 w-48" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : summaries && summaries.length > 0 ? (
         <div className={summaries.length === 1 ? "max-w-lg mx-auto" : "grid gap-4 sm:grid-cols-2"}>
           {summaries.map((s) => (
