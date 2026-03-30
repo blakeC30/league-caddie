@@ -663,8 +663,8 @@ export function Dashboard() {
           className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg py-2.5 px-3 hover:border-green-300 hover:bg-green-50/30 transition-colors group"
         >
           <div className="w-7 h-7 bg-green-100 text-green-700 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors flex-shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128H9m6 0a5.972 5.972 0 0 0-.786-3.07M9 19.128v-.003c0-1.113.285-2.16.786-3.07M9 19.128H3.375a4.125 4.125 0 0 1 7.533-2.493M9 19.128a5.972 5.972 0 0 1 .786-3.07m5.428 0a6.002 6.002 0 0 0-6.428 0M12 12.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM2.25 20.1a6.75 6.75 0 0 1 13.5 0v.075a.75.75 0 0 1-.007.076c-1.327.34-3.9.749-6.743.749s-5.416-.41-6.743-.75A.75.75 0 0 1 2.25 20.1ZM18 8.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3ZM18 11.25a.75.75 0 0 0 0 1.5h2.25a.75.75 0 0 0 0-1.5H18ZM18 14.25a.75.75 0 0 0 0 1.5h3a.75.75 0 0 0 0-1.5h-3Z" />
             </svg>
           </div>
           <span className="text-xs font-bold text-gray-700 group-hover:text-green-800">League Roster</span>
@@ -674,8 +674,9 @@ export function Dashboard() {
           className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg py-2.5 px-3 hover:border-green-300 hover:bg-green-50/30 transition-colors group"
         >
           <div className="w-7 h-7 bg-green-100 text-green-700 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors flex-shrink-0">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path fillRule="evenodd" d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0 0 16.5 9h-1.875a1.875 1.875 0 0 1-1.875-1.875V5.25A3.75 3.75 0 0 0 9 1.5H5.625ZM7.5 15a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5h-7.5A.75.75 0 0 1 7.5 15Zm.75 2.25a.75.75 0 0 0 0 1.5H12a.75.75 0 0 0 0-1.5H8.25Z" clipRule="evenodd" />
+              <path d="M12.971 1.816A5.23 5.23 0 0 1 14.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 0 1 3.434 1.279 9.768 9.768 0 0 0-6.963-6.963Z" />
             </svg>
           </div>
           <span className="text-xs font-bold text-gray-700 group-hover:text-green-800">League Rules</span>
