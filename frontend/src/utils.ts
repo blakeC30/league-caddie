@@ -19,11 +19,15 @@ const MAJOR_PATTERNS = [
   "u.s. open",
   "the open championship",
 ];
+// "The Open" is the ESPN name for The Open Championship. Checked separately
+// because "the open" as a substring would false-positive on "Sony Open", etc.
+const THE_OPEN_EXACT = /^the open$/i;
 const PLAYERS_PATTERNS = ["players championship", "the players"];
 
 export function suggestedMultiplier(tournamentName: string): number {
   const lower = tournamentName.toLowerCase();
   if (MAJOR_PATTERNS.some((p) => lower.includes(p))) return 2.0;
+  if (THE_OPEN_EXACT.test(tournamentName.trim())) return 2.0;
   if (PLAYERS_PATTERNS.some((p) => lower.includes(p))) return 1.5;
   return 1.0;
 }

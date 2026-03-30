@@ -418,21 +418,164 @@ export function Dashboard() {
             })()}
           </div>
         </div>
-      ) : (
-        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-10 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-gray-200 flex items-center justify-center mx-auto">
-            <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-            </svg>
+      ) : (() => {
+        const hasCompletedTournaments = tournaments?.some((t) => t.status === "completed");
+
+        if (hasCompletedTournaments) {
+          // Season is over — all scheduled tournaments have completed
+          const top3 = standings?.rows?.slice(0, 3) ?? [];
+          const seasonYear = standings?.season_year;
+          const completedCount = tournaments?.filter((t) => t.status === "completed").length ?? 0;
+
+          // Playoff: find champion and runner-up from the final round
+          const finalRound = bracket?.rounds?.[bracket.rounds.length - 1];
+          const finalPod = finalRound?.status === "completed" ? finalRound.pods[0] : null;
+          const playoffChampion = finalPod?.winner_user_id
+            ? finalPod.members.find((m) => m.user_id === finalPod.winner_user_id)
+            : null;
+          const playoffRunnerUp = finalPod?.winner_user_id
+            ? finalPod.members.find((m) => m.user_id !== finalPod.winner_user_id && !m.is_eliminated)
+              ?? finalPod.members.find((m) => m.user_id !== finalPod.winner_user_id)
+            : null;
+
+          return (
+            <>
+              {/* Season complete card */}
+              <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+                <div className="bg-gradient-to-br from-green-900 via-green-800 to-green-700 px-6 pt-8 pb-6 text-center">
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/60 mb-1">
+                    {seasonYear ? `${seasonYear} Season` : "Season"} Complete
+                  </p>
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    <svg className="w-5 h-5 text-amber-400" viewBox="0 0 24 24" fill="currentColor">
+                      <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.346A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.375a.75.75 0 0 0 0 1.5h11.25a.75.75 0 0 0 0-1.5h-.374v-2.625c0-1.036-.84-1.875-1.875-1.875h-.74a6.707 6.707 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744Z" clipRule="evenodd" />
+                    </svg>
+                    <h2 className="text-2xl font-bold text-white">
+                      {playoffChampion ? "Regular Season" : "Final Standings"}
+                    </h2>
+                  </div>
+
+                  {top3.length > 0 && (
+                    <div className="flex items-end justify-center gap-3 sm:gap-5 mt-2">
+                      {top3[1] && (
+                        <div className="flex flex-col items-center flex-1 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-sm font-bold text-white/80 mb-1.5">
+                            2
+                          </div>
+                          <p className="text-sm font-semibold text-white w-full">{top3[1].display_name}</p>
+                          <p className="text-xs text-white/50 tabular-nums">${top3[1].total_points.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {top3[0] && (
+                        <div className="flex flex-col items-center flex-1 min-w-0 -mt-3">
+                          <div className="w-11 h-11 rounded-full bg-amber-400/20 border-2 border-amber-400 flex items-center justify-center text-base font-bold text-amber-400 mb-1.5">
+                            1
+                          </div>
+                          <p className="text-base font-bold text-white w-full">{top3[0].display_name}</p>
+                          <p className="text-sm font-semibold text-amber-400 tabular-nums">${top3[0].total_points.toLocaleString()}</p>
+                        </div>
+                      )}
+                      {top3[2] && (
+                        <div className="flex flex-col items-center flex-1 min-w-0">
+                          <div className="w-9 h-9 rounded-full bg-white/15 flex items-center justify-center text-sm font-bold text-white/80 mb-1.5">
+                            3
+                          </div>
+                          <p className="text-sm font-semibold text-white w-full">{top3[2].display_name}</p>
+                          <p className="text-xs text-white/50 tabular-nums">${top3[2].total_points.toLocaleString()}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-white px-6 py-4 flex items-center justify-between">
+                  <p className="text-xs text-gray-400">
+                    {completedCount} tournament{completedCount !== 1 ? "s" : ""} played
+                  </p>
+                  <Link
+                    to={`/leagues/${leagueId}/leaderboard`}
+                    className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+                  >
+                    Full Leaderboard →
+                  </Link>
+                </div>
+              </div>
+
+              {/* Playoff champion card — only when the final round is completed */}
+              {playoffChampion && (
+                <div className="rounded-2xl overflow-hidden shadow-sm border border-gray-200">
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100/50 px-6 pt-7 pb-5 text-center">
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-600/70 mb-3">
+                      Playoff Champion
+                    </p>
+
+                    <div className="flex items-center justify-center gap-6 sm:gap-10">
+                      {/* Champion */}
+                      <div className="flex flex-col items-center flex-1 min-w-0">
+                        <div className="w-14 h-14 rounded-full bg-amber-400 flex items-center justify-center mb-2 shadow-md">
+                          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.346A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.375a.75.75 0 0 0 0 1.5h11.25a.75.75 0 0 0 0-1.5h-.374v-2.625c0-1.036-.84-1.875-1.875-1.875h-.74a6.707 6.707 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744Z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <p className="text-lg font-bold text-gray-900">{playoffChampion.display_name}</p>
+                        {playoffChampion.total_points != null && (
+                          <p className="text-xs text-amber-600/70 tabular-nums mt-0.5">
+                            ${playoffChampion.total_points.toLocaleString()} playoff pts
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Runner-up */}
+                      {playoffRunnerUp && (
+                        <div className="flex flex-col items-center flex-1 min-w-0">
+                          <div className="w-11 h-11 rounded-full bg-gray-200 flex items-center justify-center mb-2">
+                            <span className="text-sm font-bold text-gray-500">2</span>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-600">{playoffRunnerUp.display_name}</p>
+                          {playoffRunnerUp.total_points != null && (
+                            <p className="text-xs text-gray-400 tabular-nums mt-0.5">
+                              ${playoffRunnerUp.total_points.toLocaleString()} playoff pts
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-white px-6 py-3 flex items-center justify-between border-t border-gray-100">
+                    <p className="text-xs text-gray-400">
+                      {bracket?.rounds?.length ?? 0} round{(bracket?.rounds?.length ?? 0) !== 1 ? "s" : ""}
+                    </p>
+                    <Link
+                      to={`/leagues/${leagueId}/playoff`}
+                      className="text-sm font-semibold text-amber-600 hover:text-amber-700 transition-colors"
+                    >
+                      View Bracket →
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        }
+
+        // Truly empty — no tournaments configured yet
+        return (
+          <div className="bg-gray-50 rounded-2xl border border-gray-200 p-10 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-gray-200 flex items-center justify-center mx-auto">
+              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+              </svg>
+            </div>
+            <p className="font-semibold text-gray-700">No tournaments scheduled</p>
+            <p className="text-sm text-gray-400 max-w-xs mx-auto">
+              {isManager
+                ? "Head to Manage League to configure the tournament schedule."
+                : "Your league manager hasn't set up the tournament schedule yet."}
+            </p>
           </div>
-          <p className="font-semibold text-gray-700">No tournaments scheduled</p>
-          <p className="text-sm text-gray-400 max-w-xs mx-auto">
-            {isManager
-              ? "Head to Manage League to configure the tournament schedule."
-              : "Ask your league manager to set up the tournament schedule."}
-          </p>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Standings preview — top 5, with current user appended if outside top 5 */}
       <div className="space-y-3">

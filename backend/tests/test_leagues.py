@@ -700,3 +700,173 @@ class TestTournamentSchedule:
             json={"tournaments": [{"tournament_id": str(t.id)}]},
         )
         assert resp.status_code == 403
+
+    # ------------------------------------------------------------------
+    # Schedule save optimization: multiplier-aware re-scoring
+    # ------------------------------------------------------------------
+
+    def _make_completed_tournament_with_pick(
+        self, db, league, season, user, *, earnings=100_000, multiplier=None, weeks_ago=None
+    ):
+        """Helper: create a completed tournament with a scored pick."""
+        from app.models import Golfer, LeagueTournament, Pick, TournamentEntry
+
+        if weeks_ago is None:
+            weeks_ago = 2 + db.query(Tournament).count()
+        # Anchor from Jan 5 of current year to ensure all dates stay in the
+        # same calendar year as the active season.
+        anchor = date(date.today().year, 1, 5)
+        start = anchor + timedelta(weeks=weeks_ago)
+        t = Tournament(
+            pga_tour_id=f"R{uuid.uuid4().hex[:6]}",
+            name=f"Past Open {uuid.uuid4().hex[:4]}",
+            start_date=start,
+            end_date=start + timedelta(days=3),
+            status=TournamentStatus.COMPLETED.value,
+        )
+        db.add(t)
+        db.flush()
+
+        g = Golfer(
+            pga_tour_id=f"G{uuid.uuid4().hex[:6]}",
+            name=f"Golfer {uuid.uuid4().hex[:4]}",
+        )
+        db.add(g)
+        db.flush()
+
+        db.add(TournamentEntry(tournament_id=t.id, golfer_id=g.id, earnings_usd=earnings))
+        db.add(LeagueTournament(league_id=league.id, tournament_id=t.id, multiplier=multiplier))
+
+        eff = multiplier if multiplier is not None else 1.0
+        pick = Pick(
+            league_id=league.id,
+            season_id=season.id,
+            user_id=user.id,
+            tournament_id=t.id,
+            golfer_id=g.id,
+            points_earned=earnings * eff,
+        )
+        db.add(pick)
+        db.commit()
+        db.refresh(t)
+        db.refresh(pick)
+        return t, pick
+
+    def test_schedule_save_skips_rescore_when_multiplier_unchanged(self, client, auth_headers, db):
+        """When saving with the same multiplier, picks should NOT be re-scored."""
+        user = db.query(User).filter_by(email="test@example.com").first()
+        league, season = make_league(db, user)
+        t, pick = self._make_completed_tournament_with_pick(
+            db, league, season, user, earnings=100_000, multiplier=2.0
+        )
+        original_points = pick.points_earned
+        assert original_points == 200_000.0
+
+        resp = client.put(
+            f"/api/v1/leagues/{league.id}/tournaments",
+            headers=auth_headers,
+            json={"tournaments": [{"tournament_id": str(t.id), "multiplier": 2.0}]},
+        )
+        assert resp.status_code == 200
+
+        db.refresh(pick)
+        assert pick.points_earned == original_points
+
+    def test_schedule_save_rescores_when_multiplier_changes(self, client, auth_headers, db):
+        """Changing a completed tournament's multiplier should re-score its picks."""
+        user = db.query(User).filter_by(email="test@example.com").first()
+        league, season = make_league(db, user)
+        t, pick = self._make_completed_tournament_with_pick(
+            db, league, season, user, earnings=100_000, multiplier=1.0
+        )
+        assert pick.points_earned == 100_000.0
+
+        resp = client.put(
+            f"/api/v1/leagues/{league.id}/tournaments",
+            headers=auth_headers,
+            json={"tournaments": [{"tournament_id": str(t.id), "multiplier": 2.0}]},
+        )
+        assert resp.status_code == 200
+
+        db.refresh(pick)
+        assert pick.points_earned == 200_000.0
+
+    def test_schedule_save_removing_tournament_updates_standings(self, client, auth_headers, db):
+        """Removing a completed tournament should change standings (fewer missed penalties)."""
+        user = db.query(User).filter_by(email="test@example.com").first()
+        league, season = make_league(db, user)
+
+        t1, pick1 = self._make_completed_tournament_with_pick(
+            db, league, season, user, earnings=200_000
+        )
+        # Create a second completed tournament where user has NO pick (missed).
+        # Must be in a different ISO week from t1 and same year as active season.
+        from app.models import Golfer, LeagueTournament, TournamentEntry
+
+        start2 = date(date.today().year, 2, 2)
+        t2 = Tournament(
+            pga_tour_id=f"R{uuid.uuid4().hex[:6]}",
+            name="Missed Open",
+            start_date=start2,
+            end_date=start2 + timedelta(days=3),
+            status=TournamentStatus.COMPLETED.value,
+        )
+        db.add(t2)
+        db.flush()
+        g2 = Golfer(pga_tour_id=f"G{uuid.uuid4().hex[:6]}", name="Other Golfer")
+        db.add(g2)
+        db.flush()
+        db.add(TournamentEntry(tournament_id=t2.id, golfer_id=g2.id, earnings_usd=50_000))
+        db.add(LeagueTournament(league_id=league.id, tournament_id=t2.id))
+        db.commit()
+
+        # With both tournaments: user has 1 pick (200k) + 1 missed (-50k penalty)
+        standings_resp = client.get(f"/api/v1/leagues/{league.id}/standings", headers=auth_headers)
+        assert standings_resp.status_code == 200
+        rows = standings_resp.json()["rows"]
+        assert len(rows) == 1
+        # total = 200_000 + (-50_000) = 150_000
+        assert rows[0]["total_points"] == 150_000.0
+
+        # Remove t2 from schedule — user now has 1 pick and 0 misses
+        resp = client.put(
+            f"/api/v1/leagues/{league.id}/tournaments",
+            headers=auth_headers,
+            json={"tournaments": [{"tournament_id": str(t1.id)}]},
+        )
+        assert resp.status_code == 200
+
+        standings_resp2 = client.get(f"/api/v1/leagues/{league.id}/standings", headers=auth_headers)
+        rows2 = standings_resp2.json()["rows"]
+        assert rows2[0]["total_points"] == 200_000.0
+
+    def test_schedule_save_with_many_unchanged_tournaments_returns_fast(
+        self, client, auth_headers, db
+    ):
+        """Saving many completed tournaments with unchanged multipliers should not
+        trigger re-scoring for each one — the endpoint should respond quickly."""
+        user = db.query(User).filter_by(email="test@example.com").first()
+        league, season = make_league(db, user)
+
+        tournament_ids = []
+        for i in range(15):
+            t, _ = self._make_completed_tournament_with_pick(
+                db, league, season, user, earnings=50_000 + i * 1000
+            )
+            tournament_ids.append(str(t.id))
+
+        import time
+
+        start_time = time.monotonic()
+        resp = client.put(
+            f"/api/v1/leagues/{league.id}/tournaments",
+            headers=auth_headers,
+            json={"tournaments": [{"tournament_id": tid} for tid in tournament_ids]},
+        )
+        elapsed = time.monotonic() - start_time
+
+        assert resp.status_code == 200
+        assert len(resp.json()) == 15
+        # Should be well under 30s (the frontend timeout). In practice this
+        # completes in <2s since no re-scoring is needed.
+        assert elapsed < 10, f"Schedule save took {elapsed:.1f}s — too slow"

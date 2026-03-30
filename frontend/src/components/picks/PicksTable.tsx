@@ -102,7 +102,54 @@ export function PicksTable({
     );
   }
 
+  const seasonOver = leagueTournaments.length > 0 && leagueTournaments.every((t) => t.status === "completed");
+
   if (historyRows.length === 0) {
+    // "Upcoming" tab with no scheduled tournaments left
+    if (statusFilter === "upcoming" && seasonOver) {
+      return (
+        <div className="space-y-2">
+          {/* Status filter — keep tabs visible so user can switch back */}
+          <div className="flex items-center gap-1 pb-1">
+            {(
+              [
+                ["default", "Recent"],
+                ["upcoming", "Upcoming"],
+                ["all", "All"],
+              ] as [StatusFilter, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setStatusFilter(value)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                  statusFilter === value
+                    ? "bg-green-800 text-white"
+                    : "text-gray-500 hover:bg-gray-100"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="bg-gray-50 rounded-2xl border border-gray-200 p-10 text-center space-y-2">
+            <p className="font-semibold text-gray-700">Season complete</p>
+            <p className="text-sm text-gray-400">All tournaments in this league have been played.</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Truly empty — no picks and season not over
+    if (seasonOver) {
+      return (
+        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-10 text-center space-y-2">
+          <p className="font-semibold text-gray-700">Season complete</p>
+          <p className="text-sm text-gray-400">All tournaments in this league have been played.</p>
+        </div>
+      );
+    }
+
     return (
       <div className="bg-gray-50 rounded-2xl border border-gray-200 p-16 text-center space-y-3">
         <div className="w-12 h-12 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center mx-auto">

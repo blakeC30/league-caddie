@@ -63,7 +63,17 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
 
       {/* Tournament section */}
       <div className="border-t border-gray-100 bg-gray-50 px-5 py-3">
-        {current ? (
+        {!current && summary.total_points !== null ? (
+          /* Season complete — no upcoming tournaments but has standings */
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-3.5 h-3.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+                <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.346A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.375a.75.75 0 0 0 0 1.5h11.25a.75.75 0 0 0 0-1.5h-.374v-2.625c0-1.036-.84-1.875-1.875-1.875h-.74a6.707 6.707 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <p className="text-xs font-semibold text-amber-700">Season Complete</p>
+          </div>
+        ) : current ? (
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">

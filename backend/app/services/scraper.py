@@ -1599,12 +1599,22 @@ def upsert_field(
     return golfers_synced, entries_synced
 
 
-def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | None = None) -> int:
+def score_picks(
+    db: Session,
+    tournament: Tournament,
+    *,
+    league_id: uuid.UUID | None = None,
+    skip_standings_refresh: bool = False,
+) -> int:
     """
     Calculate and store points_earned for picks in a completed tournament.
 
     When league_id is provided, only scores picks for that league. When None,
     scores all picks across all leagues (used by the worker and safety nets).
+
+    When skip_standings_refresh is True, the standings cache is NOT refreshed
+    after scoring. Callers should refresh standings themselves — useful when
+    batching multiple score_picks calls to avoid redundant recomputation.
 
     Uses bulk SQL updates instead of per-pick Python loops:
       1. Pre-step: fetch missing earnings from ESPN for entries with NULL earnings_usd
@@ -1708,7 +1718,7 @@ def score_picks(db: Session, tournament: Tournament, *, league_id: uuid.UUID | N
     count = matched_count + zero_count
 
     # ── Refresh standings cache ───────────────────────────────────────────
-    if count > 0:
+    if count > 0 and not skip_standings_refresh:
         from app.services.scoring import refresh_standings_cache
 
         season_query = (

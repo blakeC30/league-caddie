@@ -1160,25 +1160,28 @@ def update_league_tournaments(
                     ),
                 )
 
-    # Rule: schedule locks when the first playoff round's pick window opens (Round 1
-    # moves to "drafting" the moment the bracket is seeded).
-    # If no playoff is configured, the schedule never locks.
-    first_draft_open = (
-        db.query(PlayoffRound)
-        .join(PlayoffConfig, PlayoffRound.playoff_config_id == PlayoffConfig.id)
-        .filter(
-            PlayoffConfig.league_id == league.id,
-            PlayoffConfig.season_id == active_season.id,
-            PlayoffRound.round_number == 1,
-            PlayoffRound.status != "pending",
+        # Rule: schedule locks when the first playoff round's pick window opens
+        # (Round 1 moves to "drafting" the moment the bracket is seeded).
+        # If no playoff is configured, the schedule never locks.
+        # Only checked when an active season exists — playoffs require a season.
+        first_draft_open = (
+            db.query(PlayoffRound)
+            .join(PlayoffConfig, PlayoffRound.playoff_config_id == PlayoffConfig.id)
+            .filter(
+                PlayoffConfig.league_id == league.id,
+                PlayoffConfig.season_id == active_season.id,
+                PlayoffRound.round_number == 1,
+                PlayoffRound.status != "pending",
+            )
+            .first()
         )
-        .first()
-    )
-    if first_draft_open:
-        raise HTTPException(
-            status_code=422,
-            detail="Schedule is locked — the preference window for the first playoff round is open",
-        )
+        if first_draft_open:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    "Schedule is locked — the preference window for the first playoff round is open"
+                ),
+            )
 
     # Rule: only one tournament per ISO calendar week.
     week_map: dict[tuple[int, int], str] = {}
@@ -1249,6 +1252,11 @@ def update_league_tournaments(
                 ),
             )
 
+    # Snapshot old multipliers before deleting — used to detect changes and
+    # skip unnecessary re-scoring of completed tournaments.
+    old_rows = db.query(LeagueTournament).filter_by(league_id=league.id).all()
+    old_multipliers = {row.tournament_id: row.multiplier for row in old_rows}
+
     # Atomic replace: delete all existing selections, insert new ones.
     db.query(LeagueTournament).filter_by(league_id=league.id).delete()
     for item in body.tournaments:
@@ -1261,22 +1269,20 @@ def update_league_tournaments(
         )
     db.commit()
 
-    # Re-score this league's completed tournament picks.
-    # score_picks uses cached TournamentEntry.earnings_usd — no ESPN API calls.
-    # score_picks internally refreshes the standings cache (write-through).
-    scored_any = False
+    # Re-score only completed tournaments whose multiplier actually changed.
+    # Skips per-tournament standings refresh — we do one batch refresh below.
     for item in body.tournaments:
         tournament = tournament_map.get(item.tournament_id)
-        if tournament and tournament.status == TournamentStatus.COMPLETED.value:
-            score_picks(db, tournament, league_id=league.id)
-            scored_any = True
+        if not tournament or tournament.status != TournamentStatus.COMPLETED.value:
+            continue
+        if old_multipliers.get(item.tournament_id) != item.multiplier:
+            score_picks(db, tournament, league_id=league.id, skip_standings_refresh=True)
 
-    # If no completed tournaments were scored, refresh standings manually
-    # (schedule change alone can affect missed-pick penalty calculations).
-    if not scored_any:
-        from app.services.scoring import refresh_standings_cache_for_league
+    # Single standings refresh covers both re-scored picks and schedule changes
+    # that affect missed-pick penalty calculations.
+    from app.services.scoring import refresh_standings_cache_for_league
 
-        refresh_standings_cache_for_league(db, league.id)
+    refresh_standings_cache_for_league(db, league.id)
 
     rows = (
         db.query(LeagueTournament)
