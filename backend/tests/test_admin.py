@@ -656,13 +656,12 @@ class TestImportPicks:
         headers = _auth_headers(client, "pickimp1@example.com")
 
         csv_content = "email,golfer_name\nmem_pickimp1@example.com,Import Golfer"
-        with patch("app.routers.admin.score_picks"):
-            resp = client.post(
-                "/api/v1/admin/import-picks",
-                headers=headers,
-                data={"league_id": str(league.id), "tournament_id": str(t.id)},
-                files={"file": ("picks.csv", io.BytesIO(csv_content.encode()), "text/csv")},
-            )
+        resp = client.post(
+            "/api/v1/admin/import-picks",
+            headers=headers,
+            data={"league_id": str(league.id), "tournament_id": str(t.id)},
+            files={"file": ("picks.csv", io.BytesIO(csv_content.encode()), "text/csv")},
+        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["picks_created"] >= 1

@@ -19,8 +19,10 @@ called from both the standings router and the scraper (when finalizing results).
 
 import datetime
 import logging
+import uuid
 from datetime import UTC
 
+from sqlalchemy import and_, select, update
 from sqlalchemy import func as sqlfunc
 from sqlalchemy.orm import Session, joinedload
 
@@ -34,6 +36,7 @@ from app.models import (
     PlayoffRound,
     Season,
     Tournament,
+    TournamentEntry,
     TournamentStatus,
 )
 
@@ -77,6 +80,98 @@ def refresh_standings_cache_for_league(db: Session, league_id) -> None:
     season = db.query(Season).filter_by(league_id=league_id, is_active=True).first()
     if season:
         refresh_standings_cache(db, season)
+
+
+def rescore_league_picks(
+    db: Session,
+    tournament_id: uuid.UUID,
+    league_id: uuid.UUID,
+    *,
+    skip_standings_refresh: bool = False,
+) -> int:
+    """Recalculate points_earned for one league's picks using DB data only.
+
+    Pure SQL — no ESPN API calls, no writes to shared tables. Safe to call
+    from user-facing endpoints (schedule save, admin pick override, bulk import).
+
+    Returns the number of picks updated.
+    """
+    p = Pick.__table__.alias("p")
+    te = TournamentEntry.__table__
+    lt = LeagueTournament.__table__
+
+    earned_expr = sqlfunc.coalesce(te.c.earnings_usd, 0) * sqlfunc.coalesce(lt.c.multiplier, 1.0)
+
+    subq = (
+        select(p.c.id.label("pick_id"), earned_expr.label("earned"))
+        .select_from(
+            p.join(
+                te,
+                and_(
+                    te.c.tournament_id == p.c.tournament_id,
+                    te.c.golfer_id == p.c.golfer_id,
+                ),
+            ).outerjoin(
+                lt,
+                and_(
+                    lt.c.league_id == p.c.league_id,
+                    lt.c.tournament_id == p.c.tournament_id,
+                ),
+            )
+        )
+        .where(
+            and_(
+                p.c.tournament_id == tournament_id,
+                p.c.league_id == league_id,
+            )
+        )
+        .subquery("sub")
+    )
+
+    bulk_stmt = update(Pick).where(Pick.id == subq.c.pick_id).values(points_earned=subq.c.earned)
+    result = db.execute(bulk_stmt)
+    matched_count = result.rowcount
+
+    # Zero-out picks whose golfer has no TournamentEntry (e.g. WD before sync).
+    zero_stmt = (
+        update(Pick)
+        .where(
+            and_(
+                Pick.tournament_id == tournament_id,
+                Pick.league_id == league_id,
+                ~select(te.c.id)
+                .where(
+                    and_(
+                        te.c.tournament_id == Pick.tournament_id,
+                        te.c.golfer_id == Pick.golfer_id,
+                    )
+                )
+                .correlate(Pick)
+                .exists(),
+            )
+        )
+        .values(points_earned=0)
+    )
+    zero_result = db.execute(zero_stmt)
+    count = matched_count + zero_result.rowcount
+
+    # Flush + expire so the bulk UPDATE is visible to subsequent ORM queries
+    # (e.g. calculate_standings reading Pick.points_earned). Raw SQL updates
+    # bypass the ORM identity map, so we must expire stale cached objects.
+    db.flush()
+    db.expire_all()
+
+    if count > 0 and not skip_standings_refresh:
+        season = db.query(Season).filter_by(league_id=league_id, is_active=True).first()
+        if season:
+            refresh_standings_cache(db, season)
+    log.info(
+        "Rescored %d picks for league=%s tournament=%s",
+        count,
+        str(league_id),
+        str(tournament_id),
+    )
+    return count
 
 
 def calculate_standings(db: Session, league: League, season: Season) -> list[dict]:

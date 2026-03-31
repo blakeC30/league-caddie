@@ -46,7 +46,7 @@ from app.models import (
 )
 from app.models.deleted_league import DeletedLeague
 from app.services.auth import hash_password
-from app.services.scraper import full_sync, score_picks, sync_tournament
+from app.services.scraper import full_sync, sync_tournament
 
 log = logging.getLogger(__name__)
 
@@ -743,7 +743,9 @@ def import_picks(
     scored = False
     if tournament.status == TournamentStatus.COMPLETED.value:
         try:
-            score_picks(db, tournament, league_id=league_id)
+            from app.services.scoring import rescore_league_picks
+
+            rescore_league_picks(db, tournament.id, league_id, skip_standings_refresh=True)
             scored = True
             log.info(
                 "Admin import picks: auto-scored for '%s'",

@@ -51,7 +51,6 @@ from app.schemas.pick import PickCreate, PickOut, PickUpdate
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
 from app.services.picks import validate_new_pick, validate_pick_change
 from app.services.scoring import invalidate_standings_cache
-from app.services.scraper import score_picks
 
 # ---------------------------------------------------------------------------
 # Response schemas for the tournament picks summary endpoint
@@ -663,7 +662,7 @@ def admin_override_pick(
 
     if existing:
         existing.golfer_id = body.golfer_id
-        existing.points_earned = None  # reset so score_picks recalculates
+        existing.points_earned = None  # reset so rescore recalculates
         db.flush()
         pick_id = existing.id
     else:
@@ -686,11 +685,14 @@ def admin_override_pick(
         str(body.golfer_id),
     )
 
-    # If the tournament is already completed, score this league's picks immediately
+    # If the tournament is already completed, rescore this league's picks immediately
     # so points_earned is populated without waiting for the next scheduled sync.
-    # score_picks refreshes the standings cache internally (write-through).
+    # Uses rescore_league_picks (pure SQL, no ESPN calls).
     if tournament and tournament.status == TournamentStatus.COMPLETED.value:
-        score_picks(db, tournament, league_id=league.id)
+        from app.services.scoring import rescore_league_picks
+
+        rescore_league_picks(db, tournament.id, league.id)
+        db.commit()
     else:
         invalidate_standings_cache(db, season)
         db.commit()

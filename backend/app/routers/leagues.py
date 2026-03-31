@@ -72,7 +72,6 @@ from app.schemas.league import (
 from app.schemas.tournament import LeagueTournamentOut
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
 from app.services.scoring import invalidate_standings_cache_for_league
-from app.services.scraper import score_picks
 
 log = logging.getLogger(__name__)
 
@@ -1271,13 +1270,17 @@ def update_league_tournaments(
     db.commit()
 
     # Re-score only completed tournaments whose multiplier actually changed.
+    # Uses rescore_league_picks (pure SQL, no ESPN calls) instead of
+    # score_picks to keep the endpoint fast and avoid cross-league side effects.
     # Skips per-tournament standings refresh — we do one batch refresh below.
+    from app.services.scoring import rescore_league_picks
+
     for item in body.tournaments:
         tournament = tournament_map.get(item.tournament_id)
         if not tournament or tournament.status != TournamentStatus.COMPLETED.value:
             continue
         if old_multipliers.get(item.tournament_id) != item.multiplier:
-            score_picks(db, tournament, league_id=league.id, skip_standings_refresh=True)
+            rescore_league_picks(db, tournament.id, league.id, skip_standings_refresh=True)
 
     # Single standings refresh covers both re-scored picks and schedule changes
     # that affect missed-pick penalty calculations.

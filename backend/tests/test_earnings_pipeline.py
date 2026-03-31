@@ -3,7 +3,6 @@ Tests for the earnings-gated TOURNAMENT_COMPLETED pipeline.
 
 Covers:
   - _winner_has_earnings() gate logic
-  - _backfill_field_earnings() NULL preservation for unknown earnings
   - _publish_schedule_transitions() deferring when earnings unavailable
   - Admin single sync triggering score_round + advance_bracket directly
   - Worker catching HTTPException from score_round gracefully
@@ -185,80 +184,6 @@ class TestWinnerHasEarnings:
         _make_entry(db, tournament, golfer, finish_position=2, earnings_usd=500000)
 
         assert _winner_has_earnings(db, str(tournament.id)) is False
-
-
-# ---------------------------------------------------------------------------
-# TestBackfillFieldEarnings
-# ---------------------------------------------------------------------------
-
-
-class TestBackfillFieldEarnings:
-    """_backfill_field_earnings() preserves NULL for unknown earnings."""
-
-    def test_stores_zero_for_cut_golfers(self, db):
-        from app.services.scraper import _backfill_field_earnings
-
-        tournament = _make_completed_tournament(db, "Backfill Cut Open")
-        golfer = _make_golfer(db, "Cut Golfer")
-        entry = _make_entry(db, tournament, golfer, status="CUT", earnings_usd=None)
-
-        with patch("app.services.scraper._fetch_golfer_earnings", return_value=None):
-            _backfill_field_earnings(db, tournament)
-
-        db.refresh(entry)
-        assert entry.earnings_usd == 0
-
-    def test_stores_zero_for_wd_golfers(self, db):
-        from app.services.scraper import _backfill_field_earnings
-
-        tournament = _make_completed_tournament(db, "Backfill WD Open")
-        golfer = _make_golfer(db, "WD Golfer")
-        entry = _make_entry(db, tournament, golfer, status="WD", earnings_usd=None)
-
-        with patch("app.services.scraper._fetch_golfer_earnings", return_value=None):
-            _backfill_field_earnings(db, tournament)
-
-        db.refresh(entry)
-        assert entry.earnings_usd == 0
-
-    def test_keeps_null_for_active_golfer_with_no_earnings(self, db):
-        from app.services.scraper import _backfill_field_earnings
-
-        tournament = _make_completed_tournament(db, "Backfill Active Open")
-        golfer = _make_golfer(db, "Active Golfer")
-        entry = _make_entry(db, tournament, golfer, status=None, earnings_usd=None)
-
-        with patch("app.services.scraper._fetch_golfer_earnings", return_value=None):
-            _backfill_field_earnings(db, tournament)
-
-        db.refresh(entry)
-        assert entry.earnings_usd is None
-
-    def test_stores_positive_earnings_from_espn(self, db):
-        from app.services.scraper import _backfill_field_earnings
-
-        tournament = _make_completed_tournament(db, "Backfill Positive Open")
-        golfer = _make_golfer(db, "Earner Golfer")
-        entry = _make_entry(db, tournament, golfer, status=None, earnings_usd=None)
-
-        with patch("app.services.scraper._fetch_golfer_earnings", return_value=500000):
-            _backfill_field_earnings(db, tournament)
-
-        db.refresh(entry)
-        assert entry.earnings_usd == 500000
-
-    def test_skips_entries_with_existing_earnings(self, db):
-        from app.services.scraper import _backfill_field_earnings
-
-        tournament = _make_completed_tournament(db, "Backfill Skip Open")
-        golfer = _make_golfer(db, "Already Scored")
-        _make_entry(db, tournament, golfer, status=None, earnings_usd=250000)
-
-        with patch("app.services.scraper._fetch_golfer_earnings") as mock_fetch:
-            _backfill_field_earnings(db, tournament)
-
-        # Should not call ESPN for entries that already have earnings.
-        mock_fetch.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -491,43 +416,3 @@ class TestPublishCompletedForUnscoredPlayoffs:
                 _publish_completed_for_unscored_playoffs(db)
 
         mock_pub.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TestScorePicksNoBackfill
-# ---------------------------------------------------------------------------
-
-
-class TestScorePicksNoBackfill:
-    """score_picks() must NOT call _backfill_field_earnings — backfill runs only in the worker."""
-
-    def test_score_picks_does_not_call_backfill(self, db):
-        from app.services.scraper import score_picks
-
-        tournament = _make_completed_tournament(db, "No Backfill Open")
-
-        with patch("app.services.scraper._backfill_field_earnings") as mock_backfill:
-            score_picks(db, tournament)
-
-        mock_backfill.assert_not_called()
-
-
-# ---------------------------------------------------------------------------
-# TestWorkerCallsBackfill
-# ---------------------------------------------------------------------------
-
-
-class TestWorkerCallsBackfill:
-    """_handle_tournament_completed calls _backfill_field_earnings after score_picks."""
-
-    def test_worker_calls_backfill_after_scoring(self, db):
-        from app.worker_main import _handle_tournament_completed
-
-        tournament = _make_completed_tournament(db, "Worker Backfill Open")
-
-        with patch("app.services.scraper.score_picks", return_value=0):
-            with patch("app.services.scraper._backfill_field_earnings") as mock_backfill:
-                _handle_tournament_completed(db, str(tournament.id))
-
-        mock_backfill.assert_called_once()
-        assert mock_backfill.call_args[0][1].id == tournament.id

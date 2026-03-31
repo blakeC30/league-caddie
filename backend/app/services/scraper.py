@@ -1741,63 +1741,6 @@ def score_picks(
     return count
 
 
-def _backfill_field_earnings(db: Session, tournament: Tournament) -> None:
-    """
-    Fetch and store earnings_usd for every TournamentEntry that still has
-    earnings_usd = NULL after score_picks() has run.
-
-    score_picks() only fetches earnings for golfers with actual league picks.
-    This function fills in the rest so the leaderboard can display earnings
-    for the full field.
-
-    One ESPN API call per missing entry — runs synchronously but only touches
-    entries with NULL earnings, so re-runs are cheap (all entries filled after
-    the first completed sync).
-    """
-    entries = (
-        db.query(TournamentEntry)
-        .filter_by(tournament_id=tournament.id)
-        .filter(TournamentEntry.earnings_usd.is_(None))
-        .join(Golfer, TournamentEntry.golfer_id == Golfer.id)
-        .add_columns(Golfer.pga_tour_id.label("golfer_pga_tour_id"))
-        .all()
-    )
-
-    if not entries:
-        return
-
-    log.info(
-        "Back-filling earnings for %d field entries in '%s'",
-        len(entries),
-        tournament.name,
-    )
-
-    for row in entries:
-        entry, golfer_pga_tour_id = row
-
-        if tournament.is_team_event and entry.team_competitor_id:
-            competitor_id = entry.team_competitor_id
-        else:
-            competitor_id = golfer_pga_tour_id
-
-        raw = _fetch_golfer_earnings(
-            tournament.pga_tour_id,
-            competitor_id,
-            competition_id=tournament.competition_id,
-            is_team_event=tournament.is_team_event,
-        )
-        if raw is not None:
-            # ESPN returned a positive earnings value — store it.
-            entry.earnings_usd = raw
-        elif entry.status in ("CUT", "WD", "DQ", "MDF"):
-            # Confirmed non-earner — store 0 so we don't re-fetch.
-            entry.earnings_usd = 0
-        # else: earnings not yet published — leave as NULL for retry
-
-    db.commit()
-    log.info("Back-fill complete for '%s'", tournament.name)
-
-
 # ---------------------------------------------------------------------------
 # High-level sync functions (HTTP + DB)
 # ---------------------------------------------------------------------------
