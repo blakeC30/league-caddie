@@ -609,6 +609,7 @@ def get_roster(
                 first_name=m.user.first_name,
                 last_name=m.user.last_name,
                 email=m.user.email if is_manager else None,
+                joined_at=m.joined_at.isoformat() if m.joined_at else "",
             )
             for m in members
         ],

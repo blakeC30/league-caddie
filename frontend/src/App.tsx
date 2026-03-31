@@ -8,8 +8,8 @@
  * Heavy pages are lazy-loaded to reduce the initial bundle size.
  */
 
-import { lazy, Suspense } from "react";
-import { Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect } from "react";
+import { Route, Routes, useLocation } from "react-router-dom";
 import { Toaster } from "./components/Toaster";
 import { PageSkeleton } from "./components/Skeleton";
 import { Layout } from "./components/Layout";
@@ -44,9 +44,18 @@ function PageFallback() {
   return <PageSkeleton />;
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   return (
     <>
+    <ScrollToTop />
     <Routes>
       {/* Public */}
       <Route path="/" element={<Welcome />} />

@@ -294,7 +294,7 @@ ESPN unofficial API — no auth required, but undocumented and may change.
 
 **Tour Championship cutoff:** The Tour Championship is the last valid fantasy-season event. `parse_schedule_response` filters out any ESPN events that start after it ends. `sync_schedule` also calls `_trim_post_championship_tournaments` to clean up any rows that slipped in before this rule existed. Post-Tour-Championship tournaments cannot be added to any league schedule.
 
-**Team events (Zurich Classic):** `competition_id` on Tournament may differ from `pga_tour_id`. Earnings fetched via `team_competitor_id` (stored on TournamentEntry), then divided by 2 for per-golfer share.
+**Team events (Zurich Classic):** `competition_id` on Tournament may differ from `pga_tour_id`. Earnings fetched via `team_competitor_id` (stored on TournamentEntry). ESPN's `officialAmount` stat is used directly as the earnings value — no division needed.
 
 Manual trigger via `POST /admin/sync` (calls scraper functions directly, works from either container).
 

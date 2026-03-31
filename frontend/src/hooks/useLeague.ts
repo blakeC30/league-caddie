@@ -227,6 +227,7 @@ export interface RosterMember {
   first_name: string;
   last_name: string;
   email: string | null;
+  joined_at: string;
 }
 
 export function useRoster(leagueId: string) {

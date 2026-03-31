@@ -116,3 +116,4 @@ class RosterMemberOut(BaseModel):
     first_name: str
     last_name: str
     email: str | None = None
+    joined_at: str

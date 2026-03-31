@@ -14,7 +14,7 @@ so they stay fast and isolated from router concerns.
 """
 
 import uuid
-from datetime import date, timedelta
+from datetime import UTC, date, timedelta
 
 import pytest
 from sqlalchemy.orm import Session
@@ -40,6 +40,7 @@ from app.models import (
 from app.services.auth import hash_password
 from app.services.playoff import (
     advance_bracket,
+    assign_pod,
     assign_pod_2,
     generate_draft_order,
     override_result,
@@ -868,15 +869,26 @@ class TestResolveDraft:
         assert len(picks) == 1
         assert picks[0].golfer_id == field_golfer.id  # skipped non-field; fell through to #2
 
-    def test_raises_if_round_not_drafting(self, db):
-        """resolve_draft raises 422 if the round is not in 'drafting' status."""
-        from fastapi import HTTPException
-
+    def test_idempotent_if_round_already_locked(self, db):
+        """resolve_draft silently returns if the round is already locked (idempotent)."""
         manager = _make_user(db, "mgr_rnrd@test.com")
         league, season = _make_league(db, manager)
         tournament = _make_tournament(db, league, status="in_progress")
         config = _make_config(db, league, season)
         round_obj = _make_round(db, config, tournament, status="locked")
+
+        # Should return without raising — safe for SQS at-least-once delivery
+        resolve_draft(db, _reload_round(db, round_obj.id))
+
+    def test_raises_if_round_in_pending_status(self, db):
+        """resolve_draft raises 422 if the round is in 'pending' status."""
+        from fastapi import HTTPException
+
+        manager = _make_user(db, "mgr_pend@test.com")
+        league, season = _make_league(db, manager)
+        tournament = _make_tournament(db, league, status="in_progress")
+        config = _make_config(db, league, season)
+        round_obj = _make_round(db, config, tournament, status="pending")
 
         with pytest.raises(HTTPException) as exc:
             resolve_draft(db, _reload_round(db, round_obj.id))
@@ -1278,3 +1290,278 @@ class TestDepartedMemberInPlayoff:
         assert players[0].id in next_user_ids
         assert players[2].id in next_user_ids
         assert len(next_members) == 2
+
+
+# ---------------------------------------------------------------------------
+# Additional edge case coverage
+# ---------------------------------------------------------------------------
+
+
+class TestAssignPod32Player:
+    """Tests for assign_pod() — pods-of-4 bracket seeding for 32-player brackets."""
+
+    def test_32_player_bracket_8_pods(self):
+        """32 seeds assigned to 8 pods of 4 using tier-based seeding."""
+        num_pods = 8  # 32 players / 4 per pod
+        assignments: dict[int, list[int]] = {}
+        for seed in range(1, 33):
+            bp = assign_pod(seed, num_pods)
+            assignments.setdefault(bp, []).append(seed)
+
+        # Every pod should have exactly 4 members
+        for bp in range(1, 9):
+            assert len(assignments[bp]) == 4, f"Pod {bp} has {len(assignments[bp])} members"
+
+        # Top seed (1) and bottom seed (32) should be in the same pod (bracket fairness)
+        pod_of_seed_1 = assign_pod(1, num_pods)
+        pod_of_seed_32 = assign_pod(32, num_pods)
+        assert pod_of_seed_1 == pod_of_seed_32
+
+        # Seeds 1 and 2 should NOT be in the same pod (top seeds spread out)
+        assert assign_pod(1, num_pods) != assign_pod(2, num_pods)
+
+    def test_all_seeds_assigned_to_valid_pods(self):
+        """Every seed maps to a pod between 1 and num_pods inclusive."""
+        num_pods = 8
+        for seed in range(1, 33):
+            bp = assign_pod(seed, num_pods)
+            assert 1 <= bp <= num_pods, f"Seed {seed} assigned to invalid pod {bp}"
+
+
+class TestThreeAndFourWayTies:
+    """Tests for _determine_pod_winner with multi-way ties in pods of 4."""
+
+    def test_four_way_tie_broken_by_lowest_seed(self, db):
+        """In a 4-person pod where all members tie, lowest seed wins."""
+        manager = _make_user(db, "4tie_mgr@test.com")
+        league, season = _make_league(db, manager)
+        players = []
+        for i in range(4):
+            u = _make_user(db, f"4tie_p{i}@test.com")
+            db.add(
+                LeagueMember(
+                    league_id=league.id,
+                    user_id=u.id,
+                    role=LeagueMemberRole.MEMBER.value,
+                    status=LeagueMemberStatus.APPROVED.value,
+                )
+            )
+            players.append(u)
+        db.commit()
+
+        tournament = _make_tournament(db, league, status="completed")
+        config = _make_config(db, league, season, playoff_size=4, picks_per_round=[1])
+        round_obj = _make_round(db, config, tournament, status="locked")
+        pod = _make_pod(db, round_obj, bracket_position=1, status="locked")
+
+        # All 4 members have identical points
+        for i, p in enumerate(players):
+            _make_pod_member(db, pod, p, seed=i + 1, draft_position=i + 1, total_points=250_000)
+
+        advance_bracket(db, _reload_round(db, round_obj.id))
+
+        refreshed_pod = _reload_pod(db, pod.id)
+        # Seed 1 wins the 4-way tie
+        assert refreshed_pod.winner_user_id == players[0].id
+        # All others eliminated
+        for m in refreshed_pod.members:
+            if m.user_id != players[0].id:
+                assert m.is_eliminated is True
+
+    def test_three_way_tie_in_four_person_pod(self, db):
+        """In a 4-person pod, 3 members tie but one has more points — the one
+        with more points wins regardless of seed."""
+        manager = _make_user(db, "3tie_mgr@test.com")
+        league, season = _make_league(db, manager)
+        players = []
+        for i in range(4):
+            u = _make_user(db, f"3tie_p{i}@test.com")
+            db.add(
+                LeagueMember(
+                    league_id=league.id,
+                    user_id=u.id,
+                    role=LeagueMemberRole.MEMBER.value,
+                    status=LeagueMemberStatus.APPROVED.value,
+                )
+            )
+            players.append(u)
+        db.commit()
+
+        tournament = _make_tournament(db, league, status="completed")
+        config = _make_config(db, league, season, playoff_size=4, picks_per_round=[1])
+        round_obj = _make_round(db, config, tournament, status="locked")
+        pod = _make_pod(db, round_obj, bracket_position=1, status="locked")
+
+        # Seeds 1, 2, 3 tie at 200k; seed 4 has 500k
+        _make_pod_member(db, pod, players[0], seed=1, draft_position=1, total_points=200_000)
+        _make_pod_member(db, pod, players[1], seed=2, draft_position=2, total_points=200_000)
+        _make_pod_member(db, pod, players[2], seed=3, draft_position=3, total_points=200_000)
+        _make_pod_member(db, pod, players[3], seed=4, draft_position=4, total_points=500_000)
+
+        advance_bracket(db, _reload_round(db, round_obj.id))
+
+        refreshed_pod = _reload_pod(db, pod.id)
+        # Seed 4 wins despite worst seed — they have the most points
+        assert refreshed_pod.winner_user_id == players[3].id
+
+
+class TestFinalChampionshipRound:
+    """Tests for advance_bracket on the final round (no next round)."""
+
+    def test_final_round_completes_without_promotion(self, db):
+        """The championship round (last round) completes, sets winner,
+        but does not create any next-round pods."""
+        manager = _make_user(db, "fin_mgr@test.com")
+        league, season = _make_league(db, manager)
+        player_a = _make_user(db, "fin_pa@test.com")
+        player_b = _make_user(db, "fin_pb@test.com")
+        for u in [player_a, player_b]:
+            db.add(
+                LeagueMember(
+                    league_id=league.id,
+                    user_id=u.id,
+                    role=LeagueMemberRole.MEMBER.value,
+                    status=LeagueMemberStatus.APPROVED.value,
+                )
+            )
+        db.commit()
+
+        tournament = _make_tournament(db, league, status="completed")
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        # Only one round — this IS the final
+        round_obj = _make_round(db, config, tournament, round_number=1, status="locked")
+        pod = _make_pod(db, round_obj, bracket_position=1, status="locked")
+        _make_pod_member(db, pod, player_a, seed=1, draft_position=1, total_points=600_000)
+        _make_pod_member(db, pod, player_b, seed=2, draft_position=2, total_points=300_000)
+
+        advance_bracket(db, _reload_round(db, round_obj.id))
+
+        refreshed_round = _reload_round(db, round_obj.id)
+        assert refreshed_round.status == "completed"
+
+        refreshed_pod = _reload_pod(db, pod.id)
+        assert refreshed_pod.winner_user_id == player_a.id
+        assert refreshed_pod.status == "completed"
+
+        # No round 2 should exist
+        next_round = (
+            db.query(PlayoffRound).filter_by(playoff_config_id=config.id, round_number=2).first()
+        )
+        assert next_round is None
+
+        # No pods created for a non-existent next round
+        all_pods = db.query(PlayoffPod).filter_by(playoff_round_id=round_obj.id).all()
+        assert len(all_pods) == 1  # only the original pod
+
+
+class TestResolveDraftIdempotency:
+    """Tests that resolve_draft is safe to call multiple times."""
+
+    def test_second_call_is_noop(self, db):
+        """Calling resolve_draft twice on the same round does not duplicate picks."""
+        from app.models import TournamentEntry as TE
+
+        manager = _make_user(db, "idem_mgr@test.com")
+        league, season = _make_league(db, manager)
+        player_a = _make_user(db, "idem_pa@test.com")
+        player_b = _make_user(db, "idem_pb@test.com")
+        for u in [player_a, player_b]:
+            db.add(
+                LeagueMember(
+                    league_id=league.id,
+                    user_id=u.id,
+                    role=LeagueMemberRole.MEMBER.value,
+                    status=LeagueMemberStatus.APPROVED.value,
+                )
+            )
+        db.commit()
+
+        tournament = _make_tournament(db, league, status="in_progress")
+        golfer_a = _make_golfer(db, "IdemGolferA")
+        golfer_b = _make_golfer(db, "IdemGolferB")
+        # Create field entries so golfers are in the tournament
+        db.add(TE(tournament_id=tournament.id, golfer_id=golfer_a.id))
+        db.add(TE(tournament_id=tournament.id, golfer_id=golfer_b.id))
+        # Add a tee time in the past so the window is closed
+        from datetime import datetime
+
+        db.add(
+            TournamentEntry(
+                tournament_id=tournament.id,
+                golfer_id=_make_golfer(db, "TeeTimeGolfer").id,
+                tee_time=datetime(2020, 1, 1, tzinfo=UTC),
+            )
+        )
+        db.commit()
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, tournament, status="drafting")
+        pod = _make_pod(db, round_obj, bracket_position=1, status="drafting")
+        mem_a = _make_pod_member(db, pod, player_a, seed=1, draft_position=1)
+        mem_b = _make_pod_member(db, pod, player_b, seed=2, draft_position=2)
+
+        # Submit preferences
+        _make_preference(db, pod, mem_a, golfer_a, rank=1)
+        _make_preference(db, pod, mem_b, golfer_b, rank=1)
+
+        # First call — creates picks and locks the round
+        resolve_draft(db, _reload_round(db, round_obj.id))
+
+        pick_count_after_first = db.query(PlayoffPick).filter_by(pod_id=pod.id).count()
+        assert pick_count_after_first == 2
+
+        refreshed = _reload_round(db, round_obj.id)
+        assert refreshed.status == "locked"
+
+        # Second call — should be a silent no-op
+        resolve_draft(db, _reload_round(db, round_obj.id))
+
+        pick_count_after_second = db.query(PlayoffPick).filter_by(pod_id=pod.id).count()
+        assert pick_count_after_second == 2  # no duplicates
+
+
+class TestPickedGolferMissingFromField:
+    """Tests for score_round when a picked golfer has no TournamentEntry."""
+
+    def test_missing_entry_scores_as_zero(self, db):
+        """A playoff pick for a golfer with no TournamentEntry scores as 0 points."""
+        manager = _make_user(db, "mf_mgr@test.com")
+        league, season = _make_league(db, manager)
+        player_a = _make_user(db, "mf_pa@test.com")
+        player_b = _make_user(db, "mf_pb@test.com")
+        for u in [player_a, player_b]:
+            db.add(
+                LeagueMember(
+                    league_id=league.id,
+                    user_id=u.id,
+                    role=LeagueMemberRole.MEMBER.value,
+                    status=LeagueMemberStatus.APPROVED.value,
+                )
+            )
+        db.commit()
+
+        tournament = _make_tournament(db, league, status="completed")
+        golfer_a = _make_golfer(db, "FieldGolfer")
+        golfer_b = _make_golfer(db, "MissingGolfer")  # no TournamentEntry created
+
+        # Only golfer_a has an entry
+        _make_entry(db, tournament, golfer_a, earnings_usd=500_000)
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, tournament, status="locked")
+        pod = _make_pod(db, round_obj, bracket_position=1, status="locked")
+        mem_a = _make_pod_member(db, pod, player_a, seed=1, draft_position=1)
+        mem_b = _make_pod_member(db, pod, player_b, seed=2, draft_position=2)
+
+        # Player A picked a golfer in the field; Player B picked one NOT in the field
+        _make_playoff_pick(db, pod, mem_a, golfer_a, tournament, draft_slot=1)
+        _make_playoff_pick(db, pod, mem_b, golfer_b, tournament, draft_slot=1)
+
+        score_round(db, _reload_round(db, round_obj.id))
+
+        db.refresh(mem_a)
+        db.refresh(mem_b)
+        # Player A: 500k earnings * 1.0 multiplier = 500k
+        assert mem_a.total_points == 500_000.0
+        # Player B: golfer not in field → 0 earnings, scores as 0
+        assert mem_b.total_points == 0.0

@@ -549,6 +549,15 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
         str(playoff_round.playoff_config_id),
     )
     if playoff_round.status != "drafting":
+        # Idempotency: if the round is already locked/completed, a prior call
+        # succeeded. Return silently instead of raising so SQS at-least-once
+        # delivery and crash retries are safe.
+        if playoff_round.status in ("locked", "scoring", "completed"):
+            log.info(
+                "resolve_draft: round already resolved (status=%s), skipping",
+                playoff_round.status,
+            )
+            return
         log.warning(
             "resolve_draft: round not in drafting status: round_id=%s status=%s",
             playoff_round.id,
@@ -875,6 +884,12 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
     )
 
     for pod in playoff_round.pods:
+        # Idempotency: if this pod was already completed by a prior (partial) run,
+        # skip it so a retry doesn't hit unique constraint errors on next-round members.
+        if pod.status == "completed" and pod.winner_user_id is not None:
+            log.debug("advance_bracket: pod %d already completed, skipping", pod.id)
+            continue
+
         if pod.winner_user_id is not None:
             # Winner was manually set by override_result before advance_bracket was
             # called.  Respect the override rather than recalculating from scores.
@@ -920,17 +935,25 @@ def advance_bracket(db: Session, playoff_round: PlayoffRound) -> None:
                 db.add(next_pod)
                 db.flush()
 
-            # Assign winner to next pod with their seed
-            existing_seed = next(m for m in pod.members if m.user_id == winner.user_id).seed
-            member_count_in_next = db.query(PlayoffPodMember).filter_by(pod_id=next_pod.id).count()
-            next_member = PlayoffPodMember(
-                pod_id=next_pod.id,
-                user_id=winner.user_id,
-                seed=existing_seed,
-                draft_position=member_count_in_next + 1,  # temporary; re-sorted below
+            # Assign winner to next pod with their seed (skip if already promoted)
+            already_promoted = (
+                db.query(PlayoffPodMember)
+                .filter_by(pod_id=next_pod.id, user_id=winner.user_id)
+                .first()
             )
-            db.add(next_member)
-            db.flush()  # make visible to subsequent count queries within this loop
+            if not already_promoted:
+                existing_seed = next(m for m in pod.members if m.user_id == winner.user_id).seed
+                member_count_in_next = (
+                    db.query(PlayoffPodMember).filter_by(pod_id=next_pod.id).count()
+                )
+                next_member = PlayoffPodMember(
+                    pod_id=next_pod.id,
+                    user_id=winner.user_id,
+                    seed=existing_seed,
+                    draft_position=member_count_in_next + 1,  # temporary; re-sorted below
+                )
+                db.add(next_member)
+                db.flush()  # make visible to subsequent count queries within this loop
 
     playoff_round.status = "completed"
 

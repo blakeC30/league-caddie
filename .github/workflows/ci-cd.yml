@@ -78,7 +78,7 @@ jobs:
           SQS_QUEUE_URL: http://localhost:4566/000000000000/test-queue
           FRONTEND_URL: http://localhost:5173
           LEAGUE_CREATION_RESTRICTED: "false"
-        run: uv run pytest
+        run: uv run pytest --cov=app --cov-report=term-missing --cov-fail-under=90
 
   # ────────────────────────────────────────────────────────────────────────────
   # test-frontend

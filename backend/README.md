@@ -470,7 +470,7 @@ The scraper fetches data from ESPN's internal APIs. These are undocumented and m
 
 **Tour Championship cutoff:** The Tour Championship is the last valid fantasy season event. Any ESPN events starting after it ends are filtered out of the schedule and any that slipped into the DB are cleaned up automatically.
 
-**Team events (e.g. Zurich Classic):** `competition_id` may differ from `pga_tour_id`. Earnings are fetched via each golfer's `team_competitor_id` and divided by 2 for the per-golfer share.
+**Team events (e.g. Zurich Classic):** `competition_id` may differ from `pga_tour_id`. Earnings are fetched via each golfer's `team_competitor_id`. ESPN's `officialAmount` stat is used directly — no division needed.
 
 ### APScheduler Jobs
 

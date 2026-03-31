@@ -100,6 +100,16 @@ class TestUpdateMe:
         assert data["display_name"] == "New Name Only"
         assert data["pick_reminders_enabled"] is False  # Unchanged.
 
+    def test_update_first_and_last_name(self, client, auth_headers):
+        resp = client.patch(
+            "/api/v1/users/me",
+            headers=auth_headers,
+            json={"first_name": "Blake", "last_name": "Chambers"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["first_name"] == "Blake"
+        assert resp.json()["last_name"] == "Chambers"
+
     def test_unauthenticated_cannot_update_profile(self, client):
         resp = client.patch("/api/v1/users/me", json={"display_name": "Hacker"})
         assert resp.status_code == 401

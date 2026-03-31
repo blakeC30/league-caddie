@@ -34,7 +34,7 @@ ESPN API endpoints used
                → individual athlete IDs for a team competitor (team events only)
              /events/{id}/competitions/{competition_id}/competitors/{competitor_id}/statistics
                → earnings for completed tournaments; team events use 'officialAmount'
-               stat (divided by 2 for per-golfer share); individual events use 'amount'
+               stat (used directly as earnings); individual events use 'amount'
              /events/{id}/competitions/{competition_id}/competitors/{competitor_id}/linescores
                → per-round data for each golfer: tee time, strokes, score-to-par,
                leaderboard position, and playoff flag. One call returns ALL rounds
@@ -1074,7 +1074,7 @@ def _fetch_golfer_earnings(
     For team tournaments (e.g. Zurich Classic):
       - competitor_id is the team's ESPN competitor ID (team_competitor_id)
       - stat name is 'officialAmount' (ESPN sets 'amount' to 0 for team events)
-      - earnings are the TEAM's total purse; divide by 2 for per-golfer share
+      - earnings are the team's officialAmount, used directly (no division needed)
       - competition_id is the event's actual competition ID (stored in Tournament)
 
     Returns earnings in USD as an integer, or None if not found.

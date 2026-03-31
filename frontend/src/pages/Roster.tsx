@@ -138,6 +138,9 @@ export function Roster() {
                   <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">
                     Last Name
                   </th>
+                  <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">
+                    Joined
+                  </th>
                   {showEmails && (
                     <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">
                       Email
@@ -159,6 +162,9 @@ export function Roster() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {member.last_name || <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
+                      {member.joined_at ? new Date(member.joined_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : <span className="text-gray-300">—</span>}
                     </td>
                     {showEmails && (
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">

@@ -104,7 +104,7 @@ class Tournament(Base):
 
     # True for two-person team format tournaments (e.g. Zurich Classic).
     # Drives scraper routing: team events need roster expansion + officialAmount
-    # earnings stat (divided by 2) instead of the standard per-athlete flow.
+    # earnings stat instead of the standard per-athlete flow.
     is_team_event: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="false"
     )
