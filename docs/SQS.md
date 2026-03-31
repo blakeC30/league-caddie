@@ -24,7 +24,7 @@ The APScheduler approach has three hard limits that SQS solves:
 
 ## Architecture: What Changes, What Stays
 
-### Stays on APScheduler (time-triggered)
+### Stays on APScheduler(time-triggered)
 
 | Job | Schedule | Reason |
 |---|---|---|
