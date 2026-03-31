@@ -15,7 +15,7 @@ config:
   environment: production
   debug: "false"
   frontendUrl: "https://league-caddie.com"
-  leagueCreationRestricted: "false"
+  leagueCreationRestricted: "true"
   sqsQueueUrl: ""  # Injected at deploy time via --set config.sqsQueueUrl
 
 postgres:
