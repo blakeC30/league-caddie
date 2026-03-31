@@ -159,6 +159,7 @@ export function CreateLeague() {
                 maxLength={50}
                 className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
               />
+              {name.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums">{name.length}/50</p>}
             </div>
           </div>
         </div>

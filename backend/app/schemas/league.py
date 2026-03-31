@@ -73,7 +73,14 @@ class LeagueMemberOut(BaseModel):
 class RoleUpdate(BaseModel):
     """Used by league managers to change a member's role."""
 
-    role: str  # "manager" or "member"
+    role: str
+
+    @field_validator("role")
+    @classmethod
+    def must_be_valid_role(cls, v: str) -> str:
+        if v not in ("manager", "member"):
+            raise ValueError("role must be 'manager' or 'member'")
+        return v
 
 
 class LeagueJoinPreview(BaseModel):

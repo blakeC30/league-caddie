@@ -257,6 +257,7 @@ export function Settings() {
                   maxLength={50}
                   className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
                 />
+                {firstName.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums">{firstName.length}/50</p>}
               </div>
               <div className="space-y-1.5">
                 <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
@@ -270,6 +271,7 @@ export function Settings() {
                   maxLength={50}
                   className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
                 />
+                {lastName.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums">{lastName.length}/50</p>}
               </div>
             </div>
 
@@ -285,9 +287,13 @@ export function Settings() {
                 maxLength={50}
                 className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
               />
-              <p className="text-xs text-gray-400">
-                This is how you appear on leaderboards and pick history.
-              </p>
+              {displayName.length >= 40 ? (
+                <p className="text-[11px] text-gray-400 text-right tabular-nums">{displayName.length}/50</p>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  This is how you appear on leaderboards and pick history.
+                </p>
+              )}
             </div>
 
             {error && (

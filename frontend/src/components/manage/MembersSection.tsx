@@ -185,9 +185,10 @@ export function MembersSection({
                                     onConfirm: () => updateRole.mutate({ userId: m.user_id, role: m.role === "manager" ? "member" : "manager" }),
                                   })
                                 }
-                                className="text-xs font-medium text-blue-600 hover:underline transition-colors"
+                                disabled={updateRole.isPending}
+                                className="text-xs font-medium text-blue-600 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               >
-                                {m.role === "manager" ? "Revoke manager role" : "Make manager"}
+                                {updateRole.isPending ? "Updating…" : m.role === "manager" ? "Revoke manager role" : "Make manager"}
                               </button>
                               <button
                                 onClick={() =>
@@ -199,9 +200,10 @@ export function MembersSection({
                                     onConfirm: () => removeMember.mutate(m.user_id),
                                   })
                                 }
-                                className="text-xs font-medium text-red-500 hover:underline transition-colors"
+                                disabled={removeMember.isPending}
+                                className="text-xs font-medium text-red-500 hover:underline transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                               >
-                                Remove
+                                {removeMember.isPending ? "Removing…" : "Remove"}
                               </button>
                             </div>
                           )}

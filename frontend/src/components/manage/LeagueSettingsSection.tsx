@@ -75,13 +75,16 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
           <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">Name</span>
           {settingsEditing ? (
-            <input
-              type="text"
-              value={settingsName}
-              onChange={(e) => setSettingsName(e.target.value)}
-              maxLength={50}
-              className="flex-1 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-700"
-            />
+            <div className="flex-1">
+              <input
+                type="text"
+                value={settingsName}
+                onChange={(e) => setSettingsName(e.target.value)}
+                maxLength={50}
+                className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-700"
+              />
+              {settingsName.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums mt-0.5">{settingsName.length}/50</p>}
+            </div>
           ) : (
             <span className="text-sm font-medium text-gray-900 break-words">{league?.name}</span>
           )}

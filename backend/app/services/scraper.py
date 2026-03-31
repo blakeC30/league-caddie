@@ -79,8 +79,8 @@ from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 
 import httpx
+from sqlalchemy import and_, select, update
 from sqlalchemy import func as sqlfunc
-from sqlalchemy import text as sa_text
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -1674,51 +1674,50 @@ def score_picks(
     # points_earned = COALESCE(te.earnings_usd, 0) * COALESCE(lt.multiplier, 1.0)
     # Multiplier comes exclusively from league_tournaments; defaults to 1.0
     # if the league didn't set one (tournament.multiplier is not used).
-    league_filter = "AND picks.league_id = :league_id" if league_id is not None else ""
 
-    bulk_sql = sa_text(f"""
-        UPDATE picks
-        SET points_earned = sub.earned
-        FROM (
-            SELECT
-                p.id AS pick_id,
-                COALESCE(te.earnings_usd, 0)
-                  * COALESCE(lt.multiplier, 1.0) AS earned
-            FROM picks p
-            JOIN tournament_entries te
-                ON te.tournament_id = p.tournament_id
-               AND te.golfer_id = p.golfer_id
-            LEFT JOIN league_tournaments lt
-                ON lt.league_id = p.league_id
-               AND lt.tournament_id = p.tournament_id
-            WHERE p.tournament_id = :tournament_id
-              {"AND p.league_id = :league_id" if league_id is not None else ""}
-        ) sub
-        WHERE picks.id = sub.pick_id
-    """)
+    # Alias for the picks table used in the subquery (avoids ambiguity with
+    # the Pick table referenced in the outer UPDATE).
+    p = Pick.__table__.alias("p")
+    te = TournamentEntry.__table__
+    lt = LeagueTournament.__table__
 
-    params: dict = {"tournament_id": tournament.id}
+    earned_expr = sqlfunc.coalesce(te.c.earnings_usd, 0) * sqlfunc.coalesce(lt.c.multiplier, 1.0)
+
+    sub_filters = [p.c.tournament_id == tournament.id]
     if league_id is not None:
-        params["league_id"] = league_id
+        sub_filters.append(p.c.league_id == league_id)
 
-    result = db.execute(bulk_sql, params)
+    subq = (
+        select(p.c.id.label("pick_id"), earned_expr.label("earned"))
+        .select_from(
+            p.join(
+                te, and_(te.c.tournament_id == p.c.tournament_id, te.c.golfer_id == p.c.golfer_id)
+            ).outerjoin(
+                lt, and_(lt.c.league_id == p.c.league_id, lt.c.tournament_id == p.c.tournament_id)
+            )
+        )
+        .where(and_(*sub_filters))
+        .subquery("sub")
+    )
+
+    bulk_stmt = update(Pick).where(Pick.id == subq.c.pick_id).values(points_earned=subq.c.earned)
+    result = db.execute(bulk_stmt)
     matched_count = result.rowcount
 
     # ── Zero-out: picks with no matching TournamentEntry ──────────────────
     # Covers golfers who withdrew before field sync (no entry row exists).
-    zero_sql = sa_text(f"""
-        UPDATE picks
-        SET points_earned = 0
-        WHERE picks.tournament_id = :tournament_id
-          AND NOT EXISTS (
-            SELECT 1 FROM tournament_entries te
-            WHERE te.tournament_id = picks.tournament_id
-              AND te.golfer_id = picks.golfer_id
-          )
-          {league_filter}
-    """)
+    zero_filters = [
+        Pick.tournament_id == tournament.id,
+        ~select(te.c.id)
+        .where(and_(te.c.tournament_id == Pick.tournament_id, te.c.golfer_id == Pick.golfer_id))
+        .correlate(Pick)
+        .exists(),
+    ]
+    if league_id is not None:
+        zero_filters.append(Pick.league_id == league_id)
 
-    zero_result = db.execute(zero_sql, params)
+    zero_stmt = update(Pick).where(and_(*zero_filters)).values(points_earned=0)
+    zero_result = db.execute(zero_stmt)
     zero_count = zero_result.rowcount
     count = matched_count + zero_count
 
