@@ -465,6 +465,7 @@ class TestHandleCheckoutCompleteCreateLeague:
         assert league is not None
         assert league.name == "Webhook League"
         assert league.no_pick_penalty == 10000
+        assert league.has_active_purchase is True
 
         season = db.query(Season).filter_by(league_id=pending_id).first()
         assert season is not None
@@ -482,6 +483,48 @@ class TestHandleCheckoutCompleteCreateLeague:
         event = db.query(LeaguePurchaseEvent).filter_by(league_id=pending_id).first()
         assert event is not None
         assert event.event_type == "purchase"
+
+    def test_league_not_402_after_webhook_creation(self, client, db):
+        """Webhook-created league must be immediately accessible — not 402.
+
+        Regression test: autoflush=False meant the League object was not
+        flushed before the re-query that set has_active_purchase, so the
+        flag stayed False and all endpoints returned 402.
+        """
+        from app.routers.stripe_router import _handle_checkout_complete
+
+        user = _make_user(db, "webhook_402@example.com")
+        pending_id = uuid.uuid4()
+        current_year = datetime.now(UTC).year
+
+        session = {
+            "id": "cs_test_402",
+            "customer": "cus_402",
+            "payment_intent": "pi_402",
+            "amount_total": 999,
+            "metadata": {
+                "action": "create_league",
+                "pending_league_id": str(pending_id),
+                "league_name": "No 402 League",
+                "no_pick_penalty": "50000",
+                "user_id": str(user.id),
+                "tier": "starter",
+                "season_year": str(current_year),
+            },
+        }
+
+        _handle_checkout_complete(session, db)
+
+        # Login as the creator and hit a purchase-gated endpoint
+        resp = client.post(
+            "/api/v1/auth/login",
+            json={"email": "webhook_402@example.com", "password": "password123"},
+        )
+        token = resp.json()["access_token"]
+        headers = {"Authorization": f"Bearer {token}"}
+
+        resp = client.get(f"/api/v1/leagues/{pending_id}/standings", headers=headers)
+        assert resp.status_code != 402, "League created via webhook should not return 402"
 
     def test_missing_metadata_raises(self, db):
         from app.routers.stripe_router import _handle_checkout_complete
