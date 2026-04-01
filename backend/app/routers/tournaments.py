@@ -159,17 +159,37 @@ def get_tournament_field(
         .all()
     )
 
-    return [
-        GolferInFieldOut(
-            id=e.golfer.id,
-            pga_tour_id=e.golfer.pga_tour_id,
-            name=e.golfer.name,
-            world_ranking=e.golfer.world_ranking,
-            country=e.golfer.country,
-            tee_time=e.tee_time,
+    # For team events, build partner lookup so each field entry includes its
+    # partner's name and IDs. This lets the playoff preference UI show teams.
+    partner_map: dict[uuid.UUID, TournamentEntry] = {}
+    if tournament.is_team_event:
+        teams: dict[str, list[TournamentEntry]] = {}
+        for e in entries:
+            if e.team_competitor_id:
+                teams.setdefault(e.team_competitor_id, []).append(e)
+        for team_entries in teams.values():
+            if len(team_entries) == 2:
+                e1, e2 = team_entries
+                partner_map[e1.golfer_id] = e2
+                partner_map[e2.golfer_id] = e1
+
+    result = []
+    for e in entries:
+        partner = partner_map.get(e.golfer_id)
+        result.append(
+            GolferInFieldOut(
+                id=e.golfer.id,
+                pga_tour_id=e.golfer.pga_tour_id,
+                name=e.golfer.name,
+                world_ranking=e.golfer.world_ranking,
+                country=e.golfer.country,
+                tee_time=e.tee_time,
+                partner_name=partner.golfer.name if partner else None,
+                partner_golfer_id=(str(partner.golfer_id) if partner else None),
+                partner_pga_tour_id=(partner.golfer.pga_tour_id if partner else None),
+            )
         )
-        for e in entries
-    ]
+    return result
 
 
 @router.get("/{tournament_id}/leaderboard", response_model=LeaderboardOut)

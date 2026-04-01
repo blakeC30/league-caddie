@@ -9,7 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTournamentField, useAllGolfers } from "../hooks/usePick";
 import { useSubmitPreferences } from "../hooks/usePlayoff";
 import type { PlayoffPreference } from "../hooks/usePlayoff";
-import type { Golfer } from "../api/endpoints";
+import type { Golfer, GolferInField } from "../api/endpoints";
 
 interface PlayoffPreferenceEditorProps {
   leagueId: string;
@@ -20,10 +20,11 @@ interface PlayoffPreferenceEditorProps {
   requiredCount?: number;   // pod_size * picks_per_round — exact number to submit
   deadline?: string;        // ISO datetime; preferences lock when this moment passes
   onSaveSuccess?: (count: number, wasUpdate: boolean) => void;
+  isTeamEvent?: boolean;
 }
 
 export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
-  const { leagueId, podId, tournamentId, currentPreferences, picksPerRound, requiredCount, deadline, onSaveSuccess } = props;
+  const { leagueId, podId, tournamentId, currentPreferences, picksPerRound, requiredCount, deadline, onSaveSuccess, isTeamEvent = false } = props;
   const hadExistingPreferences = currentPreferences.length > 0;
 
   // Preferences are locked once the first R1 tee time has passed.
@@ -51,6 +52,42 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
 
   const rankedSet = useMemo(() => new Set(ranked), [ranked]);
 
+  // For team events, build a map from golfer_id → partner_golfer_id so we can
+  // exclude partners when one half of a team is already ranked.
+  const partnerOf = useMemo(() => {
+    const m: Record<string, string> = {};
+    if (isTeamEvent) {
+      for (const g of (rawField ?? []) as GolferInField[]) {
+        if (g.partner_golfer_id) m[g.id] = g.partner_golfer_id;
+      }
+    }
+    return m;
+  }, [isTeamEvent, rawField]);
+
+  // Display name: "Name / Partner" for team events, "Name" for individual.
+  const displayName = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const g of field ?? []) {
+      const f = g as GolferInField;
+      m[g.id] = isTeamEvent && f.partner_name
+        ? `${g.name} / ${f.partner_name}`
+        : g.name;
+    }
+    return m;
+  }, [field, isTeamEvent]);
+
+  // For team events, track which golfer_ids have their partner already ranked.
+  const excludedByPartner = useMemo(() => {
+    const s = new Set<string>();
+    if (isTeamEvent) {
+      for (const id of ranked) {
+        const pid = partnerOf[id];
+        if (pid) s.add(pid);
+      }
+    }
+    return s;
+  }, [isTeamEvent, ranked, partnerOf]);
+
   const golferMap = useMemo(() => {
     const m: Record<string, Golfer> = {};
     for (const g of field ?? []) m[g.id] = g;
@@ -61,9 +98,15 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
     if (field.length === 0) return [];
     const q = search.toLowerCase();
     return field
-      .filter((g) => !rankedSet.has(g.id) && (!q || g.name.toLowerCase().includes(q)))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [field, rankedSet, search]);
+      .filter((g) => {
+        if (rankedSet.has(g.id)) return false;
+        // For team events, hide partners that are already covered by ranking the other half.
+        if (isTeamEvent && excludedByPartner.has(g.id)) return false;
+        if (q && !displayName[g.id]?.toLowerCase().includes(q)) return false;
+        return true;
+      })
+      .sort((a, b) => (displayName[a.id] ?? a.name).localeCompare(displayName[b.id] ?? b.name));
+  }, [field, rankedSet, search, isTeamEvent, excludedByPartner, displayName]);
 
   function addGolfer(id: string) {
     setRanked((prev) => [...prev, id]);
@@ -171,7 +214,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                   {idx + 1}
                 </span>
                 <span className="flex-1 text-sm text-gray-800 truncate">
-                  {g?.name ?? id}
+                  {displayName[id] ?? g?.name ?? id}
                 </span>
                 {g?.world_ranking && (
                   <span className="text-[10px] text-gray-400 flex-shrink-0">#{g.world_ranking}</span>
@@ -269,7 +312,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
               onClick={() => addGolfer(g.id)}
               className="w-full flex items-center justify-between gap-2 text-sm text-left text-gray-700 hover:bg-green-50 px-3 py-2 rounded-xl transition-colors"
             >
-              <span className="truncate">{g.name}</span>
+              <span className="truncate">{displayName[g.id] ?? g.name}</span>
               {g.world_ranking && (
                 <span className="text-[10px] text-gray-400 flex-shrink-0">#{g.world_ranking}</span>
               )}

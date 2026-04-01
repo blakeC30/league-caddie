@@ -381,6 +381,7 @@ export function MakePick() {
             picksPerRound={myPod.picks_per_round ?? undefined}
             requiredCount={myPod.required_preference_count ?? undefined}
             deadline={myPod.deadline ?? undefined}
+            isTeamEvent={tournament?.is_team_event ?? false}
             onSaveSuccess={(count, wasUpdate) =>
               setConfirmedPlayoff({ count, wasUpdate, tournamentName: tournament?.name ?? "" })
             }

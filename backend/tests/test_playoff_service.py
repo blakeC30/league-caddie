@@ -39,6 +39,7 @@ from app.models import (
 )
 from app.services.auth import hash_password
 from app.services.playoff import (
+    _build_partner_map,
     advance_bracket,
     assign_pod,
     assign_pod_2,
@@ -46,6 +47,7 @@ from app.services.playoff import (
     override_result,
     resolve_draft,
     score_round,
+    submit_preferences,
 )
 
 # ---------------------------------------------------------------------------
@@ -95,6 +97,7 @@ def _make_tournament(
     status: str = "completed",
     multiplier: float = 1.0,
     days_ago: int = 7,
+    is_team_event: bool = False,
 ) -> Tournament:
     start = date.today() - timedelta(days=days_ago)
     t = Tournament(
@@ -103,6 +106,7 @@ def _make_tournament(
         start_date=start,
         end_date=start + timedelta(days=3),
         status=status,
+        is_team_event=is_team_event,
     )
     db.add(t)
     db.flush()
@@ -217,9 +221,13 @@ def _make_entry(
     tournament: Tournament,
     golfer: Golfer,
     earnings_usd: float | None = None,
+    team_competitor_id: str | None = None,
 ) -> TournamentEntry:
     entry = TournamentEntry(
-        tournament_id=tournament.id, golfer_id=golfer.id, earnings_usd=earnings_usd
+        tournament_id=tournament.id,
+        golfer_id=golfer.id,
+        earnings_usd=earnings_usd,
+        team_competitor_id=team_competitor_id,
     )
     db.add(entry)
     db.commit()
@@ -1565,3 +1573,239 @@ class TestPickedGolferMissingFromField:
         assert mem_a.total_points == 500_000.0
         # Player B: golfer not in field → 0 earnings, scores as 0
         assert mem_b.total_points == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Team event handling in playoffs
+# ---------------------------------------------------------------------------
+
+
+class TestTeamEventDraft:
+    """resolve_draft correctly handles team events — claiming both partners."""
+
+    def test_team_event_claims_both_partners(self, db):
+        """When Member A picks Golfer X from Team X/Y, Member B cannot pick
+        Golfer Y — the entire team is claimed as a unit."""
+        manager = _make_user(db, "mgr_team@test.com", "Manager")
+        league, season = _make_league(db, manager)
+        t = _make_tournament(db, league, status="in_progress", days_ago=0, is_team_event=True)
+
+        # Two teams: Team1 = (gA, gB), Team2 = (gC, gD)
+        gA = _make_golfer(db, "Golfer A")
+        gB = _make_golfer(db, "Golfer B")
+        gC = _make_golfer(db, "Golfer C")
+        gD = _make_golfer(db, "Golfer D")
+        _make_entry(db, t, gA, team_competitor_id="team1")
+        _make_entry(db, t, gB, team_competitor_id="team1")
+        _make_entry(db, t, gC, team_competitor_id="team2")
+        _make_entry(db, t, gD, team_competitor_id="team2")
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, t, status="drafting")
+        pod = _make_pod(db, round_obj, status="drafting")
+
+        u1 = _make_user(db, "u1_team@test.com", "U1")
+        u2 = _make_user(db, "u2_team@test.com", "U2")
+        m1 = _make_pod_member(db, pod, u1, seed=1, draft_position=1)
+        m2 = _make_pod_member(db, pod, u2, seed=2, draft_position=2)
+
+        # U1 prefers gA (Team1), U2 prefers gB (Team1 partner) then gC
+        _make_preference(db, pod, m1, gA, rank=1)
+        _make_preference(db, pod, m2, gB, rank=1)  # partner of gA
+        _make_preference(db, pod, m2, gC, rank=2)  # fallback
+
+        round_obj = _reload_round(db, round_obj.id)
+        resolve_draft(db, round_obj)
+
+        picks = db.query(PlayoffPick).filter_by(pod_id=pod.id).all()
+        pick_golfer_ids = {p.golfer_id for p in picks}
+
+        # U1 should get gA, U2 should get gC (not gB — partner claimed)
+        assert gA.id in pick_golfer_ids
+        assert gC.id in pick_golfer_ids
+        assert gB.id not in pick_golfer_ids
+
+    def test_team_event_preference_skips_claimed_partner(self, db):
+        """Member B's top preference is claimed (as partner). Verify
+        fallthrough to their next ranked golfer."""
+        manager = _make_user(db, "mgr_skip@test.com", "Manager")
+        league, season = _make_league(db, manager)
+        t = _make_tournament(db, league, status="in_progress", days_ago=0, is_team_event=True)
+
+        gA = _make_golfer(db, "Golfer A")
+        gB = _make_golfer(db, "Golfer B")
+        gC = _make_golfer(db, "Golfer C")
+        gD = _make_golfer(db, "Golfer D")
+        _make_entry(db, t, gA, team_competitor_id="team1")
+        _make_entry(db, t, gB, team_competitor_id="team1")
+        _make_entry(db, t, gC, team_competitor_id="team2")
+        _make_entry(db, t, gD, team_competitor_id="team2")
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, t, status="drafting")
+        pod = _make_pod(db, round_obj, status="drafting")
+
+        u1 = _make_user(db, "u1_skip@test.com", "U1")
+        u2 = _make_user(db, "u2_skip@test.com", "U2")
+        m1 = _make_pod_member(db, pod, u1, seed=1, draft_position=1)
+        m2 = _make_pod_member(db, pod, u2, seed=2, draft_position=2)
+
+        # U1 picks gA, U2 wants gB (partner) then gD
+        _make_preference(db, pod, m1, gA, rank=1)
+        _make_preference(db, pod, m2, gB, rank=1)
+        _make_preference(db, pod, m2, gD, rank=2)
+
+        round_obj = _reload_round(db, round_obj.id)
+        resolve_draft(db, round_obj)
+
+        u2_pick = db.query(PlayoffPick).filter_by(pod_id=pod.id, pod_member_id=m2.id).first()
+        assert u2_pick is not None
+        assert u2_pick.golfer_id == gD.id  # fell through to gD
+
+    def test_non_team_event_allows_both_partners(self, db):
+        """Non-team event: two golfers with same team_competitor_id are
+        treated independently (no partner claiming)."""
+        manager = _make_user(db, "mgr_nteam@test.com", "Manager")
+        league, season = _make_league(db, manager)
+        t = _make_tournament(db, league, status="in_progress", days_ago=0, is_team_event=False)
+
+        gA = _make_golfer(db, "Golfer A")
+        gB = _make_golfer(db, "Golfer B")
+        _make_entry(db, t, gA)
+        _make_entry(db, t, gB)
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, t, status="drafting")
+        pod = _make_pod(db, round_obj, status="drafting")
+
+        u1 = _make_user(db, "u1_nt@test.com", "U1")
+        u2 = _make_user(db, "u2_nt@test.com", "U2")
+        m1 = _make_pod_member(db, pod, u1, seed=1, draft_position=1)
+        m2 = _make_pod_member(db, pod, u2, seed=2, draft_position=2)
+
+        _make_preference(db, pod, m1, gA, rank=1)
+        _make_preference(db, pod, m2, gB, rank=1)
+
+        round_obj = _reload_round(db, round_obj.id)
+        resolve_draft(db, round_obj)
+
+        picks = db.query(PlayoffPick).filter_by(pod_id=pod.id).all()
+        pick_golfer_ids = {p.golfer_id for p in picks}
+        assert gA.id in pick_golfer_ids
+        assert gB.id in pick_golfer_ids  # both allowed
+
+
+class TestTeamEventPreferences:
+    """submit_preferences validation for team events."""
+
+    def test_rejects_both_partners_in_team_event(self, db):
+        """Submitting both halves of a team in a team event → 422."""
+        manager = _make_user(db, "mgr_pref@test.com", "Manager")
+        league, season = _make_league(db, manager)
+        t = _make_tournament(db, league, status="scheduled", days_ago=-7, is_team_event=True)
+
+        gA = _make_golfer(db, "Golfer A")
+        gB = _make_golfer(db, "Golfer B")
+        gC = _make_golfer(db, "Golfer C")
+        gD = _make_golfer(db, "Golfer D")
+        _make_entry(db, t, gA, team_competitor_id="team1")
+        _make_entry(db, t, gB, team_competitor_id="team1")
+        _make_entry(db, t, gC, team_competitor_id="team2")
+        _make_entry(db, t, gD, team_competitor_id="team2")
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, t, status="drafting")
+        pod = _make_pod(db, round_obj, status="drafting")
+
+        u1 = _make_user(db, "u1_pref@test.com", "U1")
+        u2 = _make_user(db, "u2_pref@test.com", "U2")
+        m1 = _make_pod_member(db, pod, u1, seed=1, draft_position=1)
+        _make_pod_member(db, pod, u2, seed=2, draft_position=2)
+
+        # 2-player pod × 1 pick = 2 required. Include both partners of team1.
+        with pytest.raises(Exception) as exc_info:
+            submit_preferences(db, m1, [gA.id, gB.id], t.id)
+        assert exc_info.value.status_code == 422
+        assert "team event" in exc_info.value.detail.lower()
+
+    def test_allows_both_golfers_non_team_event(self, db):
+        """Non-team event: ranking any two golfers is fine."""
+        manager = _make_user(db, "mgr_pref2@test.com", "Manager")
+        league, season = _make_league(db, manager)
+        t = _make_tournament(db, league, status="scheduled", days_ago=-7, is_team_event=False)
+
+        gA = _make_golfer(db, "Golfer A")
+        gB = _make_golfer(db, "Golfer B")
+        _make_entry(db, t, gA)
+        _make_entry(db, t, gB)
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, t, status="drafting")
+        pod = _make_pod(db, round_obj, status="drafting")
+
+        u1 = _make_user(db, "u1_pref2@test.com", "U1")
+        u2 = _make_user(db, "u2_pref2@test.com", "U2")
+        m1 = _make_pod_member(db, pod, u1, seed=1, draft_position=1)
+        _make_pod_member(db, pod, u2, seed=2, draft_position=2)
+
+        # Should not raise
+        prefs = submit_preferences(db, m1, [gA.id, gB.id], t.id)
+        assert len(prefs) == 2
+
+
+class TestTeamEventScoring:
+    """score_round uses team earnings correctly for team events."""
+
+    def test_score_round_team_event_uses_team_earnings(self, db):
+        """Both partners share the same team earnings. Pick stores one
+        golfer_id, scoring uses that entry's earnings_usd."""
+        manager = _make_user(db, "mgr_score_te@test.com", "Manager")
+        league, season = _make_league(db, manager)
+        t = _make_tournament(db, league, status="completed", days_ago=7, is_team_event=True)
+
+        gA = _make_golfer(db, "Golfer A")
+        gB = _make_golfer(db, "Golfer B")
+        # Both entries share same team earnings (as ESPN reports)
+        _make_entry(db, t, gA, earnings_usd=1_000_000, team_competitor_id="team1")
+        _make_entry(db, t, gB, earnings_usd=1_000_000, team_competitor_id="team1")
+
+        config = _make_config(db, league, season, playoff_size=2, picks_per_round=[1])
+        round_obj = _make_round(db, config, t, status="locked")
+        pod = _make_pod(db, round_obj, status="scoring")
+
+        u1 = _make_user(db, "u1_score_te@test.com", "U1")
+        m1 = _make_pod_member(db, pod, u1, seed=1, draft_position=1)
+        _make_playoff_pick(db, pod, m1, gA, t, draft_slot=1)
+
+        round_obj = _reload_round(db, round_obj.id)
+        score_round(db, round_obj)
+
+        pick = db.query(PlayoffPick).filter_by(pod_member_id=m1.id).first()
+        assert pick.points_earned == 1_000_000.0
+
+        db.refresh(m1)
+        assert m1.total_points == 1_000_000.0
+
+
+class TestBuildPartnerMap:
+    """_build_partner_map utility returns correct mappings."""
+
+    def test_returns_empty_for_non_team_event(self, db):
+        manager = _make_user(db, "mgr_pm1@test.com", "Manager")
+        league, _ = _make_league(db, manager)
+        t = _make_tournament(db, league, is_team_event=False)
+        assert _build_partner_map(db, t.id) == {}
+
+    def test_maps_partners_correctly(self, db):
+        manager = _make_user(db, "mgr_pm2@test.com", "Manager")
+        league, _ = _make_league(db, manager)
+        t = _make_tournament(db, league, is_team_event=True)
+
+        gA = _make_golfer(db, "A")
+        gB = _make_golfer(db, "B")
+        _make_entry(db, t, gA, team_competitor_id="t1")
+        _make_entry(db, t, gB, team_competitor_id="t1")
+
+        pmap = _build_partner_map(db, t.id)
+        assert pmap[gA.id].golfer_id == gB.id
+        assert pmap[gB.id].golfer_id == gA.id

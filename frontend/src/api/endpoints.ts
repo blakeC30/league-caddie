@@ -70,6 +70,9 @@ export interface Golfer {
 // off, preventing the user from selecting an ineligible golfer before submitting.
 export interface GolferInField extends Golfer {
   tee_time: string | null;
+  partner_name: string | null;
+  partner_golfer_id: string | null;
+  partner_pga_tour_id: string | null;
 }
 
 export interface Pick {
@@ -247,6 +250,8 @@ export interface MyPlayoffPodOut {
 export interface PlayoffPickSummary {
   golfer_name: string;
   golfer_pga_tour_id: string;
+  partner_name: string | null;
+  partner_pga_tour_id: string | null;
   points_earned: number | null;
 }
 
@@ -348,6 +353,7 @@ export interface LeagueSummaryPick {
 
 export interface LeagueSummaryPlayoffPick {
   golfer_name: string;
+  partner_name: string | null;
 }
 
 export interface LeagueSummary {
@@ -585,6 +591,9 @@ export interface PlayoffPickOut {
   golfer_id: string;
   golfer_name: string;
   golfer_pga_tour_id: string;
+  partner_name: string | null;
+  partner_golfer_id: string | null;
+  partner_pga_tour_id: string | null;
   draft_slot: number;
   points_earned: number | null;
   created_at: string;

@@ -464,7 +464,7 @@ function PodModal({
                       const position = positionMap.get(pick.golfer_id);
                       return (
                         <div key={pick.id} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-gray-50">
-                          <span className="flex-1 text-xs text-gray-700">{pick.golfer_name}</span>
+                          <span className="flex-1 text-xs text-gray-700">{pick.partner_name ? `${pick.golfer_name} / ${pick.partner_name}` : pick.golfer_name}</span>
                           {isCompleted && pick.points_earned != null ? (
                             <span className="text-xs font-semibold text-gray-600 tabular-nums">
                               ${Math.round(pick.points_earned).toLocaleString()}

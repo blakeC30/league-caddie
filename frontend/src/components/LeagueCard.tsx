@@ -115,7 +115,7 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                       <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                       </svg>
-                      {p.golfer_name}
+                      {p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}
                     </p>
                   ))}
                 </div>

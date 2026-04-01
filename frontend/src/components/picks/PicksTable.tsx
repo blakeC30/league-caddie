@@ -14,7 +14,7 @@ type SortField = "date" | "tournament" | "golfer" | "points";
 
 export type OtherPlayoffEntry = {
   status: string;
-  picks: { id: string; pod_member_id: number; golfer_id: string; golfer_name: string; golfer_pga_tour_id: string; draft_slot: number; points_earned: number | null; created_at: string }[];
+  picks: { id: string; pod_member_id: number; golfer_id: string; golfer_name: string; golfer_pga_tour_id: string; partner_name: string | null; partner_pga_tour_id: string | null; draft_slot: number; points_earned: number | null; created_at: string }[];
   total_points: number | null;
   is_picks_visible: boolean;
 };
@@ -227,7 +227,7 @@ export function PicksTable({
         const otherPlayoffData = !isViewingSelf ? otherMemberPlayoffMap.get(tournament.id) : undefined;
         const playoffData = ownPlayoffData ?? otherPlayoffData;
 
-        const playoffPickNames = isPlayoffTournament ? (playoffData?.picks.map((p) => p.golfer_name) ?? []) : [];
+        const playoffPickNames = isPlayoffTournament ? (playoffData?.picks.map((p) => p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name) ?? []) : [];
         const isClickable = isPlayoffTournament
           ? tournament.status === "in_progress" || tournament.status === "completed" || !!(playoffData || (myPod?.tournament_id === tournament.id && myPod?.is_in_playoffs))
           : tournament.status === "in_progress" || tournament.status === "completed"
@@ -294,7 +294,7 @@ export function PicksTable({
                       <div className="text-right space-y-1">
                         {poPicks.map((p, i) => (
                           <div key={i} className="flex items-center gap-2 justify-end">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                            <p className="text-xs sm:text-sm font-medium text-gray-600">{p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}</p>
                             {"golfer_pga_tour_id" in p && (
                               <GolferAvatar pgaTourId={p.golfer_pga_tour_id} name={p.golfer_name} className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 hidden sm:block" />
                             )}
@@ -316,7 +316,7 @@ export function PicksTable({
                         {poPicks.map((p, i) => (
                           <div key={i} className="flex items-center gap-2 justify-end">
                             <div className="space-y-0.5 text-right">
-                              <p className="text-xs sm:text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                              <p className="text-xs sm:text-sm font-medium text-gray-600">{p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}</p>
                               <p className={`text-xs sm:text-sm font-bold tabular-nums ${
                                 p.points_earned === null ? "text-gray-400"
                                 : p.points_earned > 0 ? "text-green-700"

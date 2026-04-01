@@ -77,6 +77,7 @@ from app.schemas.playoff import (
     PlayoffTournamentPickOut,
 )
 from app.services.playoff import (
+    _build_partner_map,
     advance_bracket,
     any_r1_teed_off,
     first_r1_tee_time,
@@ -163,13 +164,28 @@ def _build_pod_member_out(member: PlayoffPodMember) -> PlayoffPodMemberOut:
     )
 
 
-def _build_pick_out(pick: PlayoffPick) -> PlayoffPickOut:
+def _build_pick_out(
+    pick: PlayoffPick,
+    partner_map: dict | None = None,
+) -> PlayoffPickOut:
+    partner_name = None
+    partner_golfer_id = None
+    partner_pga_tour_id = None
+    if partner_map:
+        partner_entry = partner_map.get(pick.golfer_id)
+        if partner_entry:
+            partner_name = partner_entry.golfer.name
+            partner_golfer_id = partner_entry.golfer_id
+            partner_pga_tour_id = partner_entry.golfer.pga_tour_id
     return PlayoffPickOut(
         id=pick.id,
         pod_member_id=pick.pod_member_id,
         golfer_id=pick.golfer_id,
         golfer_name=pick.golfer.name,
         golfer_pga_tour_id=pick.golfer.pga_tour_id,
+        partner_name=partner_name,
+        partner_golfer_id=partner_golfer_id,
+        partner_pga_tour_id=partner_pga_tour_id,
         draft_slot=pick.draft_slot,
         points_earned=pick.points_earned,
         created_at=pick.created_at,
@@ -182,6 +198,7 @@ def _build_pod_out(
     round_number: int,
     is_picks_visible: bool = True,
     viewer_user_id: uuid.UUID | None = None,
+    partner_map: dict | None = None,
 ) -> PlayoffPodOut:
     idx = round_number - 1
     picks_per_player = (
@@ -222,7 +239,7 @@ def _build_pod_out(
         status=pod.status,
         winner_user_id=pod.winner_user_id,
         members=[_build_pod_member_out(m) for m in sorted(pod.members, key=lambda m: m.seed)],
-        picks=[_build_pick_out(p) for p in visible_picks],
+        picks=[_build_pick_out(p, partner_map=partner_map) for p in visible_picks],
         active_draft_slot=active_slot,
         is_picks_visible=is_picks_visible,
     )
@@ -233,6 +250,7 @@ def _build_bracket_round_out(
     config: PlayoffConfig,
     is_picks_visible: bool = True,
     viewer_user_id: uuid.UUID | None = None,
+    partner_map: dict | None = None,
 ) -> BracketRoundOut:
     tournament_name: str | None = None
     tournament_status: str | None = None
@@ -256,6 +274,7 @@ def _build_bracket_round_out(
                 round_obj.round_number,
                 is_picks_visible=is_picks_visible,
                 viewer_user_id=viewer_user_id,
+                partner_map=partner_map,
             )
             for pod in sorted(round_obj.pods, key=lambda p: p.bracket_position)
         ],
@@ -609,12 +628,18 @@ def get_bracket(
         is_picks_visible = True
         if r.status == "locked" and r.tournament and r.tournament.status != "completed":
             is_picks_visible = any_r1_teed_off(db, r.tournament_id)
+        pm = (
+            _build_partner_map(db, r.tournament_id)
+            if r.tournament_id and r.tournament and r.tournament.is_team_event
+            else None
+        )
         rounds_out.append(
             _build_bracket_round_out(
                 r,
                 config_loaded,
                 is_picks_visible=is_picks_visible,
                 viewer_user_id=current_user.id,
+                partner_map=pm,
             )
         )
 
@@ -666,10 +691,14 @@ def seed_bracket(
         .filter_by(id=config.id)
         .first()
     )
-    rounds_out = [
-        _build_bracket_round_out(r, config_loaded)
-        for r in sorted(config_loaded.rounds, key=lambda r: r.round_number)
-    ]
+    rounds_out = []
+    for r in sorted(config_loaded.rounds, key=lambda r: r.round_number):
+        pm = (
+            _build_partner_map(db, r.tournament_id)
+            if r.tournament_id and r.tournament and r.tournament.is_team_event
+            else None
+        )
+        rounds_out.append(_build_bracket_round_out(r, config_loaded, partner_map=pm))
     return BracketOut(playoff_config=config_loaded, rounds=rounds_out)
 
 
@@ -842,12 +871,14 @@ def get_pod_detail(
         is_picks_visible = any_r1_teed_off(db, tournament.id)
 
     config = playoff_round.playoff_config
+    pm = _build_partner_map(db, tournament.id) if tournament and tournament.is_team_event else None
     return _build_pod_out(
         pod,
         config,
         playoff_round.round_number,
         is_picks_visible=is_picks_visible,
         viewer_user_id=current_user.id,
+        partner_map=pm,
     )
 
 
@@ -897,7 +928,9 @@ def get_draft_status(
             )
         )
 
-    picks_out = [_build_pick_out(p) for p in sorted(pod.picks, key=lambda p: p.draft_slot)]
+    pm = _build_partner_map(db, tournament.id) if tournament and tournament.is_team_event else None
+    sorted_picks = sorted(pod.picks, key=lambda p: p.draft_slot)
+    picks_out = [_build_pick_out(p, partner_map=pm) for p in sorted_picks]
 
     # Hide resolved picks until the first Round 1 tee time has passed. Using
     # != "completed" (rather than == "in_progress") also covers the edge case
@@ -1222,19 +1255,33 @@ def get_my_playoff_picks(
             .all()
         )
 
+        # Build partner map once per round for team events.
+        tournament = round_obj.tournament
+        pmap = (
+            _build_partner_map(db, round_obj.tournament_id)
+            if tournament and tournament.is_team_event
+            else None
+        )
+
+        pick_summaries = []
+        for p in picks:
+            partner = pmap.get(p.golfer_id) if pmap else None
+            pick_summaries.append(
+                PlayoffPickSummary(
+                    golfer_name=p.golfer.name,
+                    golfer_pga_tour_id=p.golfer.pga_tour_id,
+                    partner_name=partner.golfer.name if partner else None,
+                    partner_pga_tour_id=(partner.golfer.pga_tour_id if partner else None),
+                    points_earned=p.points_earned,
+                )
+            )
+
         result.append(
             PlayoffTournamentPickOut(
                 tournament_id=round_obj.tournament_id,
                 round_number=round_obj.round_number,
                 status=round_obj.status,
-                picks=[
-                    PlayoffPickSummary(
-                        golfer_name=p.golfer.name,
-                        golfer_pga_tour_id=p.golfer.pga_tour_id,
-                        points_earned=p.points_earned,
-                    )
-                    for p in picks
-                ],
+                picks=pick_summaries,
                 total_points=pm.total_points,
             )
         )
@@ -1296,11 +1343,17 @@ def revise_playoff_pick(
             detail="Picks can only be revised while the playoff tournament is in progress.",
         )
 
+    pm = (
+        _build_partner_map(db, tournament_obj.id)
+        if tournament_obj and tournament_obj.is_team_event
+        else None
+    )
+
     # golfer_id = None means "delete this pick" (set to no pick).
     if body.golfer_id is None:
         db.delete(pick)
         db.commit()
-        return _build_pick_out(pick)
+        return _build_pick_out(pick, partner_map=pm)
 
     golfer = db.query(Golfer).filter_by(id=body.golfer_id).first()
     if not golfer:
@@ -1324,7 +1377,7 @@ def revise_playoff_pick(
     pick.points_earned = None  # Reset — re-score will recalculate
     db.commit()
     db.refresh(pick)
-    return _build_pick_out(pick)
+    return _build_pick_out(pick, partner_map=pm)
 
 
 @router.post(
@@ -1418,4 +1471,10 @@ def admin_create_pod_pick(
     db.add(pick)
     db.commit()
     db.refresh(pick)
-    return _build_pick_out(pick)
+    tournament_obj = pod.playoff_round.tournament
+    pm = (
+        _build_partner_map(db, tournament_obj.id)
+        if tournament_obj and tournament_obj.is_team_event
+        else None
+    )
+    return _build_pick_out(pick, partner_map=pm)

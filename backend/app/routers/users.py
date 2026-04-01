@@ -257,6 +257,7 @@ def get_league_summaries(
     tee_off_cache: dict[uuid.UUID, bool] = {}
 
     results: list[LeagueSummaryOut] = []
+    _partner_map_cache: dict[uuid.UUID, dict] = {}  # tournament_id → partner map
     for m in memberships:
         league = leagues_by_id[m.league_id]
         season = season_by_league.get(m.league_id)
@@ -387,9 +388,24 @@ def get_league_summaries(
                 if pod_member:
                     is_in_playoffs = True
                     playoff_picks = picks_by_member_tournament.get((pod_member.id, t.id), [])
-                    my_playoff_picks_out = [
-                        LeagueSummaryPlayoffPick(golfer_name=pp.golfer.name) for pp in playoff_picks
-                    ]
+                    # For team events, include partner name. Cache partner map
+                    # per tournament to avoid re-querying for each league.
+                    pmap = None
+                    if t.is_team_event and t.id not in _partner_map_cache:
+                        from app.services.playoff import _build_partner_map
+
+                        _partner_map_cache[t.id] = _build_partner_map(db, t.id)
+                    if t.is_team_event:
+                        pmap = _partner_map_cache.get(t.id)
+                    my_playoff_picks_out = []
+                    for pp in playoff_picks:
+                        partner = pmap.get(pp.golfer_id) if pmap else None
+                        my_playoff_picks_out.append(
+                            LeagueSummaryPlayoffPick(
+                                golfer_name=pp.golfer.name,
+                                partner_name=partner.golfer.name if partner else None,
+                            )
+                        )
 
         results.append(
             LeagueSummaryOut(

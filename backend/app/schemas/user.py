@@ -60,6 +60,7 @@ class LeagueSummaryPick(BaseModel):
 
 class LeagueSummaryPlayoffPick(BaseModel):
     golfer_name: str
+    partner_name: str | None = None
 
 
 class LeagueSummaryOut(BaseModel):

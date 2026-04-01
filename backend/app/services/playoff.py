@@ -38,6 +38,39 @@ from app.services.scoring import calculate_standings
 
 log = logging.getLogger(__name__)
 
+
+# ---------------------------------------------------------------------------
+# Team-event helpers
+# ---------------------------------------------------------------------------
+
+
+def _build_partner_map(db: Session, tournament_id: uuid.UUID) -> dict[uuid.UUID, TournamentEntry]:
+    """Return a mapping of golfer_id → partner TournamentEntry for team events.
+
+    Two entries with the same non-null ``team_competitor_id`` are considered
+    partners.  Returns an empty dict when the tournament is not a team event,
+    the field is not yet synced, or no valid pairs exist.
+    """
+    tournament = db.query(Tournament).filter_by(id=tournament_id).first()
+    if not tournament or not tournament.is_team_event:
+        return {}
+
+    entries = db.query(TournamentEntry).filter_by(tournament_id=tournament_id).all()
+
+    teams: dict[str, list[TournamentEntry]] = {}
+    for entry in entries:
+        if entry.team_competitor_id:
+            teams.setdefault(entry.team_competitor_id, []).append(entry)
+
+    partner_map: dict[uuid.UUID, TournamentEntry] = {}
+    for team_entries in teams.values():
+        if len(team_entries) == 2:
+            e1, e2 = team_entries
+            partner_map[e1.golfer_id] = e2
+            partner_map[e2.golfer_id] = e1
+    return partner_map
+
+
 # ---------------------------------------------------------------------------
 # Draft order generation
 # ---------------------------------------------------------------------------
@@ -506,6 +539,24 @@ def submit_preferences(
     # No field-membership validation at submission time (rule: any golfer in the DB
     # can be ranked at any time). Non-field golfers are silently skipped at resolution.
 
+    # For team events, reject preference lists that include both partners from the
+    # same team. Teams are drafted as a unit — ranking one partner covers the team.
+    # Only validated when the field is released (partner data available).
+    if tournament.is_team_event:
+        partner_map = _build_partner_map(db, tournament_id)
+        if partner_map:
+            golfer_set = set(golfer_ids)
+            for gid in golfer_ids:
+                partner_entry = partner_map.get(gid)
+                if partner_entry and partner_entry.golfer_id in golfer_set:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            "This is a team event — rank one golfer per team. "
+                            "Both partners are drafted together."
+                        ),
+                    )
+
     # Delete all existing preferences for this pod_member (atomic replace)
     db.query(PlayoffDraftPreference).filter_by(pod_member_id=pod_member.id).delete()
 
@@ -598,6 +649,11 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
     }
     field_released = len(field_golfer_ids) > 0
 
+    # For team events, build a partner map so we can claim both partners when
+    # one is drafted. This prevents two pod members from picking both halves of
+    # the same team (which would give them identical earnings).
+    partner_map = _build_partner_map(db, playoff_round.tournament_id)
+
     # Pre-load all draft preferences for this round in one query (instead of
     # one query per slot × ~64 slots). Keyed by pod_member_id, ordered by rank.
     all_member_ids = [m.id for pod in playoff_round.pods for m in pod.members]
@@ -636,12 +692,18 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
             # Find best available pick from this player's preferences.
             # Skip golfers already claimed by a higher-priority slot AND golfers
             # not in the official tournament field (silently skipped per rule).
+            # For team events, also skip golfers whose partner is already claimed
+            # — teams are drafted as a unit.
             picked_golfer_id = next(
                 (
                     p.golfer_id
                     for p in prefs
                     if p.golfer_id not in claimed
                     and (not field_released or p.golfer_id in field_golfer_ids)
+                    and (
+                        p.golfer_id not in partner_map
+                        or partner_map[p.golfer_id].golfer_id not in claimed
+                    )
                 ),
                 None,
             )
@@ -661,6 +723,11 @@ def resolve_draft(db: Session, playoff_round: PlayoffRound) -> None:
                 )
             )
             claimed.add(picked_golfer_id)
+            # For team events, also claim the partner so no other pod member
+            # can draft the other half of the same team.
+            partner_entry = partner_map.get(picked_golfer_id)
+            if partner_entry:
+                claimed.add(partner_entry.golfer_id)
 
     # Single atomic commit for all pods + status change. This ensures a crash
     # mid-loop rolls back everything rather than leaving partial picks committed
