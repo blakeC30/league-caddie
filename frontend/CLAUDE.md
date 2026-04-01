@@ -37,27 +37,58 @@ src/
 │   ├── MakePick.tsx        # Golfer selection form for upcoming tournament
 │   ├── MyPicks.tsx         # Season pick history + stat cards
 │   ├── Leaderboard.tsx     # Full standings table with tournament breakdown
-│   ├── ManageLeague.tsx    # Manager panel — invite, settings, members, schedule (single checkbox per tournament), playoff config (auto-uses last N future tournaments as playoff rounds)
-│   ├── ManagePlayoff.tsx   # Manager playoff panel — round operations (open/resolve/score/advance), override; no tournament assignment (auto-assigned at seeding)
+│   ├── ManageLeague.tsx    # Manager panel — invite, settings, members, schedule, playoff config (auto-uses last N future tournaments as playoff rounds)
 │   ├── LeagueRules.tsx     # Read-only rules + league config view (all members) — shows league settings + game rules; playoffs section shown only when enabled
-│   ├── PlayoffBracket.tsx  # Public bracket view — all rounds, pods, clickable pod cards
-│   ├── PlayoffDraft.tsx    # Per-pod draft — submission status, preference editor, resolved picks
+│   ├── PlayoffBracket.tsx  # Full bracket view + per-pod draft (submission status, preference editor, resolved picks, pod detail modal)
+│   ├── TournamentDetail.tsx # Tournament leaderboard with per-round data, pick distribution chart
 │   ├── JoinLeague.tsx      # Invite-link landing page (auth gate + confirm form)
-│   ├── Roster.tsx          # League member roster — display name, first/last name, email
-│   ├── Settings.tsx        # User account settings — display name, league membership
+│   ├── Roster.tsx          # League member roster — display name, first/last name, email, join date
+│   ├── Settings.tsx        # User account settings — display name, first/last name, league membership
 │   ├── Pricing.tsx         # Public pricing tiers — standalone page (no Layout), reads ?league_id=
 │   ├── BillingSuccess.tsx  # Post-Stripe success page — standalone (no Layout), reads ?session_id & ?league_id
 │   ├── BillingCanceled.tsx # Post-Stripe cancel page — standalone (no Layout), reads ?league_id
+│   ├── PrivacyPolicy.tsx   # Public legal page — standalone (no Layout)
+│   ├── TermsOfService.tsx  # Public legal page — standalone (no Layout)
 │   └── PlatformAdmin.tsx   # Platform admin only — data sync trigger
 ├── components/
-│   ├── Layout.tsx          # Auth-guarded shell — top nav, mobile bottom tab bar, auth gate
-│   ├── LeagueCard.tsx      # League card on Leagues page (rank, points, tournament info)
-│   ├── PickForm.tsx        # Golfer selection (used by MakePick)
-│   ├── GolferCard.tsx      # Selectable golfer row inside PickForm
-│   ├── GolferAvatar.tsx    # Circular headshot from CDN with fallback initials
-│   ├── StandingsTable.tsx  # Standings table (used by Dashboard + Leaderboard)
-│   ├── TournamentBadge.tsx # Status/major badge for a tournament
-│   └── FlagIcon.tsx        # Golf flag SVG icon used in nav and empty states
+│   ├── Layout.tsx              # Auth-guarded shell — top nav, mobile bottom tab bar, auth gate
+│   ├── LeagueCard.tsx          # League card on Leagues page (rank, points, tournament info)
+│   ├── PickForm.tsx            # Golfer selection (used by MakePick)
+│   ├── GolferCard.tsx          # Selectable golfer row inside PickForm
+│   ├── GolferAvatar.tsx        # Circular headshot from ESPN CDN with fallback initials
+│   ├── StandingsTable.tsx      # Standings table (used by Dashboard + Leaderboard)
+│   ├── TournamentBadge.tsx     # Status/multiplier/playoff badges + dates (compact mode for picks)
+│   ├── FlagIcon.tsx            # Golf flag SVG icon used in nav and empty states
+│   ├── Skeleton.tsx            # Skeleton loading components for all major pages
+│   ├── Spinner.tsx             # Fallback loading spinner (secondary pages)
+│   ├── ErrorBoundary.tsx       # React error boundary wrapper
+│   ├── Toaster.tsx             # Toast notification system
+│   ├── PlayoffBracketCard.tsx  # Pod card used in PlayoffBracket
+│   ├── PlayoffPreferenceEditor.tsx # Reusable ranked preference list editor (supports team events)
+│   ├── picks/                  # Pick-related sub-components
+│   │   ├── PicksTable.tsx      # Season pick history cards with sort/filter
+│   │   ├── SeasonTotalCard.tsx  # Gradient card showing season total points
+│   │   ├── PicksStatCards.tsx   # Stat cards (submission rate, cuts, best pick, avg)
+│   │   ├── MemberDropdown.tsx   # Member selector for viewing other members' picks
+│   │   ├── StatCard.tsx         # Reusable stat card component
+│   │   └── SortButton.tsx       # Sort toggle button
+│   ├── leaderboard/            # Leaderboard sub-components
+│   │   ├── StandingsTr.tsx      # Standings table row
+│   │   ├── PickBarChart.tsx     # Pick distribution bar chart
+│   │   ├── TournamentPicksSection.tsx # Tournament picks breakdown
+│   │   ├── PlayoffRoundBreakdown.tsx  # Playoff round summary
+│   │   ├── StatCard.tsx         # Leaderboard stat card
+│   │   └── SortButton.tsx       # Sort toggle button
+│   └── manage/                 # ManageLeague sub-components
+│       ├── LeagueSettingsSection.tsx
+│       ├── MembersSection.tsx
+│       ├── JoinRequestsSection.tsx
+│       ├── InviteLinkSection.tsx
+│       ├── TournamentScheduleSection.tsx
+│       ├── PlayoffConfigSection.tsx
+│       ├── LeaguePlanSection.tsx
+│       ├── RevisePickSection.tsx
+│       └── DangerZoneSection.tsx
 └── App.tsx                 # Route definitions
 ```
 
@@ -70,23 +101,23 @@ src/
 /forgot-password                → ForgotPassword (public — request reset email)
 /reset-password?token=<tok>     → ResetPassword (public — set new password; token from email link)
 /join/:inviteCode               → JoinLeague (public, but redirects to login if unauthenticated)
+/billing/success                → BillingSuccess (public — standalone; ?session_id & ?league_id)
+/billing/canceled               → BillingCanceled (public — standalone; ?league_id)
+/privacy                        → PrivacyPolicy (public — standalone, no Layout)
+/terms                          → TermsOfService (public — standalone, no Layout)
 /leagues                        → Leagues (auth required)
+/leagues/new                    → CreateLeague (auth required — create a new league with schedule)
 /leagues/:leagueId              → Dashboard
 /leagues/:leagueId/pick         → MakePick
 /leagues/:leagueId/picks        → MyPicks
-/leagues/:leagueId/roster       → Roster (all members — name, email table)
+/leagues/:leagueId/tournaments/:tournamentId → TournamentDetail
+/leagues/:leagueId/roster       → Roster (all members — name, email, join date table)
 /leagues/:leagueId/leaderboard  → Leaderboard
 /leagues/:leagueId/rules        → LeagueRules (all members — read-only rules + league config)
-/leagues/:leagueId/manage       → ManageLeague (manager only — self-redirects non-managers)
-/leagues/:leagueId/manage/playoff → ManagePlayoff (manager only — playoff config + round operations)
-/leagues/:leagueId/playoff      → PlayoffBracket (all members — scrollable bracket view)
-/leagues/:leagueId/playoff/draft/:podId → PlayoffDraft (all members — submission status + preference editor)
-/leagues/new                    → CreateLeague (auth required — create a new league with schedule)
-/settings                       → Settings (auth required — display name, leave leagues)
+/leagues/:leagueId/manage       → ManageLeague (manager only — settings, members, schedule, playoff config)
+/leagues/:leagueId/playoff      → PlayoffBracket (all members — bracket view, pod draft, preferences)
+/settings                       → Settings (auth required — display name, first/last name, leagues)
 /admin                          → PlatformAdmin (platform admin only)
-/pricing                        → Pricing (public — standalone, no Layout; ?league_id= optional to pre-select league for checkout)
-/billing/success                → BillingSuccess (public — standalone; ?session_id & ?league_id)
-/billing/canceled               → BillingCanceled (public — standalone; ?league_id)
 /*                              → redirect to /
 ```
 

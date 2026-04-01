@@ -57,11 +57,12 @@ app/
 │   └── admin.py      # /admin/* (platform admin only)
 └── services/
     ├── auth.py       # hash_password, verify_password, create/decode JWT tokens, verify_google_id_token, generate/validate/consume_reset_token
-    ├── email.py      # send_password_reset_email — AWS SES (LocalStack locally, real SES in prod)
+    ├── email.py      # send_password_reset_email, send_pick_reminder_email — via Resend (logged-only locally when RESEND_API_KEY is empty)
     ├── picks.py      # validate_new_pick(), validate_pick_change(), all_r1_teed_off() — raises HTTPException
-    ├── scoring.py    # calculate_standings() — returns list[dict]
+    ├── pick_reminders.py  # create_pick_reminders() (scraper: detect + publish SQS), send_pick_reminders() (worker: aggregate by user + send emails)
+    ├── scoring.py    # calculate_standings(), rescore_league_picks() — returns list[dict]
     ├── scraper.py    # ESPN API client, upsert functions, full_sync / sync_tournament; publishes SQS events at status transitions
-    ├── scheduler.py  # APScheduler setup — time-driven jobs only (schedule, field, live, finalization)
+    ├── scheduler.py  # APScheduler setup — time-driven jobs only (schedule, field, live, finalization, pick reminders)
     ├── sqs.py        # boto3 SQS wrapper: publish(event_type, **payload) and consume(handler) — LocalStack locally, real SQS in prod
     └── playoff.py    # seed_playoff, resolve_draft, score_round, advance_bracket, override_result
 
@@ -129,13 +130,20 @@ All routes are prefixed with `/api/v1`.
 | GET | `/golfers` | token | List/search golfers |
 | GET | `/golfers/{id}` | token | Golfer details |
 | POST | `/leagues/{league_id}/picks` | member | Submit pick |
+| GET | `/leagues/{league_id}/picks/member-context` | member | Member's pick context (next tournament, used golfers) |
 | GET | `/leagues/{league_id}/picks/mine` | member | My picks this season |
 | GET | `/leagues/{league_id}/picks` | member | All picks (completed tournaments only) |
+| GET | `/leagues/{league_id}/picks/tournament/{tournament_id}` | member | All picks for a specific tournament (pick breakdown) |
 | PATCH | `/leagues/{league_id}/picks/{pick_id}` | member | Change golfer |
+| PUT | `/leagues/{league_id}/picks/admin-override` | manager | Admin override a pick |
 | GET | `/leagues/{league_id}/standings` | member | Season standings |
 | GET  | `/admin/stats` | platform_admin | Aggregated platform stats (counts only, no PII) |
 | POST | `/admin/sync` | platform_admin | Full ESPN data sync |
 | POST | `/admin/sync/{pga_tour_id}` | platform_admin | Sync single tournament |
+| GET | `/admin/stripe/webhook-failures` | platform_admin | List unresolved Stripe webhook failures |
+| POST | `/admin/stripe/webhook-failures/{failure_id}/retry` | platform_admin | Retry a failed webhook |
+| POST | `/admin/import-members` | platform_admin | Bulk import members from CSV |
+| POST | `/admin/import-picks` | platform_admin | Bulk import picks from CSV |
 | POST | `/leagues/{league_id}/playoff/config` | manager | Create playoff config for active season (always sets is_enabled=True) |
 | GET | `/leagues/{league_id}/playoff/config` | member | Get playoff config |
 | PATCH | `/leagues/{league_id}/playoff/config` | manager | Update config (only when status=pending) |
@@ -148,11 +156,15 @@ All routes are prefixed with `/api/v1`.
 | GET | `/leagues/{league_id}/playoff/pods/{pod_id}/draft` | member | Draft status (who submitted, resolved picks) |
 | GET | `/leagues/{league_id}/playoff/pods/{pod_id}/preferences` | member | My ranked preference list |
 | PUT | `/leagues/{league_id}/playoff/pods/{pod_id}/preferences` | member | Submit/replace ranked preference list |
+| POST | `/leagues/{league_id}/playoff/seed` | manager | Seed the bracket on demand |
 | POST | `/leagues/{league_id}/playoff/override` | manager | Manually set pod winner |
+| PATCH | `/leagues/{league_id}/playoff/picks/{pick_id}` | manager | Revise golfer on a playoff pick |
+| POST | `/leagues/{league_id}/playoff/pods/{pod_id}/admin-pick` | manager | Create a playoff pick for a pod member (bypasses draft) |
 | GET | `/leagues/{league_id}/playoff/my-pod` | member | Lightweight playoff pod context for current user — always 200, returns `is_playoff_week=False` if no active playoff config; used by Dashboard/MakePick |
 | GET | `/leagues/{league_id}/playoff/my-picks` | member | Current user's playoff picks per tournament (all rounds in active season) — own picks never hidden by R1 tee time check |
 | GET | `/stripe/pricing` | — | List all four pricing tiers and their prices |
-| POST | `/stripe/create-checkout-session` | manager | Create Stripe Checkout session; body: `{league_id, tier, upgrade?}` → returns `{url}` |
+| POST | `/stripe/create-checkout-session` | manager | Create Stripe Checkout session for existing league; body: `{league_id, tier, upgrade?}` → returns `{url}` |
+| POST | `/stripe/create-league-checkout` | token | Create Stripe Checkout that creates a new league on payment; body includes league_name, tier, no_pick_penalty → returns `{url}` |
 | POST | `/stripe/webhook` | — (Stripe sig) | Stripe webhook handler; handles `checkout.session.completed`; raw body required for signature verification |
 | GET | `/leagues/{league_id}/purchase` | member | Current season purchase status for the league — NOT gated by require_active_purchase |
 
@@ -209,10 +221,10 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 |-------|-------------|
 | `users` | id (UUID), email (unique), password_hash (nullable), google_id (nullable), display_name, first_name (VARCHAR 50, default ''), last_name (VARCHAR 50, default ''), is_platform_admin |
 | `password_reset_tokens` | id (UUID), user_id (FK→users, CASCADE), token_hash (SHA-256 hex, indexed), expires_at, used_at (nullable — set on redemption), created_at |
-| `leagues` | id (UUID), name, invite_code (unique, 16-char token), is_public, accepting_requests, auto_accept_requests, no_pick_penalty (default=-50000) — no description column |
+| `leagues` | id (UUID), name, invite_code (unique, 16-char token), is_public, accepting_requests, auto_accept_requests, is_admin_league (bool, default false), has_active_purchase (bool, default false), no_pick_penalty (default=-50000) — no description column |
 | `league_members` | league_id, user_id, role ("manager"\|"member"), status ("pending"\|"approved") |
-| `seasons` | league_id, year (int), is_active; UNIQUE(league_id, year) |
-| `tournaments` | pga_tour_id (unique), name, start_date, end_date, multiplier (float, default=1.0), status, competition_id (nullable), is_team_event (bool) |
+| `seasons` | league_id, year (int), is_active, standings_cache (JSON, nullable), standings_cached_at (DateTime, nullable); UNIQUE(league_id, year) |
+| `tournaments` | pga_tour_id (unique), name, start_date, end_date, status, competition_id (nullable), is_team_event (bool), last_synced_at (DateTime, nullable), purse_usd (int, nullable) |
 | `tournament_entries` | tournament_id, golfer_id, tee_time, earnings_usd, finish_position, team_competitor_id (nullable) |
 | `tournament_entry_rounds` | tournament_entry_id (FK→tournament_entries.id), round_number (int), tee_time (UTC, nullable), score (int, nullable), score_to_par (int, nullable), position (str(10), nullable), is_playoff (bool); UNIQUE(tournament_entry_id, round_number) |
 | `golfers` | pga_tour_id (unique), name, world_ranking, country |
@@ -228,14 +240,14 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 | `deleted_leagues` | id (UUID, same as original league), name, created_by (UUID, no FK), created_at, deleted_at, deleted_by (UUID, no FK) — pure audit table, no FK constraints |
 | `league_purchases` | id (UUID), league_id (FK→leagues SET NULL, nullable), deleted_league_id (FK→deleted_leagues RESTRICT, nullable), season_year (int), tier (VARCHAR 16), member_limit (int), stripe_customer_id, stripe_payment_intent_id, stripe_checkout_session_id, amount_cents, paid_at (nullable — null = unpaid/admin-exempt), created_at; UNIQUE(league_id, season_year) |
 | `league_purchase_events` | id (UUID), league_id (FK→leagues SET NULL, nullable), deleted_league_id (FK→deleted_leagues RESTRICT, nullable), season_year (int), tier, member_limit, stripe IDs, amount_cents, event_type ("purchase"\|"upgrade"\|"initial"), paid_at, created_at; INDEX(league_id, season_year) |
+| `stripe_webhook_failures` | id (UUID), stripe_event_id (VARCHAR 255, unique), event_type (VARCHAR 100), webhook_body (JSONB), error_message (text), resolved_at (DateTime, nullable), retry_count (int, default 0), created_at |
 
 ### Points Formula
 ```
-effective_multiplier = league_tournaments.multiplier  (if not NULL)
-                     ?? tournament.multiplier           (global default)
+effective_multiplier = COALESCE(league_tournaments.multiplier, 1.0)
 points_earned = tournament_entry.earnings_usd × effective_multiplier
 ```
-`tournament.multiplier` is the global default (1.0 standard, 2.0 majors, 1.5 The Players). League managers can override per-tournament via `league_tournaments.multiplier`. NULL means inherit the global default. `score_picks` resolves `effective_multiplier` per pick by looking up the `LeagueTournament` row.
+Multipliers are per-league only via `league_tournaments.multiplier` (nullable float). The `tournament` table has no multiplier column. NULL defaults to `1.0` at scoring time. Majors are suggested at `2.0` by convention (frontend `suggestedMultiplier()` in `utils.ts`), but league managers control actual values.
 
 ## Migrations
 
@@ -277,6 +289,16 @@ Existing migration files (in order):
 24. `o1p3q5r7s9t1` — preserve financial records on league deletion: add `deleted_leagues` audit table; `league_purchases.league_id` + `league_purchase_events.league_id` changed to nullable with `ON DELETE SET NULL`; `deleted_league_id` FK column added to both tables
 25. `p2q4r6s8t0u2` — add `leagues.auto_accept_requests` (BOOLEAN NOT NULL DEFAULT FALSE); when True, join requests are auto-approved subject to member-limit checks
 26. `v8w0x2y4z6a8` — add `first_name` (VARCHAR 50, NOT NULL, DEFAULT '') and `last_name` (VARCHAR 50, NOT NULL, DEFAULT '') to `users` table
+27. `q3r5s7t9u1v3` — add `retry_count` to `stripe_webhook_failures`
+28. `r4s6t8u0v2w4` — add `standings_cache` (JSON) and `standings_cached_at` (DateTime) to `seasons` for write-through cache
+29. `s5t7u9v1w3x5` — add performance indexes (`ix_picks_tournament_id`, `ix_picks_league_season_tournament`, `ix_tournament_entries_tournament_id`)
+30. `t6u8v0w2x4y6` — add `is_admin_league` and `has_active_purchase` denormalized flags to `leagues`
+31. `u7v9w1x3y5z7` — remove `tournament.multiplier` column (multipliers are per-league only via `league_tournaments`)
+32. `40a2d71cc045` — merge heads (resolves concurrent migration branches)
+33. `4f5a8d68595c` — widen Stripe ID columns (`stripe_customer_id`, `stripe_payment_intent_id`, `stripe_checkout_session_id`) to VARCHAR 255
+34. `5b6c7d8e9f0a` — add `stripe_webhook_failures` table
+35. `c7e2a1f9b4d3` — add `thru` and `started_on_back` columns to `tournament_entry_rounds`
+36. `f2b3c4d5e6a7` — add partial unique index enforcing one active season per league
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)
@@ -322,7 +344,7 @@ All scheduling is **status-driven, not calendar-driven** — no hardcoded weekda
 | `field_sync_d0` | Daily 11:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today | No tournament starting today | Same as above — confirms final tee times (used for pick-locking) |
 | `live_score_sync` | Every 5 minutes | Soft | `tournament.status == "in_progress"` AND within play window | No IN_PROGRESS tournament; outside play window; or `end_date` >3 days past | Per-round scores (strokes, score-to-par), finish positions, earnings, golfer status (CUT/WD/etc.); publishes `TOURNAMENT_IN_PROGRESS` while playoff rounds are unresolved |
 | `results_finalization` | Daily 09:00, 15:00, 21:00 UTC | **Hard** | A COMPLETED tournament has at least one pick with `points_earned = NULL` | All picks already scored | Force-syncs the tournament first (fresh earnings), then sets `picks.points_earned` (golfer earnings × multiplier); safety net if SQS `TOURNAMENT_COMPLETED` pipeline missed anything |
-| `pick_reminder_send` | Wednesday 12:00 UTC | N/A | Always — looks for upcoming tournaments in next 7 days | Leagues with no active season (silently skipped) | Creates `PickReminder` rows; sends reminder emails to members who haven't picked |
+| `pick_reminder_send` | Wednesday 18:00 UTC (1 PM CDT) | N/A | Always — looks for upcoming tournaments in next 7 days | Leagues with no active season (silently skipped) | Creates `PickReminder` rows; publishes single `PICK_REMINDER_SEND` SQS event for the worker to send consolidated emails |
 
 **Live sync play window:** Computed from `tournament_entry_rounds.tee_time` values stored in the DB (UTC-aware). If no tee times yet: wide fallback `[10:00–07:00 UTC]` covers all PGA Tour locations (US East through Hawaii). No day-of-week restriction — Monday weather carryovers continue syncing automatically.
 
@@ -336,6 +358,7 @@ The worker handles event-triggered operations that don't belong on a clock.
 |---|---|---|
 | `TOURNAMENT_IN_PROGRESS` | `sync_tournament()` (every 5 min while in_progress + unresolved rounds) | `resolve_draft()` for any "drafting" playoff rounds once `any_r1_teed_off()` returns True |
 | `TOURNAMENT_COMPLETED` | `sync_schedule()` on status transition | `score_picks()` → `score_round()` → `advance_bracket()` in order |
+| `PICK_REMINDER_SEND` | `_run_pick_reminder_send()` APScheduler job (Wed 18:00 UTC) | Query all unsent `PickReminder` rows, aggregate by user, send one consolidated email per user via Resend |
 
 All handlers are **idempotent** — SQS at-least-once delivery is safe. The visibility timeout (120 s) prevents two worker pods from processing the same message simultaneously.
 
@@ -357,7 +380,7 @@ docker compose exec backend python -m pytest tests/test_scoring.py -v
 
 Test DB: `league_caddie_test` (separate from dev). Fixtures in `conftest.py` truncate tables after every test. Key fixtures: `client` (FastAPI TestClient), `db` (SQLAlchemy session), `auth_headers` (Authorization header dict), `registered_user` (creates user + returns token).
 
-Coverage baseline: **62%** (enforced by `fail_under = 62` in pyproject.toml). Untested areas: scraper HTTP calls (19%), SQS worker (0%), email service (21%), APScheduler jobs (0%), pick_reminders service (0%).
+Coverage baseline: **90%** (enforced by `fail_under = 90` in pyproject.toml and CI pipeline via `--cov --cov-fail-under=90`).
 
 ## Error Handling
 

@@ -12,7 +12,7 @@ After the first season (proving it works for the private league), the vision is 
 - Each week, a player picks one golfer competing in that week's PGA tournament.
 - Points earned = dollars earned by the chosen golfer that week.
 - **No repeat golfers**: once a golfer is used in a season, that golfer cannot be picked again.
-- **Tournament multiplier**: each tournament has a `multiplier` (float, default `1.0`). Points earned = golfer earnings × multiplier. Majors use `2.0`. Other special events may use other values.
+- **League multipliers**: each league can configure a multiplier per tournament via `league_tournaments.multiplier` (nullable float, defaults to `1.0` at scoring time). Points earned = golfer earnings × multiplier. Majors are suggested at `2.0` by convention, but managers control actual values per league.
 - Points accumulate week over week throughout the season.
 - The player with the most accumulated points at the end of the season wins.
 

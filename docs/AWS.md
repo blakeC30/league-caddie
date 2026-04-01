@@ -72,12 +72,11 @@ This is the account you'll use day-to-day instead of root.
 
 ### Step 6: Create the EC2 Instance Role
 
-This is what your running app uses for SES + SQS at runtime (no hardcoded keys).
+This is what your running app uses for SQS at runtime (no hardcoded keys). Email is handled by Resend (not AWS SES).
 
 - IAM → Roles → Create Role → AWS Service → EC2
 - Name: `league-caddie-ec2-role`
 - Attach these managed policies:
-  - `AmazonSESFullAccess` (or a scoped-down send-only policy)
   - `AmazonSQSFullAccess` (or scoped to your queue ARNs)
   - `CloudWatchLogsFullAccess` (for log shipping)
 - This role gets attached to both EC2 instances at launch — no AWS keys needed in your app config
@@ -120,13 +119,13 @@ ssh-keygen -t ed25519 -f ~/.ssh/league-caddie-ec2 -C "league-caddie-ec2"
 - **Note:** LocalStack is only used for local docker-compose development. Both dev and prod on AWS use real SQS queues.
 - Free tier: 1M requests/month — easily covers both environments
 
-### Step 10: Set Up SES
+### Step 10: Set Up Email (Resend)
 
-- SES → Verified Identities → Create Identity
-- Verify sender: `noreply@league-caddie.com` (or verify the entire domain)
-- **Important:** SES starts in sandbox mode — only verified email addresses can receive emails
-- Request sandbox exit via AWS Support (takes 1-3 days) — do this early
-- IAM role (not keys) handles credentials on EC2
+- Email is sent via **Resend** (not AWS SES). No AWS setup needed for email.
+- Sign up at resend.com, verify your sending domain (`league-caddie.com`)
+- Add DNS records (DKIM, SPF) as instructed by Resend
+- Generate an API key and add it to your Kubernetes secrets as `RESEND_API_KEY`
+- Set `EMAIL_FROM` to `League Caddie <noreply@league-caddie.com>` in the Helm configmap
 
 ### Step 11: Create Route 53 Hosted Zone
 
@@ -464,12 +463,11 @@ Stripe webhook secrets are **per-endpoint** — your local development secret wo
 - [ ] Budget alert set ($20/month)
 - [ ] Admin IAM user created with MFA
 - [ ] `league-caddie-deploy` IAM user created (ECR push only)
-- [ ] `league-caddie-ec2-role` IAM role created (SES + SQS + CloudWatch)
+- [ ] `league-caddie-ec2-role` IAM role created (SQS + CloudWatch)
 - [ ] SSH key pair generated and imported
 - [ ] ECR repositories created (4)
 - [ ] SQS queues created (dev: main + DLQ, prod: main + DLQ)
-- [ ] SES sender identity verified
-- [ ] SES sandbox exit requested
+- [ ] Resend domain verified + API key set in K8s secret
 - [ ] Route 53 hosted zone created
 - [ ] Security group created
 - [ ] EC2 dev instance launched (t2.micro)

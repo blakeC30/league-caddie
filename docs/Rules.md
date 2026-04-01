@@ -7,10 +7,10 @@ Rules currently implemented in the application. This document covers all enforce
 ## Regular Season
 
 ### Scoring
-- **Points = golfer's tournament earnings × tournament multiplier**
-- Tournament multiplier is `1.0` by default
-- League managers can set any tournament in their schedule to `1.0×`, `1.5×`, or `2.0×`
-- The multiplier is configured per league — different leagues can apply different multipliers to the same tournament
+- **Points = golfer's tournament earnings × league multiplier**
+- Multipliers are configured per league per tournament via `league_tournaments.multiplier` (defaults to `1.0` if not set)
+- League managers can set any tournament in their schedule to any multiplier value (e.g., `1.0×`, `1.5×`, `2.0×`)
+- Different leagues can apply different multipliers to the same tournament — there is no global tournament multiplier
 - Points accumulate across all tournaments in the season
 - The player with the most total points at season end wins
 - **Tie-breaking** (applied in order when total points are equal):

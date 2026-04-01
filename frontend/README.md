@@ -92,8 +92,13 @@ frontend/
     │   ├── PlayoffBracketCard.tsx   # Bracket round/pod visualization
     │   ├── PlayoffPreferenceEditor.tsx # Ranked preference list editor
     │   ├── FlagIcon.tsx             # Golf flag SVG (brand icon)
-    │   ├── Spinner.tsx              # Animated loading spinner
-    │   └── Toaster.tsx              # Toast notification renderer
+    │   ├── Skeleton.tsx             # Skeleton loading screens for major pages
+    │   ├── Spinner.tsx              # Animated loading spinner (secondary pages)
+    │   ├── ErrorBoundary.tsx        # React error boundary wrapper
+    │   ├── Toaster.tsx              # Toast notification renderer
+    │   ├── picks/                   # Pick history sub-components (PicksTable, SeasonTotalCard, etc.)
+    │   ├── leaderboard/             # Leaderboard sub-components (StandingsTr, PickBarChart, etc.)
+    │   └── manage/                  # ManageLeague sub-components (settings, members, schedule, etc.)
     │
     └── pages/
         ├── Welcome.tsx          # Public landing page (hero, features, CTAs)
@@ -110,10 +115,15 @@ frontend/
         ├── TournamentDetail.tsx # Live leaderboard with expandable scorecards
         ├── LeagueRules.tsx      # Read-only rules + league config + playoff info
         ├── ManageLeague.tsx     # Manager panel: members, schedule, playoff config
-        ├── PlayoffBracket.tsx   # Scrollable bracket view for all members
-        ├── PlayoffDraft.tsx     # Per-pod draft submission + preference editor
+        ├── PlayoffBracket.tsx   # Bracket view + per-pod draft (preferences, resolved picks)
         ├── JoinLeague.tsx       # Invite-link landing (auth gate + confirm form)
-        ├── Settings.tsx         # Account settings: display name, leave leagues
+        ├── Roster.tsx           # League member roster (name, email, join date)
+        ├── Settings.tsx         # Account settings: display name, first/last name, leagues
+        ├── Pricing.tsx          # Public pricing tiers (standalone, no Layout)
+        ├── BillingSuccess.tsx   # Post-Stripe success (standalone)
+        ├── BillingCanceled.tsx  # Post-Stripe cancel (standalone)
+        ├── PrivacyPolicy.tsx    # Privacy policy (standalone)
+        ├── TermsOfService.tsx   # Terms of service (standalone)
         └── PlatformAdmin.tsx    # Platform admin: trigger ESPN data sync
 ```
 
@@ -186,6 +196,10 @@ All routes are defined in [src/App.tsx](src/App.tsx). Routes that require authen
 | `/forgot-password` | `ForgotPassword` | ❌ | Request password reset email |
 | `/reset-password?token=…` | `ResetPassword` | ❌ | Set new password; token comes from email link |
 | `/join/:inviteCode` | `JoinLeague` | ⚠️ | Public but redirects to login if unauthenticated |
+| `/billing/success` | `BillingSuccess` | ❌ | Post-Stripe success (standalone, no Layout) |
+| `/billing/canceled` | `BillingCanceled` | ❌ | Post-Stripe cancel (standalone) |
+| `/privacy` | `PrivacyPolicy` | ❌ | Privacy policy (standalone) |
+| `/terms` | `TermsOfService` | ❌ | Terms of service (standalone) |
 | `/leagues` | `Leagues` | ✅ | League list, create, join, pending requests |
 | `/leagues/new` | `CreateLeague` | ✅ | Multi-step league creation wizard |
 | `/leagues/:leagueId` | `Dashboard` | ✅ | Per-league home with active tournament + standings |
@@ -195,9 +209,9 @@ All routes are defined in [src/App.tsx](src/App.tsx). Routes that require authen
 | `/leagues/:leagueId/leaderboard` | `Leaderboard` | ✅ | Full standings table |
 | `/leagues/:leagueId/rules` | `LeagueRules` | ✅ | Read-only rules + league config |
 | `/leagues/:leagueId/manage` | `ManageLeague` | ✅ | Manager panel (redirects non-managers away) |
-| `/leagues/:leagueId/playoff` | `PlayoffBracket` | ✅ | Full bracket view for all members |
-| `/leagues/:leagueId/playoff/pod/:podId` | `PlayoffDraft` | ✅ | Per-pod draft status + preference editor |
-| `/settings` | `Settings` | ✅ | Account settings |
+| `/leagues/:leagueId/roster` | `Roster` | ✅ | League member roster |
+| `/leagues/:leagueId/playoff` | `PlayoffBracket` | ✅ | Bracket view + per-pod draft |
+| `/settings` | `Settings` | ✅ | Account settings (name, first/last, leagues) |
 | `/admin` | `PlatformAdmin` | ✅ | Platform admin only (checked via `user.is_platform_admin`) |
 | `*` | — | — | Catch-all redirect to `/` |
 

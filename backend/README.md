@@ -36,7 +36,7 @@ FastAPI + Python backend for the Fantasy Golf League platform. Handles authentic
 | HTTP client | httpx (ESPN API calls) |
 | Scheduler | APScheduler `BackgroundScheduler` (time-driven scraper jobs) |
 | Event queue | AWS SQS (LocalStack locally, real SQS in production) |
-| Email | AWS SES via boto3 (LocalStack locally, real SES in production) |
+| Email | Resend (logged-only when `RESEND_API_KEY` is empty in local dev) |
 | Rate limiting | slowapi (per-IP, per-endpoint) |
 | Linting / formatting | Ruff |
 | Testing | pytest + pytest-asyncio |
@@ -104,9 +104,10 @@ backend/
 │   └── services/            # Business logic
 │       ├── auth.py          # Password hashing, JWT, Google token verification,
 │       │                    # password reset token lifecycle
-│       ├── email.py         # SES email sending (reset link)
+│       ├── email.py         # Resend email sending (reset link, pick reminders)
 │       ├── picks.py         # Pick validation: no-repeat rule, tee-time locking
-│       ├── scoring.py       # calculate_standings()
+│       ├── pick_reminders.py # create_pick_reminders() (scraper), send_pick_reminders() (worker)
+│       ├── scoring.py       # calculate_standings(), rescore_league_picks()
 │       ├── scraper.py       # ESPN API client, tournament/field/score syncs
 │       ├── scheduler.py     # APScheduler job definitions
 │       ├── sqs.py           # boto3 SQS publish/consume wrapper
@@ -114,7 +115,7 @@ backend/
 │
 ├── alembic/
 │   ├── env.py
-│   └── versions/            # 21 migration files — applied manually (see Migrations)
+│   └── versions/            # 36 migration files — applied manually (see Migrations)
 │
 └── tests/
     ├── conftest.py           # Test DB, fixtures (client, db, auth_headers, registered_user)
@@ -153,7 +154,7 @@ docker compose up
 
 This brings up:
 - `postgres` — PostgreSQL on port **5432**
-- `localstack` — LocalStack (SQS + SES emulation) on port **4566**
+- `localstack` — LocalStack (SQS emulation) on port **4566**
 - `backend` — FastAPI API on port **8000** (hot-reload)
 - `scraper` — APScheduler process (no port)
 - `worker` — SQS consumer process (no port)
@@ -193,7 +194,7 @@ Or target a specific tournament by its ESPN `pga_tour_id`.
 
 ### 6. Test password reset flow locally
 
-Because LocalStack intercepts SES, no real emails are sent. The reset URL is always logged to the backend container's stdout:
+When `RESEND_API_KEY` is empty (default locally), no real emails are sent. The reset URL is always logged to the backend container's stdout:
 
 ```
 INFO: Password reset URL for user@example.com: http://localhost:5173/reset-password?token=...
@@ -220,7 +221,8 @@ All settings live in `app/config.py` (Pydantic `BaseSettings`). Values are read 
 | `AWS_ACCESS_KEY_ID` | str | `""` | AWS credentials — empty = use EC2 IAM role in production |
 | `AWS_SECRET_ACCESS_KEY` | str | `""` | AWS credentials — empty = use EC2 IAM role in production |
 | `AWS_ENDPOINT_URL` | str | `""` | Override endpoint URL — set to `http://localstack:4566` in docker-compose |
-| `SES_FROM_EMAIL` | str | `noreply@league-caddie.com` | Verified SES sender address |
+| `EMAIL_FROM` | str | `League Caddie <noreply@league-caddie.com>` | Sender name + address for Resend emails |
+| `RESEND_API_KEY` | str | `""` | Resend API key — empty = emails logged but not sent (local dev) |
 | `SQS_QUEUE_URL` | str | `""` | SQS queue URL — if empty, publish is a no-op (safe for native dev without LocalStack) |
 
 ### Production differences
@@ -339,8 +341,23 @@ All paths are relative to `/leagues/{league_id}`.
 
 | Method | Path | Auth | Rate | Notes |
 |--------|------|------|------|-------|
+| GET | `/admin/stats` | platform_admin | — | Aggregated platform stats (counts only, no PII) |
 | POST | `/admin/sync` | platform_admin | 5/hr | Full ESPN sync; optional `?year=2024&force=true` |
 | POST | `/admin/sync/{pga_tour_id}` | platform_admin | 10/hr | Sync single tournament; optional `?force=true` |
+| GET | `/admin/stripe/webhook-failures` | platform_admin | — | List unresolved Stripe webhook failures |
+| POST | `/admin/stripe/webhook-failures/{id}/retry` | platform_admin | — | Retry a failed webhook |
+| POST | `/admin/import-members` | platform_admin | — | Bulk import members from CSV |
+| POST | `/admin/import-picks` | platform_admin | — | Bulk import picks from CSV |
+
+### Stripe / Billing
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/stripe/pricing` | — | List pricing tiers |
+| POST | `/stripe/create-checkout-session` | manager | Checkout for existing league |
+| POST | `/stripe/create-league-checkout` | token | Checkout that creates a new league on payment |
+| POST | `/stripe/webhook` | — (sig) | Stripe webhook; handles `checkout.session.completed` |
+| GET | `/leagues/{league_id}/purchase` | member | Current season purchase status |
 
 ### Health
 
@@ -373,23 +390,23 @@ FastAPI matches routes in declaration order. Literal path segments **must** be d
 - **Auto-increment integers** for join tables and internal records (league_members, tournament_entries, playoff pods)
 - **Timestamps** stored as `DateTime(timezone=True)` with `server_default=func.now()`
 - **Status columns** stored as plain strings (`String(20)`), not PostgreSQL ENUMs — avoids migration pain
-- **Multipliers** stored as floats (1.0 = standard, 1.5 = The Players, 2.0 = majors)
+- **Multipliers** stored as nullable floats on `league_tournaments` (NULL = 1.0; 1.5 and 2.0 are suggested by convention)
 
 ### Tables
 
 | Table | Key Columns | Notes |
 |-------|------------|-------|
-| `users` | `id` (UUID), `email` (unique, lowercased), `password_hash` (nullable), `google_id` (unique, nullable), `display_name`, `is_platform_admin` | CHECK constraint: at least one of `password_hash` / `google_id` must be set |
+| `users` | `id` (UUID), `email` (unique, lowercased), `password_hash` (nullable), `google_id` (unique, nullable), `display_name`, `first_name`, `last_name`, `is_platform_admin`, `pick_reminders_enabled` | CHECK constraint: at least one of `password_hash` / `google_id` must be set |
 | `password_reset_tokens` | `id` (UUID), `user_id` (FK→users CASCADE), `token_hash` (SHA-256, indexed), `expires_at`, `used_at` (nullable), `created_at` | Single-use, 1-hour TTL; only hash stored |
-| `leagues` | `id` (UUID), `name`, `invite_code` (unique, 22-char URL-safe token), `is_public` (default false), `no_pick_penalty` (default −50000), `created_by` (FK→users) | Invite code is the join mechanism |
+| `leagues` | `id` (UUID), `name`, `invite_code` (unique, 22-char URL-safe token), `is_public`, `accepting_requests`, `auto_accept_requests`, `is_admin_league`, `has_active_purchase`, `no_pick_penalty` (default −50000), `created_by` (FK→users) | Invite code is the join mechanism |
 | `league_members` | `league_id`, `user_id`, `role` (manager\|member), `status` (pending\|approved), `joined_at` | PK = (league_id, user_id) |
-| `seasons` | `id` (auto-inc), `league_id`, `year`, `is_active` | UNIQUE(league_id, year); one active season per league |
-| `tournaments` | `id` (UUID), `pga_tour_id` (unique, ESPN event ID), `name`, `start_date`, `end_date`, `status` (scheduled\|in_progress\|completed), `multiplier` (float, default 1.0), `purse_usd`, `competition_id` (nullable, team events), `is_team_event`, `last_synced_at` | Populated by scraper from ESPN |
+| `seasons` | `id` (auto-inc), `league_id`, `year`, `is_active`, `standings_cache` (JSON), `standings_cached_at` | UNIQUE(league_id, year); one active season per league |
+| `tournaments` | `id` (UUID), `pga_tour_id` (unique, ESPN event ID), `name`, `start_date`, `end_date`, `status` (scheduled\|in_progress\|completed), `purse_usd`, `competition_id` (nullable, team events), `is_team_event`, `last_synced_at` | Populated by scraper from ESPN; no multiplier column (multipliers are per-league) |
 | `tournament_entries` | `id` (auto-inc), `tournament_id`, `golfer_id`, `status` (WD\|CUT\|MDF\|DQ\|null), `tee_time` (R1), `earnings_usd`, `finish_position`, `is_tied`, `team_competitor_id` | UNIQUE(tournament_id, golfer_id) |
 | `tournament_entry_rounds` | `id` (auto-inc), `tournament_entry_id`, `round_number`, `tee_time` (UTC), `score`, `score_to_par`, `position`, `is_playoff` | UNIQUE(tournament_entry_id, round_number) |
 | `golfers` | `id` (UUID), `pga_tour_id` (unique, ESPN athlete ID), `name`, `world_ranking`, `country` (100 chars) | Populated by scraper |
 | `picks` | `id` (UUID), `league_id`, `season_id`, `user_id`, `tournament_id`, `golfer_id`, `points_earned` (nullable), `submitted_at` | UNIQUE(league_id, season_id, user_id, tournament_id); points set by scoring service |
-| `league_tournaments` | `league_id`, `tournament_id`, `multiplier` (nullable) | PK = (league_id, tournament_id); NULL multiplier = inherit global |
+| `league_tournaments` | `league_id`, `tournament_id`, `multiplier` (nullable float) | PK = (league_id, tournament_id); NULL multiplier = defaults to 1.0 at scoring time |
 | `playoff_configs` | `id` (UUID), `league_id`, `season_id`, `is_enabled`, `playoff_size` (power of 2), `draft_style` (snake\|linear\|top_seed_priority), `picks_per_round` (JSON int array), `status` (pending\|seeded\|complete), `seeded_at` | UNIQUE(league_id, season_id) |
 | `playoff_rounds` | `id` (auto-inc), `playoff_config_id`, `round_number`, `tournament_id`, `draft_opens_at`, `draft_resolved_at`, `status` (pending\|drafting\|locked\|scored\|advanced) | UNIQUE(playoff_config_id, round_number) |
 | `playoff_pods` | `id` (auto-inc), `playoff_round_id`, `bracket_position`, `winner_user_id`, `status` | UNIQUE(playoff_round_id, bracket_position) |
@@ -400,13 +417,11 @@ FastAPI matches routes in declaration order. Literal path segments **must** be d
 ### Points Formula
 
 ```
-effective_multiplier = league_tournaments.multiplier   (if NOT NULL)
-                     ?? tournament.multiplier            (global default)
-
+effective_multiplier = COALESCE(league_tournaments.multiplier, 1.0)
 points_earned = tournament_entry.earnings_usd × effective_multiplier
 ```
 
-League managers can override the per-tournament multiplier at the league level (`league_tournaments.multiplier`). `NULL` means inherit the global default from `tournament.multiplier`.
+Multipliers are per-league only via `league_tournaments.multiplier`. There is no global `tournament.multiplier` column. NULL defaults to 1.0 at scoring time.
 
 ---
 
@@ -499,6 +514,7 @@ The worker runs in its own container (`python -m app.worker_main`). It consumes 
 |-------|-------------|----------------|
 | `TOURNAMENT_IN_PROGRESS` | `sync_tournament()` every 5 min while in_progress + unresolved playoff rounds | `resolve_draft()` — assign picks from preference lists once `any_r1_teed_off()` is True |
 | `TOURNAMENT_COMPLETED` | `sync_schedule()` on status transition | `score_picks()` → `score_round()` → `advance_bracket()` in sequence |
+| `PICK_REMINDER_SEND` | `_run_pick_reminder_send()` APScheduler job (Wed 18:00 UTC) | Query unsent `PickReminder` rows, aggregate by user, send one consolidated email per user via Resend |
 
 **All handlers are idempotent** — SQS at-least-once delivery is safe:
 - `resolve_draft()` exits immediately if `draft_resolved_at` is already set
