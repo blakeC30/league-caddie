@@ -67,7 +67,7 @@ export function ManageLeague() {
   const nextUpcomingTournamentId = (() => {
     const scheduled = (allTournaments ?? [])
       .filter((t) => t.status === "scheduled")
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.name.localeCompare(b.name));
     return scheduled[0]?.id ?? null;
   })();
 
@@ -140,7 +140,7 @@ export function ManageLeague() {
     if (required === 0) return new Map();
     const allScheduled = (leagueTournaments ?? [])
       .filter((t) => t.status === "scheduled")
-      .sort((a, b) => a.start_date.localeCompare(b.start_date));
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.name.localeCompare(b.name));
     const candidates = allScheduled.filter(
       (t) => hasInProgressTournament || t.id !== nextUpcomingTournamentId
     );

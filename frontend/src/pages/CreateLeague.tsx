@@ -259,7 +259,7 @@ export function CreateLeague() {
                   // when two selected events would fall in the same week.
                   const weekEntries = Object.entries(
                     [...monthTournaments]
-                      .sort((a, b) => a.start_date.localeCompare(b.start_date))
+                      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.name.localeCompare(b.name))
                       .reduce<Record<string, Tournament[]>>((acc, t) => {
                         const wk = isoWeekKey(t.start_date);
                         (acc[wk] ??= []).push(t);
