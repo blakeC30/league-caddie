@@ -124,6 +124,7 @@ class PlayoffPickOut(BaseModel):
     pod_member_id: int
     golfer_id: uuid.UUID
     golfer_name: str
+    golfer_pga_tour_id: str
     draft_slot: int
     points_earned: float | None
     created_at: datetime
@@ -255,6 +256,7 @@ class MyPlayoffPodOut(BaseModel):
 
 class PlayoffPickSummary(BaseModel):
     golfer_name: str
+    golfer_pga_tour_id: str
     points_earned: float | None
 
 

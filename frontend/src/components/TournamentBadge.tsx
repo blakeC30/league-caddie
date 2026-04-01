@@ -22,6 +22,45 @@ interface Props {
   tournament: Tournament & { effective_multiplier?: number };
   showDates?: boolean;
   isPlayoff?: boolean;
+  /** When true, renders badges and dates as separate exported sub-components. */
+  compact?: boolean;
+}
+
+/** Just the pill badges (status, multiplier, playoff). */
+export function TournamentBadgePills({ tournament, isPlayoff = false }: { tournament: Tournament & { effective_multiplier?: number }; isPlayoff?: boolean }) {
+  const mult = tournament.effective_multiplier;
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${STATUS_STYLE[tournament.status]}`}>
+        {STATUS_LABEL[tournament.status]}
+      </span>
+      {mult !== undefined && mult >= 2 && (
+        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500 text-white flex-shrink-0">{mult}×</span>
+      )}
+      {mult !== undefined && mult > 1 && mult < 2 && (
+        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500 text-white flex-shrink-0">{mult}×</span>
+      )}
+      {isPlayoff && (
+        <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500 text-white flex-shrink-0">PLAYOFF</span>
+      )}
+    </div>
+  );
+}
+
+/** Just the dates and purse line. */
+export function TournamentBadgeDates({ tournament }: { tournament: Tournament }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-0">
+      <span className="text-[11px] text-gray-500">
+        {fmt(tournament.start_date)} – {fmt(tournament.end_date)}
+      </span>
+      {formatPurse(tournament.purse_usd) && (
+        <span className="text-[11px] text-gray-400">
+          {formatPurse(tournament.purse_usd)} purse
+        </span>
+      )}
+    </div>
+  );
 }
 
 export function TournamentBadge({ tournament, showDates = false, isPlayoff = false }: Props) {

@@ -169,6 +169,7 @@ def _build_pick_out(pick: PlayoffPick) -> PlayoffPickOut:
         pod_member_id=pick.pod_member_id,
         golfer_id=pick.golfer_id,
         golfer_name=pick.golfer.name,
+        golfer_pga_tour_id=pick.golfer.pga_tour_id,
         draft_slot=pick.draft_slot,
         points_earned=pick.points_earned,
         created_at=pick.created_at,
@@ -1229,6 +1230,7 @@ def get_my_playoff_picks(
                 picks=[
                     PlayoffPickSummary(
                         golfer_name=p.golfer.name,
+                        golfer_pga_tour_id=p.golfer.pga_tour_id,
                         points_earned=p.points_earned,
                     )
                     for p in picks

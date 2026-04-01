@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { SortButton } from "./SortButton";
 import type { SortDir } from "./SortButton";
-import { TournamentBadge } from "../TournamentBadge";
+import { TournamentBadgePills, TournamentBadgeDates } from "../TournamentBadge";
 import { GolferAvatar } from "../GolferAvatar";
 import { FlagIcon } from "../FlagIcon";
 import { SkeletonBlock } from "../Skeleton";
@@ -14,7 +14,7 @@ type SortField = "date" | "tournament" | "golfer" | "points";
 
 export type OtherPlayoffEntry = {
   status: string;
-  picks: { id: string; pod_member_id: number; golfer_id: string; golfer_name: string; draft_slot: number; points_earned: number | null; created_at: string }[];
+  picks: { id: string; pod_member_id: number; golfer_id: string; golfer_name: string; golfer_pga_tour_id: string; draft_slot: number; points_earned: number | null; created_at: string }[];
   total_points: number | null;
   is_picks_visible: boolean;
 };
@@ -84,8 +84,8 @@ export function PicksTable({
     } else if (sortField === "tournament") {
       cmp = a.tournament.name.localeCompare(b.tournament.name);
     } else if (sortField === "golfer") {
-      const aName = a.pick?.golfer.name ?? "￿";
-      const bName = b.pick?.golfer.name ?? "￿";
+      const aName = a.pick?.golfer.name ?? "\uFFFF";
+      const bName = b.pick?.golfer.name ?? "\uFFFF";
       cmp = aName.localeCompare(bName);
     } else if (sortField === "points") {
       const penalty = league?.no_pick_penalty ?? 0;
@@ -205,14 +205,18 @@ export function PicksTable({
         ))}
       </div>
 
-      {/* Sort controls */}
+      {/* Sort controls — hide Tournament/Golfer on mobile to save space */}
       <div className="flex items-center justify-between px-1 pb-1 border-b border-gray-200">
         <div className="flex items-center gap-4">
           <SortButton label="Date" active={sortField === "date"} dir={sortDir} onClick={() => handleSort("date")} />
-          <SortButton label="Tournament" active={sortField === "tournament"} dir={sortDir} onClick={() => handleSort("tournament")} />
+          <span className="hidden sm:inline">
+            <SortButton label="Tournament" active={sortField === "tournament"} dir={sortDir} onClick={() => handleSort("tournament")} />
+          </span>
         </div>
         <div className="flex items-center gap-4 shrink-0">
-          <SortButton label="Golfer" active={sortField === "golfer"} dir={sortDir} onClick={() => handleSort("golfer")} />
+          <span className="hidden sm:inline">
+            <SortButton label="Golfer" active={sortField === "golfer"} dir={sortDir} onClick={() => handleSort("golfer")} />
+          </span>
           <SortButton label="Points" active={sortField === "points"} dir={sortDir} onClick={() => handleSort("points")} />
         </div>
       </div>
@@ -247,22 +251,23 @@ export function PicksTable({
         );
         const hasMissedRegularPick = !isPickHidden && !isPlayoffTournament && !pick && completedTournaments.some((t) => t.id === tournament.id);
         const hasPlayoffPenalty = !isPickHidden && isPlayoffTournament && tournament.status === "completed" && playoffData && playoffData.picks.length === 0;
-        const rowClass = `bg-white border rounded-xl p-5 flex items-center justify-between gap-4 transition-all ${
+        const rowClass = `bg-white border rounded-xl p-3 sm:p-5 flex items-center justify-between gap-2 sm:gap-4 transition-all ${
           hasMissedRegularPick || hasPlayoffPenalty
             ? "border-red-100"
             : "border-gray-200"
         } ${isClickable ? "hover:shadow-sm hover:border-green-300 cursor-pointer" : ""}`;
         const rowContent = (
           <>
-            <div className="space-y-1 min-w-0 flex-1">
-              <p className="font-semibold text-gray-900 truncate">{fmtTournamentName(tournament.name)}</p>
-              <TournamentBadge tournament={tournament} showDates isPlayoff={isPlayoffTournament} />
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <TournamentBadgePills tournament={tournament} isPlayoff={isPlayoffTournament} />
+              <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{fmtTournamentName(tournament.name)}</p>
+              <TournamentBadgeDates tournament={tournament} />
             </div>
 
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {isPlayoffTournament ? (() => {
                 if (!playoffData) {
-                  return <p className="text-sm text-gray-400 text-right">Not in playoff round</p>;
+                  return <p className="text-xs sm:text-sm text-gray-400 text-right">Not in playoff round</p>;
                 }
                 const { picks: poPicks, total_points, status: roundStatus } = playoffData;
                 const is_picks_visible = isViewingSelf ? true : (otherPlayoffData?.is_picks_visible ?? true);
@@ -275,48 +280,58 @@ export function PicksTable({
                         <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
-                        <p className="text-sm font-semibold">Rankings submitted</p>
+                        <p className="text-xs sm:text-sm font-semibold">Rankings submitted</p>
                       </div>
                     ) : (
-                      <p className="text-sm font-medium text-amber-500">No rankings yet</p>
+                      <p className="text-xs sm:text-sm font-medium text-amber-500">No rankings yet</p>
                     );
                   }
-                  return <p className="text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
+                  return <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
                 }
                 if (roundStatus === "locked" && tournament.status === "in_progress") {
                   if (poPicks.length > 0) {
                     return (
                       <div className="text-right space-y-1">
                         {poPicks.map((p, i) => (
-                          <p key={i} className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                          <div key={i} className="flex items-center gap-2 justify-end">
+                            <p className="text-xs sm:text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                            {"golfer_pga_tour_id" in p && (
+                              <GolferAvatar pgaTourId={p.golfer_pga_tour_id} name={p.golfer_name} className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 hidden sm:block" />
+                            )}
+                          </div>
                         ))}
-                        <p className="text-xs text-gray-400">In progress</p>
+                        <p className="text-[10px] sm:text-xs text-gray-400">In progress</p>
                       </div>
                     );
                   }
                   if (isViewingSelf || is_picks_visible) {
-                    return <p className="text-sm font-medium text-gray-400 text-right">No picks assigned</p>;
+                    return <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">No picks assigned</p>;
                   }
-                  return <p className="text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
+                  return <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
                 }
                 if (roundStatus === "completed" || tournament.status === "completed") {
                   if (poPicks.length > 0) {
                     return (
                       <div className="text-right space-y-1.5">
                         {poPicks.map((p, i) => (
-                          <div key={i} className="space-y-0.5">
-                            <p className="text-sm font-medium text-gray-600">{p.golfer_name}</p>
-                            <p className={`text-sm font-bold tabular-nums ${
-                              p.points_earned === null ? "text-gray-400"
-                              : p.points_earned > 0 ? "text-green-700"
-                              : "text-red-500"
-                            }`}>
-                              {formatPoints(p.points_earned)}
-                            </p>
+                          <div key={i} className="flex items-center gap-2 justify-end">
+                            <div className="space-y-0.5 text-right">
+                              <p className="text-xs sm:text-sm font-medium text-gray-600">{p.golfer_name}</p>
+                              <p className={`text-xs sm:text-sm font-bold tabular-nums ${
+                                p.points_earned === null ? "text-gray-400"
+                                : p.points_earned > 0 ? "text-green-700"
+                                : "text-red-500"
+                              }`}>
+                                {formatPoints(p.points_earned)}
+                              </p>
+                            </div>
+                            {"golfer_pga_tour_id" in p && (
+                              <GolferAvatar pgaTourId={p.golfer_pga_tour_id} name={p.golfer_name} className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 hidden sm:block" />
+                            )}
                           </div>
                         ))}
                         {poPicks.length > 1 && (
-                          <p className={`text-xs font-bold tabular-nums border-t border-gray-100 pt-1 ${
+                          <p className={`text-[10px] sm:text-xs font-bold tabular-nums border-t border-gray-100 pt-1 ${
                             (total_points ?? 0) >= 0 ? "text-green-700" : "text-red-500"
                           }`}>
                             Total: {formatPoints(total_points)}
@@ -327,14 +342,14 @@ export function PicksTable({
                   }
                   return (
                     <div className="text-right space-y-0.5">
-                      <p className="text-sm font-medium text-red-400">No pick</p>
-                      <p className="text-lg font-bold text-red-500 tabular-nums">
+                      <p className="text-xs sm:text-sm font-medium text-red-400">No pick</p>
+                      <p className="text-base sm:text-lg font-bold text-red-500 tabular-nums">
                         {formatPoints(total_points)}
                       </p>
                     </div>
                   );
                 }
-                return <p className="text-sm text-gray-400">Playoff round</p>;
+                return <p className="text-xs sm:text-sm text-gray-400">Playoff round</p>;
               })() : pick ? (() => {
                 const multiplier = "effective_multiplier" in tournament
                   ? (tournament as { effective_multiplier: number }).effective_multiplier
@@ -349,9 +364,9 @@ export function PicksTable({
                 return (
                   <>
                     <div className="text-right space-y-0.5">
-                      <p className="text-sm font-medium text-gray-600">{pick.golfer.name}</p>
+                      <p className="text-xs sm:text-sm font-medium text-gray-600">{pick.golfer.name}</p>
                       <p
-                        className={`text-lg font-bold leading-tight ${
+                        className={`text-base sm:text-lg font-bold leading-tight ${
                           statusLabel || displayPoints === null
                             ? "text-gray-400"
                             : displayPoints > 0
@@ -362,7 +377,7 @@ export function PicksTable({
                         {statusLabel ?? formatPoints(displayPoints)}
                       </p>
                       {showBreakdown && (
-                        <p className="text-xs text-gray-400 tabular-nums leading-tight">
+                        <p className="text-[10px] sm:text-xs text-gray-400 tabular-nums leading-tight">
                           {formatPoints(pick.earnings_usd)} &middot; {multiplier}&times;
                         </p>
                       )}
@@ -370,23 +385,23 @@ export function PicksTable({
                     <GolferAvatar
                       pgaTourId={pick.golfer.pga_tour_id}
                       name={pick.golfer.name}
-                      className="w-9 h-9 shrink-0"
+                      className="w-7 h-7 sm:w-9 sm:h-9 shrink-0"
                     />
                   </>
                 );
               })() : !isViewingSelf && (tournament.id === nextTournament?.id || (tournament.id === liveTournament?.id && !liveTournament?.all_r1_teed_off)) ? (
-                <p className="text-sm font-medium text-gray-400 text-right">Pick hidden</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">Pick hidden</p>
               ) : (
                 <div className="text-right space-y-0.5">
-                  <p className={`text-sm font-medium ${tournament.status === "scheduled" ? "text-gray-400" : "text-red-400"}`}>
+                  <p className={`text-xs sm:text-sm font-medium ${tournament.status === "scheduled" ? "text-gray-400" : "text-red-400"}`}>
                     {tournament.status === "scheduled" ? "No pick yet" : "No pick"}
                   </p>
                   {tournament.status === "completed" && league?.no_pick_penalty !== undefined ? (
-                    <p className="text-lg font-bold text-red-500 tabular-nums">
+                    <p className="text-base sm:text-lg font-bold text-red-500 tabular-nums">
                       {formatPoints(league.no_pick_penalty)}
                     </p>
                   ) : (
-                    <p className="text-lg font-bold text-gray-300 tabular-nums">&mdash;</p>
+                    <p className="text-base sm:text-lg font-bold text-gray-300 tabular-nums">&mdash;</p>
                   )}
                 </div>
               )}

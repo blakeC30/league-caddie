@@ -246,6 +246,7 @@ export interface MyPlayoffPodOut {
 
 export interface PlayoffPickSummary {
   golfer_name: string;
+  golfer_pga_tour_id: string;
   points_earned: number | null;
 }
 
@@ -583,6 +584,7 @@ export interface PlayoffPickOut {
   pod_member_id: number; // integer FK to playoff_pod_members.id
   golfer_id: string;
   golfer_name: string;
+  golfer_pga_tour_id: string;
   draft_slot: number;
   points_earned: number | null;
   created_at: string;
