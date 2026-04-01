@@ -262,7 +262,7 @@ export function PicksTable({
             <div className="flex items-center gap-3 shrink-0">
               {isPlayoffTournament ? (() => {
                 if (!playoffData) {
-                  return <p className="text-sm text-gray-400 text-right">Not in playoffs</p>;
+                  return <p className="text-sm text-gray-400 text-right">Not in playoff round</p>;
                 }
                 const { picks: poPicks, total_points, status: roundStatus } = playoffData;
                 const is_picks_visible = isViewingSelf ? true : (otherPlayoffData?.is_picks_visible ?? true);

@@ -120,7 +120,7 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                   ))}
                 </div>
               ) : summary.is_playoff_week && !summary.is_in_playoffs ? (
-                <p className="text-[11px] text-gray-400 font-medium mt-0.5">Not in playoffs</p>
+                <p className="text-[11px] text-gray-400 font-medium mt-0.5">Not in playoff round</p>
               ) : summary.my_pick ? (
                 <p className="text-[11px] text-green-700 font-medium mt-0.5 flex items-center gap-1">
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -149,7 +149,7 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                 </p>
               )}
             </div>
-            {summary.pick_window_open && !summary.my_pick && (current.status === "scheduled" || (current.status === "in_progress" && !current.all_r1_teed_off)) && (
+            {summary.pick_window_open && !summary.my_pick && !(summary.is_playoff_week && !summary.is_in_playoffs) && (current.status === "scheduled" || (current.status === "in_progress" && !current.all_r1_teed_off)) && (
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -160,7 +160,7 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                 Pick →
               </button>
             )}
-            {summary.pick_window_open && summary.my_pick && !summary.my_pick.is_locked && (
+            {summary.pick_window_open && summary.my_pick && !summary.my_pick.is_locked && !(summary.is_playoff_week && !summary.is_in_playoffs) && (
               <button
                 onClick={(e) => {
                   e.preventDefault();

@@ -93,9 +93,11 @@ export function MyPicks() {
 
   // Hide the pick button when the live tournament's pick is locked (golfer has teed off),
   // or when all Round 1 tee times have passed and the member has no pick yet (window permanently closed).
-  const pickActionAvailable = hasLiveTournament
+  // Also hide when it's a playoff week and the user is not in the current playoff round.
+  const isPlayoffNonParticipant = myPod?.is_playoff_week && !myPod?.is_in_playoffs;
+  const pickActionAvailable = !isPlayoffNonParticipant && (hasLiveTournament
     ? (!myLivePick?.is_locked && !(liveTournament?.all_r1_teed_off && !myLivePick))
-    : nextTournamentIsGloballyNext;
+    : nextTournamentIsGloballyNext);
 
   // Map submitted picks by tournament id for quick lookup
   const picksByTournamentId = new Map(picks?.map((p) => [p.tournament_id, p]) ?? []);
@@ -143,6 +145,12 @@ export function MyPicks() {
   const leagueTournamentIds = new Set(leagueTournaments?.map((t) => t.id) ?? []);
   const scheduledPicks = picks?.filter((p) => leagueTournamentIds.has(p.tournament_id)) ?? null;
 
+  // Regular-season-only picks and tournaments — excludes playoff rounds from stats.
+  const regularPicks = scheduledPicks?.filter((p) => !playoffTournamentIds.has(p.tournament_id)) ?? null;
+  const regularCompletedTournaments = completedTournaments.filter(
+    (t) => !playoffTournamentIds.has(t.id)
+  );
+
   // Fully finished regular-season tournaments with no pick submitted — penalty applies to these.
   // Playoff tournaments are excluded: their penalty is already baked into total_points from the
   // playoff scoring service and must not be double-counted here.
@@ -154,31 +162,24 @@ export function MyPicks() {
   ).length;
   const penaltyTotal = noPickCompletedCount * (league?.no_pick_penalty ?? 0);
 
-  // Playoff earnings (total_points already includes any per-slot penalties from score_round).
-  // Only added for the current user — own picks are never hidden, so the data is always accurate.
-  const playoffEarned = isViewingSelf
-    ? (myPlayoffPicks ?? []).reduce((sum, p) => sum + (p.total_points ?? 0), 0)
-    : 0;
-
-  const totalEarned =
-    (scheduledPicks?.reduce((sum, p) => sum + (p.points_earned ?? 0), 0) ?? 0) +
-    penaltyTotal +
-    playoffEarned;
+  // Stats use regular-season picks only (excludes playoff tournaments).
+  const regularSeasonEarned =
+    (regularPicks?.reduce((sum, p) => sum + (p.points_earned ?? 0), 0) ?? 0) + penaltyTotal;
   // Picks for which we have a final score
-  const scoredPicks = scheduledPicks?.filter((p) => p.points_earned !== null) ?? [];
+  const scoredPicks = regularPicks?.filter((p) => p.points_earned !== null) ?? [];
   // Picks that earned $0 (missed the cut)
   const cutsMissed = scoredPicks.filter((p) => p.points_earned === 0);
-  // Picks submitted for final (status === "completed") tournaments only
-  const submittedForFinal = scheduledPicks?.filter((p) =>
-    leagueTournaments?.some((t) => t.id === p.tournament_id && t.status === "completed")
+  // Picks submitted for final (status === "completed") regular-season tournaments only
+  const submittedForFinal = regularPicks?.filter((p) =>
+    regularCompletedTournaments.some((t) => t.id === p.tournament_id && t.status === "completed")
   ) ?? [];
-  // Best single tournament
+  // Best single regular-season tournament
   const bestPick = scoredPicks.reduce<(typeof scoredPicks)[0] | null>(
     (best, p) => (best === null || p.points_earned! > best.points_earned! ? p : best),
     null
   );
-  const finalTournamentCount = completedTournaments.filter((t) => t.status === "completed").length;
-  const avgEarnings = finalTournamentCount > 0 ? totalEarned / finalTournamentCount : null;
+  const finalTournamentCount = regularCompletedTournaments.filter((t) => t.status === "completed").length;
+  const avgEarnings = finalTournamentCount > 0 ? regularSeasonEarned / finalTournamentCount : null;
 
   // Show skeleton while core data loads (prevents flash of "No picks yet")
   if (tournamentsLoading || isLoading) {
@@ -247,7 +248,7 @@ export function MyPicks() {
       )}
 
       {/* Season total */}
-      <SeasonTotalCard totalEarned={totalEarned} />
+      <SeasonTotalCard totalEarned={regularSeasonEarned} hasPlayoffs={playoffTournamentIds.size > 0} />
 
       {/* Stats grid */}
       <PicksStatCards
