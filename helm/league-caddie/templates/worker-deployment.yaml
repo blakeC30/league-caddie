@@ -93,5 +93,20 @@ spec:
                 configMapKeyRef:
                   name: {{ include "league-caddie.configmapName" . }}
                   key: SQS_QUEUE_URL
+            - name: FRONTEND_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: FRONTEND_URL
+            - name: EMAIL_FROM
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: EMAIL_FROM
+            - name: RESEND_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "league-caddie.secretName" . }}
+                  key: RESEND_API_KEY
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}

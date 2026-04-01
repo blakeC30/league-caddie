@@ -41,11 +41,11 @@ Jobs
     Also publishes TOURNAMENT_IN_PROGRESS SQS events while any linked
     playoff draft rounds remain unresolved (stops publishing once resolved).
 
-  pick_reminder_send  (weekly Wednesday at 12:00 UTC)
+  pick_reminder_send  (weekly Wednesday at 18:00 UTC / 1 PM CDT)
     Creates PickReminder rows for all scheduled tournaments starting within
-    the next 7 days, then immediately sends emails to approved league members
-    who haven't picked yet and have pick_reminders_enabled = True. Leagues
-    with no active season are silently skipped.
+    the next 7 days and publishes PICK_REMINDER_SEND SQS events for each
+    unsent reminder. The worker handles actual email sending. Leagues with
+    no active season are silently skipped.
 
   results_finalization  (daily at 09:00, 15:00, and 21:00 UTC)
     Finds any completed tournament with unscored picks and runs score_picks().
@@ -366,29 +366,27 @@ def _run_live_score_sync() -> None:
 
 def _run_pick_reminder_send() -> None:
     """
-    Weekly Wednesday at 12:00 UTC: send pick reminder emails.
+    Weekly Wednesday at 18:00 UTC (1 PM CDT): detect and publish pick reminders.
 
     Finds all scheduled PGA tournaments starting in the next 7 days,
-    creates PickReminder rows (idempotent), and immediately emails all
-    approved league members who haven't picked yet. Leagues without an
-    active season are silently skipped.
+    creates PickReminder rows (idempotent), and publishes PICK_REMINDER_SEND
+    SQS events for each unsent reminder. The worker handles actual email
+    sending. Leagues without an active season are silently skipped.
     """
     from app.database import SessionLocal
-    from app.services.pick_reminders import create_and_send_pick_reminders
+    from app.services.pick_reminders import create_pick_reminders
 
     db = SessionLocal()
     try:
-        result = create_and_send_pick_reminders(db)
+        result = create_pick_reminders(db)
         log.info(
-            "Pick reminders: sent=%d failed=%d skipped=%d",
-            result["sent"],
-            result["failed"],
+            "Pick reminders: created=%d skipped=%d published=%s",
+            result["reminders_created"],
             result["skipped"],
+            result["published"],
         )
-        if result["errors"]:
-            log.warning("Pick reminder errors: %s", result["errors"])
     except Exception as exc:
-        log.error("Pick reminder send failed: %s", exc, exc_info=True)
+        log.error("Pick reminder detection failed: %s", exc, exc_info=True)
     finally:
         db.close()
 
@@ -676,11 +674,12 @@ def start_scheduler() -> None:
     # ── 5. Pick reminder emails ───────────────────────────────────────────
     # Once per week — Wednesday at 12:00 UTC (noon). Covers all tournaments
     # starting Thursday through the following Wednesday. Sending on Wednesday
-    # gives members ~12–24 hours to pick before Thursday tee times while
+    # gives members ~5–17 hours to pick before Thursday tee times while
     # limiting email volume to one per tournament per league per season.
+    # 18:00 UTC = 1:00 PM CDT (April daylight saving).
     _scheduler.add_job(
         _run_pick_reminder_send,
-        CronTrigger(day_of_week="wed", hour=12, minute=0),
+        CronTrigger(day_of_week="wed", hour=18, minute=0),
         id="pick_reminder_send",
         replace_existing=True,
         misfire_grace_time=3600,

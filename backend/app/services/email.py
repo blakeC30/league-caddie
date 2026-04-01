@@ -145,84 +145,124 @@ def send_password_reset_email(to_email: str, raw_token: str) -> None:
 def send_pick_reminder_email(
     to_email: str,
     display_name: str,
-    league_name: str,
-    league_id: str,
-    tournament_name: str,
-    start_date: str,
-    pick_window_open: bool,
+    unpicked: list[dict],
 ) -> None:
     """
-    Send a weekly pick reminder to a league member who hasn't picked yet.
+    Send a consolidated weekly pick reminder listing all unpicked leagues.
 
-    pick_window_open controls the email CTA:
-      True  → "Submit your pick" button linking to the pick page.
-      False → "Picks open soon" message (no button) for when a prior
-              tournament is still in_progress and the window hasn't opened.
+    ``unpicked`` is a list of dicts, each with:
+      - league_name, league_id, tournament_name, start_date, pick_window_open
 
-    Always logged at INFO level so it's visible in local dev (LocalStack
-    doesn't deliver email, but the log confirms the send was attempted).
+    One email per user regardless of how many leagues/tournaments they need.
     """
-    pick_url = f"{settings.FRONTEND_URL}/leagues/{league_id}/pick"
     log.info(
-        "Pick reminder for %s — league='%s' tournament='%s' window_open=%s url=%s",
+        "Pick reminder for %s — %d unpicked league(s)",
         to_email,
-        league_name,
-        tournament_name,
-        pick_window_open,
-        pick_url,
+        len(unpicked),
     )
 
-    if pick_window_open:
-        cta_text = (
-            f"Head to League Caddie and submit your pick before {tournament_name} starts "
-            f"on {start_date}."
+    # Subject uses the first tournament name for brevity.
+    first = unpicked[0]
+    subject = (
+        f"Pick reminder: {first['tournament_name']} starts {first['start_date']}"
+        if len(unpicked) == 1
+        else f"Pick reminder: {len(unpicked)} picks needed this week"
+    )
+
+    # ── Plain text body ──────────────────────────────────────────────
+    lines = [f"Hi {display_name},\n"]
+    if len(unpicked) == 1:
+        u = unpicked[0]
+        lines.append(
+            f"You haven't submitted your pick for {u['tournament_name']} "
+            f"({u['start_date']}) in {u['league_name']} yet.\n"
         )
-        cta_plain = f"\nSubmit your pick: {pick_url}\n"
+        if u["pick_window_open"]:
+            pick_url = f"{settings.FRONTEND_URL}/leagues/{u['league_id']}/pick"
+            lines.append(f"Submit your pick: {pick_url}\n")
     else:
-        cta_text = (
-            f"The pick window for {tournament_name} isn't open yet — it opens once the "
-            "current tournament finishes and earnings are posted. We'll send another "
-            "reminder when picks are available."
-        )
-        cta_plain = ""
+        lines.append("You have upcoming picks to make:\n")
+        for u in unpicked:
+            line = f"  • {u['league_name']} — {u['tournament_name']} ({u['start_date']})"
+            if u["pick_window_open"]:
+                line += f"  {settings.FRONTEND_URL}/leagues/{u['league_id']}/pick"
+            lines.append(line)
+        lines.append("")
 
-    text_body = (
-        f"Hi {display_name},\n\n"
-        f"You haven't submitted your pick for {tournament_name} ({start_date}) "
-        f"in {league_name} yet.\n\n"
-        f"{cta_text}{cta_plain}\n"
-        "If you've already picked or don't want these reminders, update your "
-        f"preferences at {settings.FRONTEND_URL}/settings.\n"
+    lines.append(
+        "To stop receiving pick reminders, visit "
+        f"{settings.FRONTEND_URL}/settings and turn off email notifications.\n"
     )
+    text_body = "\n".join(lines)
 
-    if pick_window_open:
-        cta_html = f"""
-              <!-- CTA button -->
+    # ── HTML body ────────────────────────────────────────────────────
+    if len(unpicked) == 1:
+        u = unpicked[0]
+        pick_url = f"{settings.FRONTEND_URL}/leagues/{u['league_id']}/pick"
+        detail_html = f"""
+              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
+                You haven't submitted your pick for
+                <strong style="color:#111827;">{u["tournament_name"]}</strong>
+                (starts <strong style="color:#111827;">{u["start_date"]}</strong>)
+                in <strong style="color:#111827;">{u["league_name"]}</strong> yet.
+              </p>"""
+        if u["pick_window_open"]:
+            cta_html = f"""
               <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
                 <tr>
                   <td style="background-color:#166534;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.12);">
                     <a href="{pick_url}"
                        style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:12px;">
-                      Submit your pick →
+                      Submit your pick &rarr;
                     </a>
                   </td>
                 </tr>
               </table>"""
-    else:
-        cta_html = """
+        else:
+            cta_html = """
               <div style="background-color:#fefce8;border:1px solid #fde68a;border-radius:10px;padding:16px 20px;margin-bottom:28px;">
                 <p style="margin:0;font-size:14px;color:#92400e;line-height:1.5;">
                   <strong>Picks not open yet.</strong> The pick window opens once the current
                   tournament finishes and earnings are posted.
                 </p>
               </div>"""
+    else:
+        rows_html = ""
+        for u in unpicked:
+            pick_url = f"{settings.FRONTEND_URL}/leagues/{u['league_id']}/pick"
+            if u["pick_window_open"]:
+                action = (
+                    f'<a href="{pick_url}" style="color:#166534;font-weight:600;'
+                    f'text-decoration:none;">Pick now &rarr;</a>'
+                )
+            else:
+                action = '<span style="color:#92400e;font-size:12px;">Opens soon</span>'
+            rows_html += f"""
+                <tr>
+                  <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;">
+                    <p style="margin:0 0 2px;font-size:14px;font-weight:600;color:#111827;">{u["league_name"]}</p>
+                    <p style="margin:0;font-size:13px;color:#6b7280;">{u["tournament_name"]} &middot; {u["start_date"]}</p>
+                  </td>
+                  <td style="padding:10px 0;border-bottom:1px solid #f3f4f6;text-align:right;vertical-align:middle;">
+                    {action}
+                  </td>
+                </tr>"""
+
+        detail_html = f"""
+              <p style="margin:0 0 20px;font-size:15px;color:#6b7280;line-height:1.6;">
+                You have <strong style="color:#111827;">{len(unpicked)} picks</strong> to make this week:
+              </p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                {rows_html}
+              </table>"""
+        cta_html = ""
 
     html_body = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pick reminder — {tournament_name}</title>
+  <title>Pick reminder</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 16px;">
@@ -230,7 +270,7 @@ def send_pick_reminder_email(
       <td align="center">
         <table width="100%" style="max-width:520px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
 
-          <!-- Header — matches app gradient -->
+          <!-- Header -->
           <tr>
             <td style="background:linear-gradient(to bottom right,#052e16,#14532d,#166534);padding:36px 40px;text-align:center;">
               <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
@@ -256,15 +296,9 @@ def send_pick_reminder_email(
               <p style="margin:0 0 8px;font-size:15px;color:#6b7280;line-height:1.6;">
                 Hi <strong style="color:#111827;">{display_name}</strong>,
               </p>
-              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
-                You haven't submitted your pick for
-                <strong style="color:#111827;">{tournament_name}</strong>
-                (starts <strong style="color:#111827;">{start_date}</strong>)
-                in <strong style="color:#111827;">{league_name}</strong> yet.
-              </p>
+{detail_html}
 {cta_html}
 
-              <!-- Divider -->
               <hr style="border:none;border-top:1px solid #e5e7eb;margin:0 0 24px;" />
 
               <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
@@ -279,7 +313,7 @@ def send_pick_reminder_email(
           <tr>
             <td style="background-color:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
               <p style="margin:0;font-size:12px;color:#9ca3af;">
-                &copy; 2026 League Caddie &nbsp;&middot;&nbsp; {league_name}
+                &copy; 2026 League Caddie
               </p>
             </td>
           </tr>
@@ -291,9 +325,4 @@ def send_pick_reminder_email(
 </body>
 </html>"""
 
-    _send(
-        to_email,
-        f"Pick reminder: {tournament_name} starts {start_date}",
-        html_body,
-        text_body,
-    )
+    _send(to_email, subject, html_body, text_body)

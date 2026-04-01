@@ -1,26 +1,21 @@
 """
-Pick reminder service — Wednesday email reminders for unpicked league members.
+Pick reminder service — weekly email reminders for unpicked league members.
 
-The Wednesday APScheduler job calls `create_and_send_pick_reminders(db)` once per
-week. It:
-  1. Finds all scheduled PGA tournaments starting within the next 7 days.
-  2. For each tournament, finds all leagues that have it in their schedule.
-  3. Skips any league with no active season (out-of-season — silent skip).
-  4. Creates a PickReminder row (idempotent — UNIQUE constraint prevents duplicates).
-  5. Immediately sends emails to all approved league members who:
-       - have not yet submitted a pick for this tournament in the active season, AND
-       - have pick_reminders_enabled = True.
-  6. Marks reminder sent_at on full success; increments attempt_count on failure.
-     After max_attempts failures, sets failed_at so the row is permanently skipped.
+Split into two phases:
+  1. **Detection** (scraper, APScheduler): ``create_pick_reminders(db)`` finds all
+     scheduled tournaments starting within the next 7 days, creates PickReminder
+     rows, and publishes a single ``PICK_REMINDER_SEND`` SQS trigger event.
+  2. **Sending** (worker, SQS): ``send_pick_reminders(db)`` aggregates all unsent
+     reminders by user, sends one consolidated email per user listing all their
+     unpicked leagues/tournaments, and marks reminders as sent.
 
-The email CTA adjusts based on whether the pick window is currently open:
-  - If the tournament is in_progress OR is the globally-next scheduled tournament
-    with no other tournament in_progress, the window is open → "Submit your pick".
-  - Otherwise the window is not yet open → "Picks open soon" message (no CTA link).
+This separation keeps the scraper free of email dependencies (no RESEND_API_KEY)
+and deduplicates emails for users in multiple leagues.
 """
 
 import logging
 import uuid
+from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.orm import Session
@@ -58,84 +53,22 @@ def _is_pick_window_open(db: Session, tournament) -> bool:
     return globally_next is not None and tournament.id == globally_next.id
 
 
-def _send_reminder_for_league(
-    db: Session,
-    reminder,
-    tournament,
-    pick_window_open: bool,
-) -> tuple[int, int]:
+# ---------------------------------------------------------------------------
+# Phase 1: Detection (scraper)
+# ---------------------------------------------------------------------------
+
+
+def create_pick_reminders(db: Session) -> dict:
     """
-    Send pick reminder emails to all unpicked, opted-in, approved members of
-    the reminder's league for the given tournament + season.
-
-    Returns (sent_count, skipped_count).
-    Raises on SES error so the caller can handle attempt_count / failed_at.
-    """
-    from app.models import LeagueMember, LeagueMemberStatus, Pick, User
-    from app.services.email import send_pick_reminder_email
-
-    league_id = reminder.league_id
-    season_id = reminder.season_id
-    tournament_id = tournament.id
-
-    # All approved members of this league.
-    members = (
-        db.query(LeagueMember)
-        .filter_by(league_id=league_id, status=LeagueMemberStatus.APPROVED.value)
-        .all()
-    )
-
-    sent = 0
-    skipped = 0
-    for member in members:
-        user: User = db.get(User, member.user_id)
-        if user is None:
-            skipped += 1
-            continue
-
-        # Respect opt-out preference.
-        if not user.pick_reminders_enabled:
-            skipped += 1
-            continue
-
-        # Skip users who already submitted a pick.
-        already_picked = (
-            db.query(Pick)
-            .filter_by(
-                league_id=league_id,
-                season_id=season_id,
-                user_id=member.user_id,
-                tournament_id=tournament_id,
-            )
-            .first()
-        )
-        if already_picked:
-            skipped += 1
-            continue
-
-        send_pick_reminder_email(
-            to_email=user.email,
-            display_name=user.display_name,
-            league_name=reminder.league.name,
-            league_id=str(league_id),
-            tournament_name=tournament.name,
-            start_date=tournament.start_date.strftime("%B %-d"),
-            pick_window_open=pick_window_open,
-        )
-        sent += 1
-
-    return sent, skipped
-
-
-def create_and_send_pick_reminders(db: Session) -> dict:
-    """
-    Entry point called by the Wednesday APScheduler job.
+    Entry point called by the Wednesday APScheduler job (scraper container).
 
     Finds all scheduled PGA tournaments starting within the next 7 days,
     creates PickReminder rows for each affected active-season league,
-    then immediately sends emails to unpicked members.
+    then publishes a single PICK_REMINDER_SEND SQS trigger event for the
+    worker to process all unsent reminders.
 
-    Returns a summary dict: {"sent": int, "failed": int, "skipped": int, "errors": list}.
+    Returns a summary dict: {"reminders_created": int, "skipped": int,
+    "published": bool}.
     """
     from app.models import (
         LeagueTournament,
@@ -144,12 +77,12 @@ def create_and_send_pick_reminders(db: Session) -> dict:
         Tournament,
         TournamentStatus,
     )
+    from app.services.sqs import publish
 
     now_utc = datetime.now(tz=UTC)
     today = now_utc.date()
     window_end = today + timedelta(days=7)
 
-    # Tournaments starting in the next 7 days that are still scheduled.
     upcoming = (
         db.query(Tournament)
         .filter(
@@ -162,15 +95,12 @@ def create_and_send_pick_reminders(db: Session) -> dict:
 
     if not upcoming:
         log.info("Pick reminders: no tournaments starting in the next 7 days")
-        return {"sent": 0, "failed": 0, "skipped": 0, "errors": []}
+        return {"reminders_created": 0, "skipped": 0, "published": False}
 
-    total_sent = 0
-    total_failed = 0
+    total_created = 0
     total_skipped = 0
-    errors: list[str] = []
 
     for tournament in upcoming:
-        # Find leagues that have this tournament in their schedule.
         league_ids = [
             row.league_id
             for row in db.query(LeagueTournament.league_id)
@@ -180,25 +110,14 @@ def create_and_send_pick_reminders(db: Session) -> dict:
         if not league_ids:
             continue
 
-        pick_window_open = _is_pick_window_open(db, tournament)
-
         for league_id in league_ids:
-            # Only process leagues with an active season.
             season: Season | None = (
                 db.query(Season).filter_by(league_id=league_id, is_active=True).first()
             )
             if season is None:
-                log.debug(
-                    "Pick reminders: league %s has no active season — skipping tournament '%s'",
-                    league_id,
-                    tournament.name,
-                )
                 continue
 
-            # Confirm the tournament is part of this season's schedule
-            # (already confirmed via LeagueTournament — re-check is belt-and-suspenders).
-            # Create reminder row (idempotent — UNIQUE constraint prevents duplicate rows).
-            reminder: PickReminder | None = (
+            existing: PickReminder | None = (
                 db.query(PickReminder)
                 .filter_by(
                     league_id=league_id,
@@ -208,90 +127,216 @@ def create_and_send_pick_reminders(db: Session) -> dict:
                 .first()
             )
 
-            if reminder is None:
-                reminder = PickReminder(
+            if existing:
+                if existing.sent_at or existing.failed_at:
+                    total_skipped += 1
+                # else: unsent reminder already exists, will be picked up
+                continue
+
+            db.add(
+                PickReminder(
                     id=uuid.uuid4(),
                     league_id=league_id,
                     season_id=season.id,
                     tournament_id=tournament.id,
                     scheduled_at=now_utc,
                 )
-                db.add(reminder)
-                db.flush()  # populate id before use
+            )
+            total_created += 1
 
-            # Skip if already sent successfully.
-            if reminder.sent_at is not None:
-                log.debug(
-                    "Pick reminders: already sent for league=%s tournament='%s' — skipping",
-                    league_id,
-                    tournament.name,
-                )
-                continue
+    db.commit()
 
-            # Skip if permanently failed.
-            if reminder.failed_at is not None:
-                log.warning(
-                    "Pick reminders: permanently failed reminder "
-                    "for league=%s tournament='%s' — skipping",
-                    league_id,
-                    tournament.name,
-                )
-                continue
+    # Publish a single trigger — the worker aggregates all unsent reminders.
+    has_unsent = total_created > 0 or (
+        db.query(PickReminder)
+        .filter(
+            PickReminder.sent_at.is_(None),
+            PickReminder.failed_at.is_(None),
+        )
+        .first()
+        is not None
+    )
 
-            # Re-check active season in case it was deactivated between creation and send.
-            if not season.is_active:
-                log.info(
-                    "Pick reminders: season deactivated for league=%s — skipping send",
-                    league_id,
-                )
-                continue
-
-            try:
-                sent, skipped = _send_reminder_for_league(
-                    db, reminder, tournament, pick_window_open
-                )
-                reminder.sent_at = now_utc
-                reminder.attempt_count += 1
-                db.commit()
-                total_sent += sent
-                total_skipped += skipped
-                log.info(
-                    "Pick reminders: league=%s tournament='%s' sent=%d skipped=%d",
-                    league_id,
-                    tournament.name,
-                    sent,
-                    skipped,
-                )
-            except Exception as exc:
-                db.rollback()
-                reminder.attempt_count += 1
-                if reminder.attempt_count >= reminder.max_attempts:
-                    reminder.failed_at = now_utc
-                    reminder.error_message = str(exc)
-                    log.error(
-                        "Pick reminders: permanently failed for league=%s "
-                        "tournament='%s' after %d attempts: %s",
-                        league_id,
-                        tournament.name,
-                        reminder.attempt_count,
-                        exc,
-                    )
-                else:
-                    log.warning(
-                        "Pick reminders: attempt %d/%d failed for league=%s tournament='%s': %s",
-                        reminder.attempt_count,
-                        reminder.max_attempts,
-                        league_id,
-                        tournament.name,
-                        exc,
-                    )
-                db.commit()
-                total_failed += 1
-                errors.append(f"league={league_id} tournament={tournament.name}: {exc}")
+    if has_unsent:
+        publish("PICK_REMINDER_SEND")
+        log.info(
+            "Pick reminders: created=%d skipped=%d, published trigger",
+            total_created,
+            total_skipped,
+        )
+    else:
+        log.info(
+            "Pick reminders: created=%d skipped=%d, no unsent — skipping publish",
+            total_created,
+            total_skipped,
+        )
 
     return {
-        "sent": total_sent,
-        "failed": total_failed,
+        "reminders_created": total_created,
         "skipped": total_skipped,
-        "errors": errors,
+        "published": has_unsent,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: Sending (worker)
+# ---------------------------------------------------------------------------
+
+
+def send_pick_reminders(db: Session) -> dict:
+    """
+    Called by the SQS worker for the PICK_REMINDER_SEND trigger.
+
+    Aggregates all unsent PickReminder rows by user, sends one consolidated
+    email per user listing all their unpicked leagues/tournaments, then marks
+    all related reminders as sent.
+
+    Returns {"sent": int, "skipped": int, "failed": int}.
+    """
+    from app.models import (
+        LeagueMember,
+        LeagueMemberStatus,
+        Pick,
+        PickReminder,
+        Season,
+        Tournament,
+        User,
+    )
+    from app.services.email import send_pick_reminder_email
+
+    now_utc = datetime.now(tz=UTC)
+
+    # All unsent, non-failed reminders.
+    unsent = (
+        db.query(PickReminder)
+        .filter(
+            PickReminder.sent_at.is_(None),
+            PickReminder.failed_at.is_(None),
+        )
+        .all()
+    )
+
+    if not unsent:
+        log.info("PICK_REMINDER_SEND: no unsent reminders")
+        return {"sent": 0, "skipped": 0, "failed": 0}
+
+    # Pre-load tournaments and seasons for all reminders.
+    tournament_ids = {r.tournament_id for r in unsent}
+    tournaments = {
+        t.id: t for t in db.query(Tournament).filter(Tournament.id.in_(tournament_ids)).all()
+    }
+
+    season_ids = {r.season_id for r in unsent}
+    seasons = {s.id: s for s in db.query(Season).filter(Season.id.in_(season_ids)).all()}
+
+    # Pre-compute pick window status per tournament (shared across leagues).
+    window_open_cache: dict[uuid.UUID, bool] = {}
+    for tid, t in tournaments.items():
+        window_open_cache[tid] = _is_pick_window_open(db, t)
+
+    # Group reminders by league to find all affected users.
+    # For each reminder, find unpicked members and build a per-user list.
+    # user_id → list of {league_name, league_id, tournament_name, start_date,
+    #                     pick_window_open, reminder}
+    user_unpicked: dict[uuid.UUID, list[dict]] = defaultdict(list)
+    reminder_to_mark: list[PickReminder] = []
+
+    for reminder in unsent:
+        tournament = tournaments.get(reminder.tournament_id)
+        season = seasons.get(reminder.season_id)
+        if not tournament or not season or not season.is_active:
+            continue
+
+        league = reminder.league
+        if not league:
+            continue
+
+        members = (
+            db.query(LeagueMember)
+            .filter_by(
+                league_id=reminder.league_id,
+                status=LeagueMemberStatus.APPROVED.value,
+            )
+            .all()
+        )
+
+        for member in members:
+            user: User | None = db.get(User, member.user_id)
+            if not user or not user.pick_reminders_enabled:
+                continue
+
+            already_picked = (
+                db.query(Pick)
+                .filter_by(
+                    league_id=reminder.league_id,
+                    season_id=reminder.season_id,
+                    user_id=member.user_id,
+                    tournament_id=reminder.tournament_id,
+                )
+                .first()
+            )
+            if already_picked:
+                continue
+
+            user_unpicked[member.user_id].append(
+                {
+                    "league_name": league.name,
+                    "league_id": str(reminder.league_id),
+                    "tournament_name": tournament.name,
+                    "start_date": tournament.start_date.strftime("%B %-d"),
+                    "pick_window_open": window_open_cache.get(reminder.tournament_id, False),
+                    "reminder": reminder,
+                }
+            )
+
+        reminder_to_mark.append(reminder)
+
+    # Send one email per user with all their unpicked leagues.
+    total_sent = 0
+    total_skipped = 0
+    total_failed = 0
+    sent_reminder_ids: set[uuid.UUID] = set()
+
+    for user_id, entries in user_unpicked.items():
+        user = db.get(User, user_id)
+        if not user:
+            total_skipped += 1
+            continue
+
+        try:
+            send_pick_reminder_email(
+                to_email=user.email,
+                display_name=user.display_name,
+                unpicked=entries,
+            )
+            total_sent += 1
+            for e in entries:
+                sent_reminder_ids.add(e["reminder"].id)
+        except Exception as exc:
+            total_failed += 1
+            log.error(
+                "PICK_REMINDER_SEND: email failed for user=%s: %s",
+                user_id,
+                exc,
+            )
+
+    # Mark all reminders that had at least one email sent as done.
+    for reminder in reminder_to_mark:
+        reminder.attempt_count += 1
+        if reminder.id in sent_reminder_ids:
+            reminder.sent_at = now_utc
+        elif reminder.attempt_count >= reminder.max_attempts:
+            reminder.failed_at = now_utc
+            reminder.error_message = "All email sends for this reminder failed"
+
+    db.commit()
+
+    log.info(
+        "PICK_REMINDER_SEND: sent=%d skipped=%d failed=%d reminders_marked=%d",
+        total_sent,
+        total_skipped,
+        total_failed,
+        len(sent_reminder_ids),
+    )
+
+    return {"sent": total_sent, "skipped": total_skipped, "failed": total_failed}

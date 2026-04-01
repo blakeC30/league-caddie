@@ -97,16 +97,14 @@ class TestSendPasswordResetEmail:
 
 
 class TestSendPickReminderEmail:
-    """Tests for send_pick_reminder_email() — verifies CTA branching and content."""
+    """Tests for send_pick_reminder_email() — consolidated email with unpicked list."""
 
     _LEAGUE_ID = "league-uuid-1234"
     _TOURNAMENT_NAME = "The Masters"
 
-    def _call(self, pick_window_open: bool, **overrides):
-        """Helper: invoke send_pick_reminder_email with sensible defaults."""
+    def _make_unpicked(self, pick_window_open: bool, **overrides):
+        """Build a single unpicked entry dict."""
         defaults = dict(
-            to_email="player@example.com",
-            display_name="Alice",
             league_name="Sunday Hackers",
             league_id=self._LEAGUE_ID,
             tournament_name=self._TOURNAMENT_NAME,
@@ -114,71 +112,117 @@ class TestSendPickReminderEmail:
             pick_window_open=pick_window_open,
         )
         defaults.update(overrides)
+        return defaults
+
+    def _call(self, unpicked_list, **overrides):
+        """Invoke send_pick_reminder_email with sensible defaults."""
+        defaults = dict(
+            to_email="player@example.com",
+            display_name="Alice",
+            unpicked=unpicked_list,
+        )
+        defaults.update(overrides)
         send_pick_reminder_email(**defaults)
 
-    def test_pick_window_open_html_contains_cta_button(self):
-        """When pick_window_open=True the HTML body includes a link to the pick page."""
+    def test_single_league_window_open_html_contains_cta(self):
+        """Single unpicked entry with window open → CTA button in HTML."""
         with patch("app.services.email.resend") as mock_resend:
             with patch("app.services.email.settings") as mock_settings:
                 mock_settings.RESEND_API_KEY = "re_test_key"
                 mock_settings.EMAIL_FROM = "noreply@example.com"
                 mock_settings.FRONTEND_URL = "http://localhost:5173"
-                self._call(pick_window_open=True)
+                self._call([self._make_unpicked(pick_window_open=True)])
             call_args = mock_resend.Emails.send.call_args[0][0]
             expected_url = f"http://localhost:5173/leagues/{self._LEAGUE_ID}/pick"
             assert expected_url in call_args["html"]
 
-    def test_pick_window_closed_html_contains_picks_not_open(self):
-        """When pick_window_open=False the HTML body shows 'Picks not open yet'."""
+    def test_single_league_window_closed_html_shows_not_open(self):
+        """Single unpicked entry with window closed → 'Picks not open yet'."""
         with patch("app.services.email.resend") as mock_resend:
             with patch("app.services.email.settings") as mock_settings:
                 mock_settings.RESEND_API_KEY = "re_test_key"
                 mock_settings.EMAIL_FROM = "noreply@example.com"
                 mock_settings.FRONTEND_URL = "http://localhost:5173"
-                self._call(pick_window_open=False)
+                self._call([self._make_unpicked(pick_window_open=False)])
             call_args = mock_resend.Emails.send.call_args[0][0]
             assert "Picks not open yet" in call_args["html"]
 
-    def test_subject_contains_tournament_name(self):
-        """The subject line references the tournament."""
+    def test_subject_contains_tournament_name_single(self):
+        """Single entry → subject mentions the tournament name."""
         with patch("app.services.email.resend") as mock_resend:
             with patch("app.services.email.settings") as mock_settings:
                 mock_settings.RESEND_API_KEY = "re_test_key"
                 mock_settings.EMAIL_FROM = "noreply@example.com"
                 mock_settings.FRONTEND_URL = "http://localhost:5173"
-                self._call(pick_window_open=True)
+                self._call([self._make_unpicked(pick_window_open=True)])
             call_args = mock_resend.Emails.send.call_args[0][0]
             assert self._TOURNAMENT_NAME in call_args["subject"]
 
-    def test_destination_correct(self):
-        """The email is addressed to the member's email."""
+    def test_multiple_entries_subject_shows_count(self):
+        """Multiple entries → subject says 'N picks needed this week'."""
+        entries = [
+            self._make_unpicked(True, league_name="League A"),
+            self._make_unpicked(True, league_name="League B"),
+        ]
         with patch("app.services.email.resend") as mock_resend:
             with patch("app.services.email.settings") as mock_settings:
                 mock_settings.RESEND_API_KEY = "re_test_key"
                 mock_settings.EMAIL_FROM = "noreply@example.com"
                 mock_settings.FRONTEND_URL = "http://localhost:5173"
-                self._call(pick_window_open=True, to_email="specific@example.com")
+                self._call(entries)
+            call_args = mock_resend.Emails.send.call_args[0][0]
+            assert "2 picks needed" in call_args["subject"]
+
+    def test_multiple_entries_html_lists_all_leagues(self):
+        """Multiple entries → HTML body lists all league names."""
+        entries = [
+            self._make_unpicked(True, league_name="Alpha League"),
+            self._make_unpicked(True, league_name="Beta League"),
+        ]
+        with patch("app.services.email.resend") as mock_resend:
+            with patch("app.services.email.settings") as mock_settings:
+                mock_settings.RESEND_API_KEY = "re_test_key"
+                mock_settings.EMAIL_FROM = "noreply@example.com"
+                mock_settings.FRONTEND_URL = "http://localhost:5173"
+                self._call(entries)
+            call_args = mock_resend.Emails.send.call_args[0][0]
+            assert "Alpha League" in call_args["html"]
+            assert "Beta League" in call_args["html"]
+
+    def test_destination_correct(self):
+        with patch("app.services.email.resend") as mock_resend:
+            with patch("app.services.email.settings") as mock_settings:
+                mock_settings.RESEND_API_KEY = "re_test_key"
+                mock_settings.EMAIL_FROM = "noreply@example.com"
+                mock_settings.FRONTEND_URL = "http://localhost:5173"
+                self._call(
+                    [self._make_unpicked(True)],
+                    to_email="specific@example.com",
+                )
             call_args = mock_resend.Emails.send.call_args[0][0]
             assert "specific@example.com" in call_args["to"]
 
     def test_text_body_contains_league_name(self):
-        """The plain-text body includes the league name for context."""
         with patch("app.services.email.resend") as mock_resend:
             with patch("app.services.email.settings") as mock_settings:
                 mock_settings.RESEND_API_KEY = "re_test_key"
                 mock_settings.EMAIL_FROM = "noreply@example.com"
                 mock_settings.FRONTEND_URL = "http://localhost:5173"
-                self._call(pick_window_open=True, league_name="Super Golf League")
+                self._call(
+                    [self._make_unpicked(True, league_name="Super Golf League")],
+                )
             call_args = mock_resend.Emails.send.call_args[0][0]
             assert "Super Golf League" in call_args["text"]
 
     def test_reminder_email_logged_at_info_level(self, caplog):
-        """send_pick_reminder_email logs the send attempt at INFO."""
         with patch("app.services.email.resend"):
             with patch("app.services.email.settings") as mock_settings:
                 mock_settings.RESEND_API_KEY = "re_test_key"
                 mock_settings.EMAIL_FROM = "noreply@example.com"
                 mock_settings.FRONTEND_URL = "http://localhost:5173"
                 with caplog.at_level(logging.INFO, logger="app.services.email"):
-                    self._call(pick_window_open=True, to_email="log_check@example.com")
+                    self._call(
+                        [self._make_unpicked(True)],
+                        to_email="log_check@example.com",
+                    )
             assert "log_check@example.com" in caplog.text

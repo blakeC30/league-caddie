@@ -101,7 +101,7 @@ config:
   awsRegion: "us-east-2"
   # Empty = use real AWS. Set to LocalStack URL for local dev only.
   awsEndpointUrl: ""
-  emailFrom: "noreply@league-caddie.com"
+  emailFrom: "League Caddie <noreply@league-caddie.com>"
   # "true" restricts league creation to platform admins only.
   leagueCreationRestricted: "true"
   # SQS queue URL. Phase 7 CI/CD injects the real queue URL.

@@ -23,6 +23,12 @@ TOURNAMENT_COMPLETED
     Each step is idempotent — safe to replay if SQS delivers the message more
     than once (standard queues guarantee at-least-once delivery).
 
+PICK_REMINDER_SEND
+    Published by the scraper's APScheduler job (Wednesday 18:00 UTC / 1 PM CDT)
+    as a trigger with no payload. The handler queries all unsent PickReminder
+    rows, aggregates by user across all leagues/tournaments, and sends one
+    consolidated email per user. Idempotent — checks PickReminder.sent_at.
+
 Local development
 -----------------
 Run with LocalStack (see docker-compose.yml). The same code runs locally and
@@ -59,6 +65,8 @@ def handle(message: dict) -> None:
                 log.warning("TOURNAMENT_COMPLETED message missing tournament_id — skipping")
                 return
             _handle_tournament_completed(db, tournament_id)
+        elif event_type == "PICK_REMINDER_SEND":
+            _handle_pick_reminder_send(db, message)
         else:
             # Unknown event type — log and let the message be deleted so it
             # doesn't clog the queue. Do not raise (that would retry).
@@ -229,6 +237,26 @@ def _handle_tournament_completed(db, tournament_id: str) -> None:
                 exc_info=True,
             )
             raise  # retry
+
+
+def _handle_pick_reminder_send(db, message: dict) -> None:
+    """
+    Send consolidated pick reminder emails — one per user.
+
+    Published by the scraper's APScheduler job as a trigger with no payload.
+    The worker queries all unsent PickReminder rows, aggregates by user,
+    and sends one email per user listing all their unpicked leagues.
+    """
+    from app.services.pick_reminders import send_pick_reminders
+
+    log.info("PICK_REMINDER_SEND: processing all unsent reminders")
+    result = send_pick_reminders(db)
+    log.info(
+        "PICK_REMINDER_SEND: sent=%d skipped=%d failed=%d",
+        result["sent"],
+        result["skipped"],
+        result["failed"],
+    )
 
 
 def _configure_logging() -> None:
