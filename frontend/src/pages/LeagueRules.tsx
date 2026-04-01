@@ -305,6 +305,9 @@ export function LeagueRules() {
               Submitting a late pick (after the tournament starts but before the last Round 1 tee time) avoids the penalty entirely.
             </Bullet>
             <Bullet>
+              The penalty is <strong>not affected by the tournament's multiplier</strong>. Missing a tournament with a multiplier costs the same as missing one without.
+            </Bullet>
+            <Bullet>
               The penalty only appears in standings once the tournament completes — it is not shown while a tournament is in progress.
             </Bullet>
           </RuleSection>
