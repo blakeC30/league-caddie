@@ -5,21 +5,46 @@
  * redirected to /leagues.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
 import { useStripePricing } from "../hooks/useLeague";
 import { FlagIcon } from "../components/FlagIcon";
+import { authApi, usersApi } from "../api/endpoints";
 
 export function Welcome() {
   const token = useAuthStore((s) => s.token);
+  const setAuth = useAuthStore((s) => s.setAuth);
+  const setToken = useAuthStore((s) => s.setToken);
   const { data: pricingTiers = [] } = useStripePricing();
+  const [restoring, setRestoring] = useState(!token);
 
   useEffect(() => {
     document.title = "League Caddie";
   }, []);
 
+  // Attempt a silent session restore so returning users (e.g. home screen
+  // app after force-close) go straight to /leagues instead of seeing Welcome.
+  useEffect(() => {
+    if (token) {
+      setRestoring(false);
+      return;
+    }
+    authApi
+      .refresh()
+      .then(({ access_token }) => {
+        setToken(access_token);
+        return usersApi.me().then((u) => setAuth(u, access_token));
+      })
+      .catch(() => {})
+      .finally(() => setRestoring(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (token) return <Navigate to="/leagues" replace />;
+
+  // Show nothing while the refresh attempt is in flight — the inline HTML
+  // splash (green gradient + logo) is still visible underneath.
+  if (restoring) return null;
 
   return (
     <div className="min-h-screen bg-white text-gray-900 antialiased overflow-x-hidden">

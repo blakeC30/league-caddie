@@ -73,10 +73,10 @@ api.interceptors.response.use(
       useAuthStore.getState().clearAuth();
       // Only redirect if we're not already on a public page. Redirecting to
       // /login from /login causes a full browser reload and an infinite loop.
-      const publicPaths = ["/login", "/register", "/join"];
-      const onPublicPage = publicPaths.some((p) =>
-        window.location.pathname.startsWith(p),
-      );
+      const publicPaths = ["/login", "/register", "/join", "/billing", "/privacy", "/terms"];
+      const onPublicPage =
+        window.location.pathname === "/" ||
+        publicPaths.some((p) => window.location.pathname.startsWith(p));
       if (!onPublicPage) {
         window.location.href = "/login?session_expired=1";
       }

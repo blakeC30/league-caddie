@@ -18,8 +18,10 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("ErrorBoundary caught:", error, info.componentStack);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  componentDidCatch(_error: Error, _info: ErrorInfo) {
+    // Intentionally silent — avoid exposing stack traces in DevTools.
+    // When error reporting (e.g. Sentry) is added, send the error here.
   }
 
   render() {
