@@ -46,20 +46,22 @@ export function LeaguePlanSection({
           </SectionIcon>
           <h2 className="text-base font-bold text-gray-900">League Plan</h2>
         </div>
-        {billingEditing ? (
-          <button
-            onClick={() => { setBillingEditing(false); setUpgradeSelectedTier(""); }}
-            className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
-          >
-            Done
-          </button>
-        ) : (
-          <button
-            onClick={() => setBillingEditing(true)}
-            className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
-          >
-            Edit
-          </button>
+        {purchase?.tier !== "elite" && (
+          billingEditing ? (
+            <button
+              onClick={() => { setBillingEditing(false); setUpgradeSelectedTier(""); }}
+              className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+            >
+              Done
+            </button>
+          ) : (
+            <button
+              onClick={() => setBillingEditing(true)}
+              className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+            >
+              Edit
+            </button>
+          )
         )}
       </div>
 
