@@ -15,9 +15,15 @@ import { authApi, usersApi } from "../api/endpoints";
 export function Welcome() {
   const token = useAuthStore((s) => s.token);
   const setAuth = useAuthStore((s) => s.setAuth);
-  const setToken = useAuthStore((s) => s.setToken);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const { data: pricingTiers = [] } = useStripePricing();
-  const [restoring, setRestoring] = useState(!token);
+  // Only attempt silent restore in standalone mode (home screen install).
+  // Desktop users get restored by useAuth() in Layout when they navigate to
+  // an authenticated page — no need to delay the Welcome page for them.
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    ("standalone" in window.navigator && (navigator as { standalone?: boolean }).standalone === true);
+  const [restoring, setRestoring] = useState(!token && isStandalone);
 
   useEffect(() => {
     document.title = "League Caddie";
@@ -26,25 +32,35 @@ export function Welcome() {
   // Attempt a silent session restore so returning users (e.g. home screen
   // app after force-close) go straight to /leagues instead of seeing Welcome.
   useEffect(() => {
-    if (token) {
+    if (token || !isStandalone) {
       setRestoring(false);
       return;
     }
     authApi
       .refresh()
       .then(({ access_token }) => {
-        setToken(access_token);
+        // Set the token BEFORE calling me() so the request interceptor
+        // attaches it as a Bearer header. Without this, me() gets a 401
+        // and the refresh interceptor fires again unnecessarily.
+        useAuthStore.getState().setToken(access_token);
         return usersApi.me().then((u) => setAuth(u, access_token));
       })
-      .catch(() => {})
+      .catch(() => {
+        // Refresh failed OR me() failed — clear any partial state so the
+        // app stays cleanly logged out and shows the Welcome page.
+        clearAuth();
+      })
       .finally(() => setRestoring(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (token) return <Navigate to="/leagues" replace />;
 
-  // Show nothing while the refresh attempt is in flight — the inline HTML
-  // splash (green gradient + logo) is still visible underneath.
-  if (restoring) return null;
+  // Branded loading state while the refresh attempt is in flight.
+  if (restoring) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-800 to-green-700" />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-gray-900 antialiased overflow-x-hidden">
