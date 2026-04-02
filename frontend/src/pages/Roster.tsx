@@ -126,7 +126,7 @@ export function Roster() {
       ) : (
         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="min-w-full text-sm min-w-[500px]">
+            <table className="w-full text-sm min-w-[560px]">
               <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
                 <tr>
                   <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">
@@ -137,6 +137,9 @@ export function Roster() {
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">
                     Last Name
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">
+                    Role
                   </th>
                   <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold whitespace-nowrap">
                     Joined
@@ -162,6 +165,17 @@ export function Roster() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {member.last_name || <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          member.role === "manager"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-gray-100 text-gray-600"
+                        }`}
+                      >
+                        {member.role === "manager" ? "Manager" : "Member"}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-gray-400 whitespace-nowrap">
                       {member.joined_at ? new Date(member.joined_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : <span className="text-gray-300">—</span>}

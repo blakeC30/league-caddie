@@ -119,24 +119,6 @@ export function LeaguePlanSection({
                   })()}
                 </p>
               </div>
-              <div>
-                <p className="text-xs text-gray-400 font-medium">Paid on</p>
-                <p className="font-semibold text-gray-800">
-                  {purchase.paid_at
-                    ? new Date(purchase.paid_at).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })
-                    : "—"}
-                </p>
-              </div>
-              {purchase.paid_by_email && (
-                <div>
-                  <p className="text-xs text-gray-400 font-medium">Paid by</p>
-                  <p className="font-semibold text-gray-800 break-all">{purchase.paid_by_email}</p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -144,34 +126,48 @@ export function LeaguePlanSection({
           {purchaseEvents.length > 0 && (
             <div className="space-y-2">
               <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Payment History</p>
-              <div className="divide-y divide-gray-100 rounded-xl border border-gray-100 overflow-hidden">
-                {purchaseEvents.map((event) => {
-                  const label = event.event_type === "upgrade" ? "Upgrade" : "League Plan";
-                  const tierLabel = event.tier.charAt(0).toUpperCase() + event.tier.slice(1);
-                  const date = new Date(event.paid_at).toLocaleDateString("en-US", {
-                    month: "short", day: "numeric", year: "numeric",
-                  });
-                  return (
-                    <div key={event.id} className="flex items-center justify-between px-3 py-2.5 bg-white text-sm">
-                      <div className="flex items-center gap-2.5">
-                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          event.event_type === "upgrade"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-green-50 text-green-700"
-                        }`}>
-                          {label}
-                        </span>
-                        <span className="text-gray-700">{tierLabel} plan</span>
-                      </div>
-                      <div className="flex items-center gap-4 text-right">
-                        <span className="text-gray-400 text-xs">{date}</span>
-                        <span className="font-semibold text-gray-800 tabular-nums">
-                          ${(event.amount_cents / 100).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6">
+                <table className="w-full min-w-[480px] text-sm">
+                  <thead>
+                    <tr className="text-left text-[10px] font-bold uppercase tracking-wider text-gray-400 border-b border-gray-100">
+                      <th className="py-2 pr-3 font-bold">Type</th>
+                      <th className="py-2 pr-3 font-bold">Plan</th>
+                      <th className="py-2 pr-3 font-bold">Date</th>
+                      <th className="py-2 pr-3 font-bold">Paid by</th>
+                      <th className="py-2 text-right font-bold">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {purchaseEvents.map((event) => {
+                      const label = event.event_type === "upgrade" ? "Upgrade" : "Purchase";
+                      const tierLabel = event.tier.charAt(0).toUpperCase() + event.tier.slice(1);
+                      const date = new Date(event.paid_at).toLocaleDateString("en-US", {
+                        month: "short", day: "numeric", year: "numeric",
+                      });
+                      return (
+                        <tr key={event.id} className="text-gray-700">
+                          <td className="py-2.5 pr-3">
+                            <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              event.event_type === "upgrade"
+                                ? "bg-blue-50 text-blue-700"
+                                : "bg-green-50 text-green-700"
+                            }`}>
+                              {label}
+                            </span>
+                          </td>
+                          <td className="py-2.5 pr-3 whitespace-nowrap">{tierLabel}</td>
+                          <td className="py-2.5 pr-3 text-gray-400 text-xs whitespace-nowrap">{date}</td>
+                          <td className="py-2.5 pr-3 text-gray-400 text-xs truncate max-w-[140px]">
+                            {event.paid_by_email ?? "—"}
+                          </td>
+                          <td className="py-2.5 text-right font-semibold text-gray-800 tabular-nums whitespace-nowrap">
+                            ${(event.amount_cents / 100).toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           )}

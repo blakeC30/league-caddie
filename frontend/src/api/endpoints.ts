@@ -289,6 +289,7 @@ export interface LeaguePurchaseEvent {
   amount_cents: number;
   event_type: string;  // "purchase" | "upgrade"
   paid_at: string;
+  paid_by_email: string | null;
 }
 
 // ---------------------------------------------------------------------------

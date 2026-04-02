@@ -547,23 +547,23 @@ export function MakePick() {
         {existingPick ? "Change Your Pick" : "Make Your Pick"}
       </p>
       <p className="text-xl font-bold text-white">{fmtTournamentName(tournament.name)}</p>
-      <div className="flex items-center gap-3 mt-2 text-sm text-green-300">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-green-300">
         <span>{formatDate(tournament.start_date)}–{formatDate(tournament.end_date)}</span>
         {formatPurse(tournament.purse_usd) && (
           <>
-            <span className="text-green-600">·</span>
+            <span className="text-green-600 hidden sm:inline">·</span>
             <span>{formatPurse(tournament.purse_usd)} purse</span>
           </>
         )}
         {tournament.effective_multiplier >= 2 && (
           <>
-            <span className="text-green-600">·</span>
+            <span className="text-green-600 hidden sm:inline">·</span>
             <span className="font-bold text-amber-300">{tournament.effective_multiplier}× MAJOR</span>
           </>
         )}
         {hasTeetimes && (
           <>
-            <span className="text-green-600">·</span>
+            <span className="text-green-600 hidden sm:inline">·</span>
             <span className="text-green-300 underline underline-offset-2">View tee times →</span>
           </>
         )}

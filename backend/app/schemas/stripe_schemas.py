@@ -76,5 +76,6 @@ class LeaguePurchaseEventOut(BaseModel):
     amount_cents: int
     event_type: str  # "purchase" | "upgrade"
     paid_at: datetime
+    paid_by_email: str | None = None
 
     model_config = ConfigDict(from_attributes=True)

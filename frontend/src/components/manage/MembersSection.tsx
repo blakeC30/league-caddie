@@ -124,7 +124,7 @@ export function MembersSection({
         <MembersTableSkeleton />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-gray-100">
-          <table className="min-w-full text-sm">
+          <table className="min-w-[640px] w-full text-sm">
             <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
               <tr>
                 <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Display Name</th>
@@ -159,7 +159,7 @@ export function MembersSection({
                         {m.user.last_name || <span className="text-gray-300">—</span>}
                       </td>
                       <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{m.user.email}</td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span
                           className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                             m.role === "manager"
@@ -167,7 +167,7 @@ export function MembersSection({
                               : "bg-gray-100 text-gray-600"
                           }`}
                         >
-                          {m.role === "manager" ? "League Manager" : "Member"}
+                          {m.role === "manager" ? "Manager" : "Member"}
                         </span>
                       </td>
                       {membersEditing && (

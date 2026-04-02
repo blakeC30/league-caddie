@@ -713,9 +713,30 @@ def get_league_purchase_events(
     """
     league, _ = league_and_member
     current_year = datetime.now(UTC).year
-    return (
+    events = (
         db.query(LeaguePurchaseEvent)
         .filter_by(league_id=league.id, season_year=current_year)
         .order_by(LeaguePurchaseEvent.paid_at.asc())
         .all()
     )
+
+    # Resolve payer emails via StripeCustomer → User lookup (batch).
+    customer_ids = {e.stripe_customer_id for e in events if e.stripe_customer_id}
+    email_by_customer: dict[str, str] = {}
+    if customer_ids:
+        from app.models.user import User
+
+        rows = (
+            db.query(StripeCustomer.stripe_customer_id, User.email)
+            .join(User, StripeCustomer.user_id == User.id)
+            .filter(StripeCustomer.stripe_customer_id.in_(customer_ids))
+            .all()
+        )
+        email_by_customer = {r[0]: r[1] for r in rows}
+
+    results = []
+    for e in events:
+        out = LeaguePurchaseEventOut.model_validate(e)
+        out.paid_by_email = email_by_customer.get(e.stripe_customer_id or "", None)
+        results.append(out)
+    return results
