@@ -1120,6 +1120,9 @@ def _map_espn_status(espn_status_name: str) -> str:
     return {
         "STATUS_SCHEDULED": TournamentStatus.SCHEDULED.value,
         "STATUS_IN_PROGRESS": TournamentStatus.IN_PROGRESS.value,
+        # Suspended = weather delay or darkness; play will resume. Treat as
+        # in_progress so live syncs continue and pick up updated data.
+        "STATUS_SUSPENDED": TournamentStatus.IN_PROGRESS.value,
         "STATUS_FINAL": TournamentStatus.COMPLETED.value,
         # Treat cancelled events as completed so they don't surface as "upcoming"
         # in the pick form and don't get included in the next-scheduled sync.
