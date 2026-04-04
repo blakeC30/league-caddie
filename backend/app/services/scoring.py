@@ -246,16 +246,21 @@ def calculate_standings(db: Session, league: League, season: Season) -> list[dic
 
     if not completed_ids:
         # Season hasn't started yet — everyone tied at 0.
-        return [
+        # Sort by joined_at so the earliest member is always first.
+        pre_season = [
             {
                 "user_id": m.user_id,
                 "display_name": m.user.display_name,
                 "total_points": 0.0,
                 "pick_count": 0,
                 "missed_count": 0,
+                "best_week": 0.0,
+                "joined_at": m.joined_at,
             }
             for m in members
         ]
+        pre_season.sort(key=lambda x: x["joined_at"])
+        return pre_season
 
     # Aggregate picks per user in SQL — avoids loading 15,000+ Pick ORM objects.
     # Returns (user_id, sum_points, pick_count, best_week) per user.
