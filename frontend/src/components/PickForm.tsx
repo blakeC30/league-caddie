@@ -66,7 +66,7 @@ export function PickForm({
             selected={selected === g.id}
             alreadyUsed={usedGolferIds.has(g.id) && g.id !== existingPick?.golfer_id}
             alreadyTeedOff={teedOffGolferIds.has(g.id) && g.id !== existingPick?.golfer_id}
-            onClick={() => setSelected(g.id)}
+            onClick={() => setSelected(selected === g.id ? null : g.id)}
           />
         ))}
       </div>
@@ -77,13 +77,30 @@ export function PickForm({
         </p>
       )}
 
+      {/* Desktop: inline button */}
       <button
         type="submit"
         disabled={!selected || submitting}
-        className="w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 rounded-lg transition-colors"
+        className="hidden sm:block w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 rounded-lg transition-colors"
       >
         {submitting ? "Saving…" : existingPick ? "Change Pick" : "Submit Pick"}
       </button>
+
+      {/* Mobile: sticky bar directly above the bottom tab nav (h-16 = 4rem).
+          Uses the same green gradient so the two bars feel like one unit. */}
+      {selected && (
+        <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40" style={{ bottom: "4rem" }}>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors text-base"
+          >
+            {submitting ? "Saving…" : existingPick ? "Change Pick" : "Submit Pick"}
+          </button>
+        </div>
+      )}
+      {/* Spacer to prevent content from being hidden behind the sticky bar on mobile */}
+      {selected && <div className="sm:hidden h-20" />}
     </form>
   );
 }
