@@ -393,14 +393,13 @@ def _run_pick_reminder_send() -> None:
 
 def _run_results_finalization() -> None:
     """
-    Daily at 09:00, 15:00, 21:00 UTC: score picks for any completed tournament
-    that still has unscored picks.
+    6× daily (03:00, 06:00, 09:00, 12:00, 15:00, 21:00 UTC): score picks for
+    any completed tournament that still has unscored picks.
 
-    Runs three times per day so it catches any finish time on any day of the
-    week without relying on Monday-specific logic:
-      - 09:00 UTC: catches Sunday finishes (official earnings posted overnight)
-      - 15:00 UTC: catches Monday morning finishes or mid-morning corrections
-      - 21:00 UTC: catches Monday afternoon finishes or late-posted results
+    Runs frequently because ESPN publishes earnings gradually over 12-48 hours
+    after tournament completion. The earnings completeness gate in score_picks()
+    defers scoring until all made-the-cut entries have earnings, so this job
+    retries until ESPN has published the full purse distribution.
     """
     from datetime import UTC, datetime, timedelta
 
@@ -462,9 +461,9 @@ def _run_results_finalization() -> None:
                 db.refresh(tournament)
 
                 # Check if earnings are actually available before scoring.
-                from app.services.scraper import _winner_has_earnings
+                from app.services.scraper import _all_earnings_available
 
-                if not _winner_has_earnings(db, str(tournament.id)):
+                if not _all_earnings_available(db, str(tournament.id)):
                     log.info(
                         "Results finalization: earnings not yet published for '%s' — skipping",
                         tournament.name,
@@ -661,11 +660,12 @@ def start_scheduler() -> None:
     )
 
     # ── 4. Results finalization ───────────────────────────────────────────
-    # 3× daily to catch any finish time on any day of the week.
-    # No day-of-week restriction — a Tuesday finish is caught the next morning.
+    # 6× daily — ESPN publishes earnings gradually over 12-48 hours after
+    # completion. Frequent checks mean scoring happens as soon as all earnings
+    # are available. No day-of-week restriction.
     _scheduler.add_job(
         _run_results_finalization,
-        CronTrigger(hour="9,15,21", minute=0),
+        CronTrigger(hour="3,6,9,12,15,21", minute=0),
         id="results_finalization",
         replace_existing=True,
         misfire_grace_time=3600,

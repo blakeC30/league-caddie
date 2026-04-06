@@ -19,3 +19,6 @@ class StandingsResponse(BaseModel):
     league_id: uuid.UUID
     season_year: int
     rows: list[StandingsRow]
+    # Names of completed tournaments whose picks have not been scored yet
+    # (ESPN earnings still being published). Empty list when all scoring is current.
+    scoring_pending_tournaments: list[str] = []

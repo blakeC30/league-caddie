@@ -85,3 +85,6 @@ class LeagueSummaryOut(BaseModel):
     pick_window_open: bool = False
     # "Picks open after X" message
     preceding_tournament_name: str | None = None
+    # True when playoff bracket can't be seeded yet due to pending scoring
+    playoff_scoring_pending: bool = False
+    scoring_pending_tournament_name: str | None = None

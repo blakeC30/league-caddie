@@ -409,119 +409,12 @@ def _fetch_competitor_status(
         return competitor_id, None, None, None
 
 
-def _fetch_scoreboard_rounds(
-    pga_tour_id: str,
-) -> tuple[dict[str, list[dict]], int] | None:
-    """
-    Fetch round data from the site API scoreboard instead of per-golfer /linescores.
-
-    Returns a tuple of:
-      - {athlete_id: [round_dicts]} in the same format as _fetch_competitor_rounds,
-        but with tee_time/position/started_on_back/isPlayoff set to None/False
-      - max_round_seen: the highest round number ESPN has for ANY competitor,
-        including empty/future rounds. Used for round transition detection.
-
-    Returns None if the tournament is not found in the scoreboard response.
-
-    This is the "bulk" alternative to calling _fetch_competitor_rounds 135 times.
-    One HTTP request instead of 135.
-    """
-    try:
-        year = datetime.now(tz=UTC).year
-        data = _get_json(_SCOREBOARD_URL, params={"dates": str(year)})
-    except Exception as exc:
-        log.warning("Scoreboard fetch failed for round data: %s", exc)
-        return None
-
-    raw_events = data.get("events", [])
-    if not raw_events:
-        for league in data.get("leagues", []):
-            raw_events.extend(league.get("events", []))
-
-    # Find the specific tournament.
-    event = next((e for e in raw_events if str(e.get("id")) == str(pga_tour_id)), None)
-    if not event:
-        log.warning("Tournament %s not found in scoreboard for round data", pga_tour_id)
-        return None
-
-    competitors = (event.get("competitions") or [{}])[0].get("competitors", [])
-    if not competitors:
-        return None
-
-    rounds_by_athlete: dict[str, list[dict]] = {}
-    max_round_seen = 0  # Highest round ESPN knows about (including empty/future)
-    for c in competitors:
-        aid = str(c.get("id", ""))
-        if not aid:
-            continue
-
-        rounds: list[dict] = []
-        for rd in c.get("linescores", []):
-            period = rd.get("period")
-            if period is None:
-                continue
-            round_number = int(period)
-
-            # Track max round including empty ones — critical for transition detection.
-            if round_number > max_round_seen:
-                max_round_seen = round_number
-
-            # Strokes
-            raw_score = rd.get("value")
-            score = int(raw_score) if raw_score is not None else None
-
-            # Score to par — parse from displayValue (e.g. "-3", "+2", "E")
-            display = rd.get("displayValue") or ""
-            if display == "E":
-                score_to_par = 0
-            elif display:
-                try:
-                    score_to_par = int(display)
-                except (ValueError, TypeError):
-                    score_to_par = None
-            else:
-                score_to_par = None
-
-            # Thru — count completed holes from nested linescores
-            holes = rd.get("linescores", [])
-            thru = len(holes) if holes else None
-
-            # Skip empty rounds for upsert (no data to write), but max_round_seen
-            # already captured the round number above for transition detection.
-            if score is None and (thru is None or thru == 0):
-                continue
-
-            rounds.append(
-                {
-                    "round_number": round_number,
-                    "tee_time": None,  # Not available from scoreboard — preserved from DB
-                    "score": score,
-                    "score_to_par": score_to_par,
-                    "position": None,  # Not available — preserved from DB
-                    "is_playoff": False,  # Not detectable — cosmetic only
-                    "thru": thru,
-                    "started_on_back": None,  # Not available — preserved from DB
-                }
-            )
-
-        rounds_by_athlete[aid] = rounds
-
-    log.info(
-        "Scoreboard rounds for %s: %d competitors parsed, max round=%d",
-        pga_tour_id,
-        len(rounds_by_athlete),
-        max_round_seen,
-    )
-    return rounds_by_athlete, max_round_seen
-
-
 def _fetch_tournament_data(
     pga_tour_id: str,
     known_golfer_ids: set[str] | None = None,
     fetch_round_data: bool = False,
     scoreboard_athletes: dict[str, dict] | None = None,
-    use_scoreboard_rounds: bool = False,
-    prefetched_sb_rounds: dict[str, list[dict]] | None = None,
+    fetch_earnings: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """
     Fetch the golfer field and finish order for one individual (non-team) tournament.
@@ -531,23 +424,21 @@ def _fetch_tournament_data(
     competitor IDs and finish positions; athlete names are fetched concurrently
     for golfers not already cached in known_golfer_ids.
 
-    Earnings are left as None — fetched on-demand in score_picks() for only
-    the golfers users actually picked (1 API call per pick, not per field).
-
     When fetch_round_data=True, also fetches per-round data for each golfer
     from the /competitors/{id}/linescores endpoint concurrently. This returns
-    all rounds played (tee time, strokes, score-to-par, position per round)
-    and replaces the older /status-only tee time fetch. Enabled for both
-    SCHEDULED (pre-tournament tee times) and IN_PROGRESS / COMPLETED tournaments
-    (live and historical round scores).
+    all rounds played (tee time, strokes, score-to-par, position per round).
+    Enabled for all tournament states (SCHEDULED, IN_PROGRESS, COMPLETED).
+
+    When fetch_earnings=True, also fetches prize earnings from the /statistics
+    endpoint for each golfer concurrently. Used for completed tournaments so
+    that force syncs repopulate earnings in the same pass as field data.
 
     Args:
       pga_tour_id:       ESPN event ID for the tournament (also the competition ID
                          for individual tournaments).
       known_golfer_ids:  pga_tour_ids already in the DB; skips re-fetching them.
-      fetch_round_data:  If True, fetch per-round linescores from the /linescores
-                         sub-endpoint for every competitor. Adds ~N concurrent HTTP
-                         calls where N is field size (~72-156). Defaults to False.
+      fetch_round_data:  If True, fetch per-round linescores for every competitor.
+      fetch_earnings:    If True, fetch earnings from /statistics for every competitor.
 
     Returns:
       golfers  — list of dicts ready to upsert as Golfer rows
@@ -605,48 +496,27 @@ def _fetch_tournament_data(
                 except Exception as exc:
                     log.warning("Athlete fetch failed for %s: %s", aid, exc)
 
-    # Step 3 (optional): fetch per-round data.
-    # When use_scoreboard_rounds=True, fetches the scoreboard (1 request) instead
-    # of per-golfer /linescores (135 requests). Falls back to linescores if the
-    # scoreboard shows a new round we don't have data for yet (round transition).
+    # Step 3 (optional): fetch per-round data from the /linescores endpoint.
     rounds_by_athlete: dict[str, list[dict]] = {}
-    _used_scoreboard = False
     if fetch_round_data and all_athlete_ids:
-        if use_scoreboard_rounds:
-            # Use prefetched scoreboard data if available, otherwise fetch.
-            if prefetched_sb_rounds is not None:
-                sb_rounds = prefetched_sb_rounds
-            else:
-                _sb_result = _fetch_scoreboard_rounds(pga_tour_id)
-                sb_rounds = _sb_result[0] if _sb_result else None
-            if sb_rounds is not None:
-                rounds_by_athlete = sb_rounds
-                _used_scoreboard = True
-                log.info(
-                    "Tournament %s: using scoreboard for round data (%d competitors)",
-                    pga_tour_id,
-                    len(rounds_by_athlete),
-                )
-
-        if not _used_scoreboard:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
-                futures_rd = {
-                    pool.submit(_fetch_competitor_rounds, pga_tour_id, pga_tour_id, aid): aid
-                    for aid in all_athlete_ids
-                }
-                for future in concurrent.futures.as_completed(futures_rd):
-                    try:
-                        aid, rounds = future.result()
-                        rounds_by_athlete[aid] = rounds
-                    except Exception as exc:
-                        log.warning("Round data fetch failed: %s", exc)
-            non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
-            log.info(
-                "Tournament %s: fetched round data for %d competitors (%d with rounds)",
-                pga_tour_id,
-                len(rounds_by_athlete),
-                non_empty,
-            )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+            futures_rd = {
+                pool.submit(_fetch_competitor_rounds, pga_tour_id, pga_tour_id, aid): aid
+                for aid in all_athlete_ids
+            }
+            for future in concurrent.futures.as_completed(futures_rd):
+                try:
+                    aid, rounds = future.result()
+                    rounds_by_athlete[aid] = rounds
+                except Exception as exc:
+                    log.warning("Round data fetch failed: %s", exc)
+        non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
+        log.info(
+            "Tournament %s: fetched round data for %d competitors (%d with rounds)",
+            pga_tour_id,
+            len(rounds_by_athlete),
+            non_empty,
+        )
 
     # Step 4 (optional): fetch per-competitor status (WD / CUT / DQ / MDF / F)
     # and current-round startHole (for back-nine detection before tee-off).
@@ -701,6 +571,35 @@ def _fetch_tournament_data(
                             start_hole_by_athlete[aid] = (current_round, start_hole)
                     except Exception as exc:
                         log.warning("Status fetch failed: %s", exc)
+
+    # Step 5 (optional): fetch earnings concurrently for completed tournaments.
+    # This populates earnings_usd in the same pass as field data, so force syncs
+    # repopulate earnings without needing a separate score_picks pre-step.
+    earnings_by_athlete: dict[str, int | None] = {}
+    if fetch_earnings and all_athlete_ids:
+        log.info(
+            "Tournament %s: fetching earnings for %d competitors",
+            pga_tour_id,
+            len(all_athlete_ids),
+        )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+            futures_earn = {
+                pool.submit(_fetch_golfer_earnings, pga_tour_id, aid): aid
+                for aid in all_athlete_ids
+            }
+            for future in concurrent.futures.as_completed(futures_earn):
+                aid = futures_earn[future]
+                try:
+                    earnings_by_athlete[aid] = future.result()
+                except Exception as exc:
+                    log.warning("Earnings fetch failed for %s: %s", aid, exc)
+        fetched_count = sum(1 for v in earnings_by_athlete.values() if v is not None)
+        log.info(
+            "Tournament %s: fetched earnings for %d/%d competitors",
+            pga_tour_id,
+            fetched_count,
+            len(all_athlete_ids),
+        )
 
     log.info(
         "Tournament %s: %d competitors, %d new athlete fetches",
@@ -770,7 +669,7 @@ def _fetch_tournament_data(
             {
                 "pga_tour_id": athlete_id,
                 "finish_position": c.get("order"),
-                "earnings_usd": None,
+                "earnings_usd": earnings_by_athlete.get(athlete_id),
                 "status": status_by_athlete.get(athlete_id),
                 "tee_time": current_tee_time,
                 "rounds": rounds,
@@ -811,8 +710,7 @@ def _fetch_team_field(
     known_golfer_ids: set[str] | None = None,
     fetch_round_data: bool = False,
     scoreboard_athletes: dict[str, dict] | None = None,
-    use_scoreboard_rounds: bool = False,
-    prefetched_sb_rounds: dict[str, list[dict]] | None = None,
+    fetch_earnings: bool = False,
 ) -> tuple[list[dict], list[dict]]:
     """
     Fetch the individual golfer field for a team-format tournament.
@@ -824,24 +722,19 @@ def _fetch_team_field(
          sub-endpoint.
       3. Fetches athlete info (name, country) concurrently for new golfers.
       4. Optionally fetches per-round linescores from the /linescores sub-endpoint
-         when fetch_round_data=True (all tournament states — provides tee times
-         for upcoming rounds and scores/positions for completed rounds).
-      5. Returns golfers + results lists with team_competitor_id set on each
-         entry so score_picks can use the correct earnings endpoint later.
-
-    Note on team event linescores: the /linescores endpoint uses the individual
-    athlete_id as the competitor key (not the team_id), so the same
-    _fetch_competitor_rounds helper works here. The competition_id used
-    in the URL must be the team event's actual competition_id (may differ
-    from pga_tour_id).
+         when fetch_round_data=True (all tournament states).
+      5. Optionally fetches earnings from the /statistics sub-endpoint when
+         fetch_earnings=True (completed tournaments). Uses team_competitor_id
+         as the competitor key and is_team_event=True for officialAmount stat.
+      6. Returns golfers + results lists with team_competitor_id set on each entry.
 
     Args:
       pga_tour_id:       ESPN event ID (used in earnings API URL).
       competition_id:    ESPN competition ID (may differ from pga_tour_id for
                          team events — stored in Tournament.competition_id).
       known_golfer_ids:  pga_tour_ids already in the DB; skips re-fetching them.
-      fetch_round_data:  If True, fetch per-round linescores from the /linescores
-                         sub-endpoint for every individual golfer. Defaults to False.
+      fetch_round_data:  If True, fetch per-round linescores for every golfer.
+      fetch_earnings:    If True, fetch earnings from /statistics for every team.
 
     Returns:
       golfers  — list of dicts (one per individual golfer, not per team)
@@ -910,42 +803,25 @@ def _fetch_team_field(
     all_athlete_ids_team = [aid for aid, _, _ in team_entries]
     rounds_by_athlete: dict[str, list[dict]] = {}
     status_by_athlete_team: dict[str, str | None] = {}
-    _used_scoreboard_team = False
     if fetch_round_data and team_entries:
-        if use_scoreboard_rounds:
-            if prefetched_sb_rounds is not None:
-                sb_rounds = prefetched_sb_rounds
-            else:
-                _sb_result = _fetch_scoreboard_rounds(pga_tour_id)
-                sb_rounds = _sb_result[0] if _sb_result else None
-            if sb_rounds is not None:
-                rounds_by_athlete = sb_rounds
-                _used_scoreboard_team = True
-                log.info(
-                    "Team tournament %s: using scoreboard for round data (%d competitors)",
-                    pga_tour_id,
-                    len(rounds_by_athlete),
-                )
-
-        if not _used_scoreboard_team:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
-                futures_rd = {
-                    pool.submit(_fetch_competitor_rounds, pga_tour_id, competition_id, aid): aid
-                    for aid in all_athlete_ids_team
-                }
-                for future in concurrent.futures.as_completed(futures_rd):
-                    try:
-                        aid, rounds = future.result()
-                        rounds_by_athlete[aid] = rounds
-                    except Exception as exc:
-                        log.warning("Round data fetch failed: %s", exc)
-            non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
-            log.info(
-                "Team tournament %s: fetched round data for %d golfers (%d with rounds)",
-                pga_tour_id,
-                len(rounds_by_athlete),
-                non_empty,
-            )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+            futures_rd = {
+                pool.submit(_fetch_competitor_rounds, pga_tour_id, competition_id, aid): aid
+                for aid in all_athlete_ids_team
+            }
+            for future in concurrent.futures.as_completed(futures_rd):
+                try:
+                    aid, rounds = future.result()
+                    rounds_by_athlete[aid] = rounds
+                except Exception as exc:
+                    log.warning("Round data fetch failed: %s", exc)
+        non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
+        log.info(
+            "Team tournament %s: fetched round data for %d golfers (%d with rounds)",
+            pga_tour_id,
+            len(rounds_by_athlete),
+            non_empty,
+        )
 
         _NOTABLE_STATUSES_TEAM = {"WD", "CUT", "MDF", "DQ"}
         start_hole_by_athlete_team: dict[str, tuple[int, int]] = {}
@@ -986,6 +862,43 @@ def _fetch_team_field(
                             start_hole_by_athlete_team[aid] = (current_round, start_hole)
                     except Exception as exc:
                         log.warning("Status fetch failed: %s", exc)
+
+    # Fetch earnings concurrently for completed team tournaments.
+    # Team events use the team_competitor_id (not athlete_id) with is_team_event=True
+    # to get the officialAmount stat. Each team member shares the same earnings.
+    earnings_by_team: dict[str, int | None] = {}
+    if fetch_earnings and team_entries:
+        # Deduplicate team IDs — each team has 2 athletes sharing one earnings value.
+        unique_team_ids = list(dict.fromkeys(tid for _, tid, _ in team_entries))
+        log.info(
+            "Team tournament %s: fetching earnings for %d teams",
+            pga_tour_id,
+            len(unique_team_ids),
+        )
+        with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
+            futures_earn = {
+                pool.submit(
+                    _fetch_golfer_earnings,
+                    pga_tour_id,
+                    tid,
+                    competition_id=competition_id,
+                    is_team_event=True,
+                ): tid
+                for tid in unique_team_ids
+            }
+            for future in concurrent.futures.as_completed(futures_earn):
+                tid = futures_earn[future]
+                try:
+                    earnings_by_team[tid] = future.result()
+                except Exception as exc:
+                    log.warning("Team earnings fetch failed for %s: %s", tid, exc)
+        fetched_count = sum(1 for v in earnings_by_team.values() if v is not None)
+        log.info(
+            "Team tournament %s: fetched earnings for %d/%d teams",
+            pga_tour_id,
+            fetched_count,
+            len(unique_team_ids),
+        )
 
     log.info(
         "Team tournament %s: %d teams → %d individual golfers, %d new athlete fetches",
@@ -1028,8 +941,6 @@ def _fetch_team_field(
                 rd["thru"] += 9
 
         # Derive tee_time for tournament_entries.tee_time from Round 1 only.
-        # Once Thursday starts, the pick is locked for the whole tournament —
-        # we never overwrite this with a later round's tee time.
         current_tee_time: datetime | None = next(
             (
                 rd["tee_time"]
@@ -1043,7 +954,7 @@ def _fetch_team_field(
             {
                 "pga_tour_id": athlete_id,
                 "finish_position": finish_order,
-                "earnings_usd": None,
+                "earnings_usd": earnings_by_team.get(team_id),
                 "status": status_by_athlete_team.get(athlete_id),
                 "tee_time": current_tee_time,
                 "rounds": rounds,
@@ -1103,6 +1014,11 @@ def _fetch_golfer_earnings(
                 if raw is not None:
                     try:
                         val = int(float(raw))
+                        # Only return positive earnings. ESPN returns amount=0.0
+                        # for both "genuinely $0" (amateurs, CUT) AND "not yet
+                        # published" (mid-field pros after completion). We can't
+                        # distinguish the two, so we return None for both and let
+                        # the earnings gate use a threshold to determine readiness.
                         if val > 0:
                             return val
                     except (ValueError, TypeError):
@@ -1673,6 +1589,17 @@ def score_picks(
                 entry.earnings_usd = raw
         db.flush()
 
+    # ── Earnings completeness gate ───────────────────────────────────────
+    # Defer scoring until all made-the-cut entries have earnings published.
+    # CUT/WD/DQ players are excluded (they have entry.status set). This
+    # prevents premature scoring when ESPN hasn't published all earnings yet.
+    if not _all_earnings_available(db, str(tournament.id)):
+        log.info(
+            "Deferring scoring for '%s' — not all made-the-cut earnings available yet",
+            tournament.name,
+        )
+        return 0
+
     # ── Bulk UPDATE: score all picks in one SQL statement ─────────────────
     # points_earned = COALESCE(te.earnings_usd, 0) * COALESCE(lt.multiplier, 1.0)
     # Multiplier comes exclusively from league_tournaments; defaults to 1.0
@@ -1878,32 +1805,101 @@ def sync_schedule(db: Session, year: int) -> dict:
     }
 
 
-def _winner_has_earnings(db: Session, tournament_id: str) -> bool:
-    """
-    Check whether the tournament winner (finish_position=1) has earnings.
+_EARNINGS_READY_THRESHOLD = 0.80
 
-    This gates the TOURNAMENT_COMPLETED SQS event — if ESPN hasn't published
-    prize money yet, we skip the event and let results_finalization pick it up
-    later. This prevents premature scoring (points_earned=0) and incorrect
-    playoff advancement.
+
+def _all_earnings_available(db: Session, tournament_id: str) -> bool:
     """
-    winner_entry = (
-        db.query(TournamentEntry).filter_by(tournament_id=tournament_id, finish_position=1).first()
+    Check whether ESPN has published enough earnings to score a tournament.
+
+    ESPN publishes earnings gradually after completion. The winner appears
+    first, then other positions trickle in over 12-48 hours. Additionally,
+    ESPN returns amount=0.0 for both "genuinely $0" (amateurs) AND "not yet
+    published" — these are indistinguishable at the API level. So we use a
+    threshold approach:
+
+      1. Count "made-the-cut" entries: status IS NULL, has at least 1 round.
+         (Excludes CUT/WD/DQ via status, excludes pre-WDs via round count.)
+      2. Of those, count how many have earnings_usd > 0.
+      3. If >= 80% have positive earnings, the remainder are likely amateurs
+         or edge cases — scoring can proceed.
+      4. If < 80%, ESPN probably hasn't published all earnings yet — defer.
+
+    Includes a 72-hour escape hatch: if the tournament completed more than 3
+    days ago, proceed regardless. COALESCE(NULL, 0) handles remaining NULLs.
+
+    Returns True when scoring should proceed. Returns False to defer.
+    """
+    tournament = db.query(Tournament).filter_by(id=tournament_id).first()
+    if not tournament:
+        return False
+
+    # Subquery: entries with at least 1 round played (excludes pre-tournament WDs).
+    has_rounds_sq = (
+        select(TournamentEntryRound.tournament_entry_id)
+        .where(TournamentEntryRound.tournament_entry_id == TournamentEntry.id)
+        .correlate(TournamentEntry)
+        .exists()
     )
-    if winner_entry is None:
+
+    # Total made-the-cut entries (status NULL = not CUT/WD/DQ, has rounds = played).
+    total_made_cut = (
+        db.query(TournamentEntry)
+        .filter(
+            TournamentEntry.tournament_id == tournament_id,
+            TournamentEntry.status.is_(None),
+            has_rounds_sq,
+        )
+        .count()
+    )
+
+    if total_made_cut == 0:
+        return True
+
+    # How many of those have positive earnings (> 0)?
+    with_positive_earnings = (
+        db.query(TournamentEntry)
+        .filter(
+            TournamentEntry.tournament_id == tournament_id,
+            TournamentEntry.status.is_(None),
+            TournamentEntry.earnings_usd > 0,
+            has_rounds_sq,
+        )
+        .count()
+    )
+
+    ratio = with_positive_earnings / total_made_cut
+
+    # Escape hatch: if tournament completed >72 hours ago, score anyway.
+    if ratio < _EARNINGS_READY_THRESHOLD:
+        if tournament.end_date and (date.today() - tournament.end_date).days >= 3:
+            log.warning(
+                "Earnings gate: tournament %s completed >72h ago "
+                "(%.0f%% earnings available) — proceeding anyway",
+                tournament_id,
+                ratio * 100,
+            )
+            return True
+
         log.info(
-            "Earnings gate: no winner entry found for tournament %s — skipping event",
+            "Earnings gate: %.0f%% of made-the-cut entries have earnings "
+            "for tournament %s (%d/%d) — deferring (need %.0f%%)",
+            ratio * 100,
             tournament_id,
+            with_positive_earnings,
+            total_made_cut,
+            _EARNINGS_READY_THRESHOLD * 100,
         )
         return False
 
-    if winner_entry.earnings_usd is None or winner_entry.earnings_usd == 0:
-        log.info(
-            "Earnings gate: winner earnings not yet published for tournament %s — skipping event",
-            tournament_id,
-        )
-        return False
-
+    log.info(
+        "Earnings gate: %.0f%% of made-the-cut entries have earnings "
+        "for tournament %s (%d/%d) — proceeding",
+        ratio * 100,
+        tournament_id,
+        with_positive_earnings,
+        total_made_cut,
+    )
     return True
 
 
@@ -1931,7 +1927,7 @@ def _publish_schedule_transitions(
     for tournament_id, old_status, new_status in transitions:
         if new_status == "completed":
             # Gate on winner earnings to prevent premature scoring.
-            if db is not None and not _winner_has_earnings(db, tournament_id):
+            if db is not None and not _all_earnings_available(db, tournament_id):
                 log.info(
                     "Schedule sync: deferring TOURNAMENT_COMPLETED for %s — "
                     "earnings not yet published (results_finalization will retry)",
@@ -2110,65 +2106,10 @@ def sync_tournament(
     # Pass IDs of golfers already in DB so fetch functions skip re-fetching them.
     known_ids = {row[0] for row in db.query(Golfer.pga_tour_id).all()}
 
-    # Fetch per-round linescores for all tournament states:
-    #   - SCHEDULED: gets tee times for upcoming rounds (pick-locking needs this).
-    #   - IN_PROGRESS: gets live scores + positions for rounds already played.
-    #   - COMPLETED: gets historical round-by-round data for display.
-    should_fetch_round_data = True
-
-    # Optimization: once all R1 tee times have passed (picks are locked), use the
-    # scoreboard (1 request) instead of per-golfer /linescores (135 requests).
-    # Only for in_progress tournaments and non-force syncs.
-    #
-    # Exception: on round transitions (new round started but we don't have tee
-    # times for it yet), fall back to linescores for one cycle to fetch the new
-    # round's tee times, then resume scoreboard mode on the next cycle.
-    #
-    # Round transition detection: fetch the scoreboard, find the max round number
-    # across all competitors, and compare with the max round that has tee_time
-    # data in our DB. If scoreboard shows a higher round → linescores needed.
-    use_scoreboard = False
-    _prefetched_sb_rounds: dict[str, list[dict]] | None = None
-    if tournament.status == TournamentStatus.IN_PROGRESS.value and not force:
-        from app.services.picks import all_r1_teed_off as _check_teed_off
-
-        if _check_teed_off(db, tournament.id):
-            # Fetch the scoreboard to check for round transitions AND
-            # potentially use as round data (avoids fetching it twice).
-            # max_round_seen includes empty/future rounds that ESPN knows about
-            # (critical: these are stripped from the rounds data for upsert,
-            # but we need them to detect that a new round has started).
-            _sb_result = _fetch_scoreboard_rounds(pga_tour_id)
-            _prefetched_sb_rounds = _sb_result[0] if _sb_result else None
-            sb_max_round = _sb_result[1] if _sb_result else 0
-
-            # Max round in our DB that has tee_time populated.
-            max_round_with_tee = (
-                db.query(sqlfunc.max(TournamentEntryRound.round_number))
-                .join(
-                    TournamentEntry,
-                    TournamentEntryRound.tournament_entry_id == TournamentEntry.id,
-                )
-                .filter(
-                    TournamentEntry.tournament_id == tournament.id,
-                    TournamentEntryRound.tee_time.isnot(None),
-                )
-                .scalar()
-            ) or 0
-
-            if sb_max_round > max_round_with_tee:
-                log.info(
-                    "Tournament '%s': round transition (scoreboard R%d, DB tee R%d) — linescores",
-                    tournament.name,
-                    sb_max_round,
-                    max_round_with_tee,
-                )
-            else:
-                use_scoreboard = True
-                log.info(
-                    "Tournament '%s': scoreboard mode (all R1 teed off, no round transition)",
-                    tournament.name,
-                )
+    # Fetch earnings concurrently for completed tournaments so that force syncs
+    # repopulate earnings in the same pass as field data. For non-completed
+    # tournaments, earnings are deferred to score_picks() (called after completion).
+    should_fetch_earnings = tournament.status == TournamentStatus.COMPLETED.value
 
     try:
         if tournament.is_team_event:
@@ -2178,19 +2119,17 @@ def sync_tournament(
                 pga_tour_id,
                 effective_competition_id,
                 known_golfer_ids=known_ids,
-                fetch_round_data=should_fetch_round_data,
+                fetch_round_data=True,
                 scoreboard_athletes=scoreboard_athletes,
-                use_scoreboard_rounds=use_scoreboard,
-                prefetched_sb_rounds=_prefetched_sb_rounds,
+                fetch_earnings=should_fetch_earnings,
             )
         else:
             golfers, results = _fetch_tournament_data(
                 pga_tour_id,
                 known_golfer_ids=known_ids,
-                fetch_round_data=should_fetch_round_data,
+                fetch_round_data=True,
                 scoreboard_athletes=scoreboard_athletes,
-                use_scoreboard_rounds=use_scoreboard,
-                prefetched_sb_rounds=_prefetched_sb_rounds,
+                fetch_earnings=should_fetch_earnings,
             )
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.error("Failed to fetch field for %s: %s", pga_tour_id, exc)
@@ -2369,7 +2308,7 @@ def _publish_completed_for_unscored_playoffs(db: Session, tournament_id: str | N
 
     for pr in unscored_rounds:
         tid = str(pr.tournament_id)
-        if not _winner_has_earnings(db, tid):
+        if not _all_earnings_available(db, tid):
             log.info(
                 "Unscored playoff round %d: earnings not yet available — skipping",
                 pr.round_number,

@@ -2,7 +2,7 @@
 Tests for the earnings-gated TOURNAMENT_COMPLETED pipeline.
 
 Covers:
-  - _winner_has_earnings() gate logic
+  - _all_earnings_available() gate logic (replaces _winner_has_earnings)
   - _publish_schedule_transitions() deferring when earnings unavailable
   - Admin single sync triggering score_round + advance_bracket directly
   - Worker catching HTTPException from score_round gracefully
@@ -26,6 +26,7 @@ from app.models import (
     Season,
     Tournament,
     TournamentEntry,
+    TournamentEntryRound,
 )
 from app.models.playoff import PlayoffConfig, PlayoffRound
 from app.models.user import User
@@ -57,13 +58,26 @@ def _make_golfer(db, name: str, pga_tour_id: str | None = None) -> Golfer:
     return golfer
 
 
-def _make_completed_tournament(db, name: str = "Completed Open") -> Tournament:
+def _make_completed_tournament(
+    db, name: str = "Completed Open", *, recent: bool = False
+) -> Tournament:
+    """Create a completed tournament.
+
+    recent=True: end_date = yesterday (within 72-hour escape hatch window).
+    recent=False: end_date = 4 days ago (outside 72-hour window — escape hatch triggers).
+    """
     today = date.today()
+    if recent:
+        start = today - timedelta(days=4)
+        end = today - timedelta(days=1)
+    else:
+        start = today - timedelta(days=7)
+        end = today - timedelta(days=4)
     t = Tournament(
         pga_tour_id=f"tour_{uuid.uuid4().hex[:8]}",
         name=name,
-        start_date=today - timedelta(days=7),
-        end_date=today - timedelta(days=4),
+        start_date=start,
+        end_date=end,
         status="completed",
     )
     db.add(t)
@@ -80,6 +94,7 @@ def _make_entry(
     finish_position=None,
     earnings_usd=None,
     status=None,
+    rounds_played: int = 0,
 ) -> TournamentEntry:
     entry = TournamentEntry(
         tournament_id=tournament.id,
@@ -89,6 +104,11 @@ def _make_entry(
         status=status,
     )
     db.add(entry)
+    db.flush()
+    # Add round rows so _all_earnings_available can distinguish players who
+    # actually played from pre-tournament withdrawals (0 rounds).
+    for rn in range(1, rounds_played + 1):
+        db.add(TournamentEntryRound(tournament_entry_id=entry.id, round_number=rn))
     db.commit()
     db.refresh(entry)
     return entry
@@ -146,44 +166,110 @@ def _make_locked_playoff_round(db, tournament: Tournament) -> PlayoffRound:
 # ---------------------------------------------------------------------------
 
 
-class TestWinnerHasEarnings:
-    """_winner_has_earnings() gates TOURNAMENT_COMPLETED on winner earnings."""
+class TestAllEarningsAvailable:
+    """_all_earnings_available() gates scoring on all made-the-cut earnings."""
 
-    def test_returns_true_when_winner_has_earnings(self, db):
-        from app.services.scraper import _winner_has_earnings
+    def test_returns_true_when_all_entries_have_earnings(self, db):
+        from app.services.scraper import _all_earnings_available
 
-        tournament = _make_completed_tournament(db, "Earnings Open")
-        golfer = _make_golfer(db, "Winner Golfer")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=1000000)
+        tournament = _make_completed_tournament(db, "Full Earnings", recent=True)
+        g1 = _make_golfer(db, "Winner")
+        g2 = _make_golfer(db, "Runner Up")
+        _make_entry(db, tournament, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        _make_entry(db, tournament, g2, finish_position=2, earnings_usd=500000, rounds_played=4)
 
-        assert _winner_has_earnings(db, str(tournament.id)) is True
+        assert _all_earnings_available(db, str(tournament.id)) is True
 
-    def test_returns_false_when_winner_has_zero_earnings(self, db):
-        from app.services.scraper import _winner_has_earnings
+    def test_returns_false_when_made_cut_entry_has_null_earnings(self, db):
+        from app.services.scraper import _all_earnings_available
 
-        tournament = _make_completed_tournament(db, "Zero Earnings Open")
-        golfer = _make_golfer(db, "Zero Winner")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=0)
+        tournament = _make_completed_tournament(db, "Partial Earnings", recent=True)
+        g1 = _make_golfer(db, "Winner")
+        g2 = _make_golfer(db, "No Money Yet")
+        _make_entry(db, tournament, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        # status=None means made the cut; earnings_usd=None means not yet published
+        _make_entry(db, tournament, g2, finish_position=30, earnings_usd=None, rounds_played=4)
 
-        assert _winner_has_earnings(db, str(tournament.id)) is False
+        assert _all_earnings_available(db, str(tournament.id)) is False
 
-    def test_returns_false_when_winner_has_null_earnings(self, db):
-        from app.services.scraper import _winner_has_earnings
+    def test_ignores_cut_players_with_null_earnings(self, db):
+        from app.services.scraper import _all_earnings_available
 
-        tournament = _make_completed_tournament(db, "Null Earnings Open")
-        golfer = _make_golfer(db, "Null Winner")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=None)
+        tournament = _make_completed_tournament(db, "CUT Ignore", recent=True)
+        g1 = _make_golfer(db, "Winner")
+        g2 = _make_golfer(db, "Cut Player")
+        _make_entry(db, tournament, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        # status="CUT" → excluded from check; null earnings is fine
+        _make_entry(db, tournament, g2, earnings_usd=None, status="CUT", rounds_played=2)
 
-        assert _winner_has_earnings(db, str(tournament.id)) is False
+        assert _all_earnings_available(db, str(tournament.id)) is True
 
-    def test_returns_false_when_no_winner_entry(self, db):
-        from app.services.scraper import _winner_has_earnings
+    def test_ignores_pre_tournament_withdrawals(self, db):
+        """Pre-tournament WDs have 0 rounds and status=NULL — should not block."""
+        from app.services.scraper import _all_earnings_available
 
-        tournament = _make_completed_tournament(db, "No Winner Open")
-        golfer = _make_golfer(db, "Second Place")
-        _make_entry(db, tournament, golfer, finish_position=2, earnings_usd=500000)
+        tournament = _make_completed_tournament(db, "Pre-WD Ignore", recent=True)
+        g1 = _make_golfer(db, "Winner")
+        g2 = _make_golfer(db, "Pre-WD Player")
+        _make_entry(db, tournament, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        # 0 rounds = never played → excluded from check even though status is NULL
+        _make_entry(db, tournament, g2, earnings_usd=None, rounds_played=0)
 
-        assert _winner_has_earnings(db, str(tournament.id)) is False
+        assert _all_earnings_available(db, str(tournament.id)) is True
+
+    def test_amateurs_do_not_block_when_most_earnings_published(self, db):
+        """Realistic field: 9 pros with earnings + 1 amateur with NULL.
+
+        The amateur (earnings=NULL from ESPN's $0) is <20% of the field,
+        so the 80% threshold passes and scoring proceeds.
+        """
+        from app.services.scraper import _all_earnings_available
+
+        tournament = _make_completed_tournament(db, "Amateur Open", recent=True)
+        # 9 pros with positive earnings (90% of field)
+        for i in range(9):
+            g = _make_golfer(db, f"Pro {i}")
+            _make_entry(
+                db,
+                tournament,
+                g,
+                finish_position=i + 1,
+                earnings_usd=(9 - i) * 100000,
+                rounds_played=4,
+            )
+        # 1 amateur: ESPN returns $0 → stored as NULL (can't distinguish from unpublished)
+        amateur = _make_golfer(db, "Amateur Player")
+        _make_entry(
+            db,
+            tournament,
+            amateur,
+            finish_position=10,
+            earnings_usd=None,
+            rounds_played=4,
+        )
+
+        # 9/10 = 90% have positive earnings → above 80% threshold → passes
+        assert _all_earnings_available(db, str(tournament.id)) is True
+
+    def test_escape_hatch_after_72_hours(self, db):
+        from app.services.scraper import _all_earnings_available
+
+        # end_date 4 days ago → >72 hours → escape hatch triggers
+        tournament = _make_completed_tournament(db, "Old Tournament", recent=False)
+        g1 = _make_golfer(db, "Winner Old")
+        g2 = _make_golfer(db, "Still Missing")
+        _make_entry(db, tournament, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        _make_entry(db, tournament, g2, finish_position=30, earnings_usd=None, rounds_played=4)
+
+        # Should return True despite missing earnings (escape hatch)
+        assert _all_earnings_available(db, str(tournament.id)) is True
+
+    def test_returns_true_for_empty_field(self, db):
+        from app.services.scraper import _all_earnings_available
+
+        tournament = _make_completed_tournament(db, "Empty Field", recent=True)
+        # No entries at all → 0 missing → True
+        assert _all_earnings_available(db, str(tournament.id)) is True
 
 
 # ---------------------------------------------------------------------------
@@ -194,12 +280,15 @@ class TestWinnerHasEarnings:
 class TestPublishScheduleTransitions:
     """_publish_schedule_transitions() defers when earnings unavailable."""
 
-    def test_defers_when_winner_has_no_earnings(self, db):
+    def test_defers_when_earnings_incomplete(self, db):
         from app.services.scraper import _publish_schedule_transitions
 
-        tournament = _make_completed_tournament(db, "Deferred Open")
-        golfer = _make_golfer(db, "No Money Winner")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=None)
+        # recent=True so the 72-hour escape hatch does NOT trigger
+        tournament = _make_completed_tournament(db, "Deferred Open", recent=True)
+        g1 = _make_golfer(db, "Winner")
+        g2 = _make_golfer(db, "No Money Yet")
+        _make_entry(db, tournament, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        _make_entry(db, tournament, g2, finish_position=30, earnings_usd=None, rounds_played=4)
 
         env = {"SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
@@ -210,12 +299,14 @@ class TestPublishScheduleTransitions:
 
         mock_pub.assert_not_called()
 
-    def test_publishes_when_winner_has_earnings(self, db):
+    def test_publishes_when_all_earnings_available(self, db):
         from app.services.scraper import _publish_schedule_transitions
 
-        tournament = _make_completed_tournament(db, "Published Open")
+        tournament = _make_completed_tournament(db, "Published Open", recent=True)
         golfer = _make_golfer(db, "Rich Winner")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=2000000)
+        _make_entry(
+            db, tournament, golfer, finish_position=1, earnings_usd=2000000, rounds_played=4
+        )
 
         env = {"SQS_QUEUE_URL": "https://sqs.test/q"}
         with patch.dict(os.environ, env, clear=False):
@@ -357,7 +448,9 @@ class TestPublishCompletedForUnscoredPlayoffs:
 
         tournament = _make_completed_tournament(db, "Unscored Playoff Open")
         golfer = _make_golfer(db, "PO Winner")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=1500000)
+        _make_entry(
+            db, tournament, golfer, finish_position=1, earnings_usd=1500000, rounds_played=4
+        )
         _make_locked_playoff_round(db, tournament)
 
         env = {"SQS_QUEUE_URL": "https://sqs.test/q"}
@@ -370,9 +463,10 @@ class TestPublishCompletedForUnscoredPlayoffs:
     def test_skips_when_no_earnings(self, db):
         from app.services.scraper import _publish_completed_for_unscored_playoffs
 
-        tournament = _make_completed_tournament(db, "No Earnings PO Open")
+        # recent=True so the 72-hour escape hatch does NOT trigger
+        tournament = _make_completed_tournament(db, "No Earnings PO Open", recent=True)
         golfer = _make_golfer(db, "PO No Money")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=None)
+        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=None, rounds_played=4)
         _make_locked_playoff_round(db, tournament)
 
         env = {"SQS_QUEUE_URL": "https://sqs.test/q"}
@@ -389,8 +483,8 @@ class TestPublishCompletedForUnscoredPlayoffs:
         t2 = _make_completed_tournament(db, "Scoped T2")
         g1 = _make_golfer(db, "T1 Winner")
         g2 = _make_golfer(db, "T2 Winner")
-        _make_entry(db, t1, g1, finish_position=1, earnings_usd=1000000)
-        _make_entry(db, t2, g2, finish_position=1, earnings_usd=2000000)
+        _make_entry(db, t1, g1, finish_position=1, earnings_usd=1000000, rounds_played=4)
+        _make_entry(db, t2, g2, finish_position=1, earnings_usd=2000000, rounds_played=4)
         _make_locked_playoff_round(db, t1)
         _make_locked_playoff_round(db, t2)
 
@@ -407,7 +501,9 @@ class TestPublishCompletedForUnscoredPlayoffs:
 
         tournament = _make_completed_tournament(db, "No SQS Open")
         golfer = _make_golfer(db, "SQS Winner")
-        _make_entry(db, tournament, golfer, finish_position=1, earnings_usd=1000000)
+        _make_entry(
+            db, tournament, golfer, finish_position=1, earnings_usd=1000000, rounds_played=4
+        )
         _make_locked_playoff_round(db, tournament)
 
         clean_env = {k: v for k, v in os.environ.items() if k != "SQS_QUEUE_URL"}

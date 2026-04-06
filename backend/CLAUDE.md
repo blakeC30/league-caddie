@@ -309,9 +309,9 @@ New migrations still go in `alembic/versions/` with correct `down_revision` chai
 ESPN unofficial API — no auth required, but undocumented and may change.
 
 - `sync_schedule(db, year)` — fetch PGA Tour schedule for a year, upsert Tournaments; also trims any post-Tour-Championship rows
-- `sync_tournament(db, pga_tour_id)` — sync field + score picks; routes to team or individual path based on `is_team_event`
+- `sync_tournament(db, pga_tour_id)` — sync field (always via per-golfer /linescores) + earnings (concurrently for completed tournaments) + score picks; routes to team or individual path based on `is_team_event`
 - `full_sync(db, year)` — sync schedule then all in-progress/completed + next scheduled tournament
-- `score_picks(db, tournament)` — populate `picks.points_earned` for completed tournament
+- `score_picks(db, tournament)` — populate `picks.points_earned` for completed tournament; defers via earnings completeness gate until all made-the-cut entries have earnings (72-hour escape hatch)
 - `_trim_post_championship_tournaments(db)` — deletes any Tournament rows starting after the Tour Championship ends (called by `sync_schedule`)
 
 **Tour Championship cutoff:** The Tour Championship is the last valid fantasy-season event. `parse_schedule_response` filters out any ESPN events that start after it ends. `sync_schedule` also calls `_trim_post_championship_tournaments` to clean up any rows that slipped in before this rule existed. Post-Tour-Championship tournaments cannot be added to any league schedule.
@@ -342,13 +342,13 @@ All scheduling is **status-driven, not calendar-driven** — no hardcoded weekda
 | `field_sync_d2` | Daily 14:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today+2 | No tournament starting in 2 days | Golfer roster, tee times, per-round data, purse — stale withdrawn golfers are removed |
 | `field_sync_d1` | Daily 18:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today+1 | No tournament starting tomorrow | Same as above — catches late withdrawals and alternates |
 | `field_sync_d0` | Daily 11:00 UTC | **Hard** | A SCHEDULED tournament's `start_date` == today | No tournament starting today | Same as above — confirms final tee times (used for pick-locking) |
-| `live_score_sync` | Every 5 minutes | Soft | `tournament.status == "in_progress"` AND within play window | No IN_PROGRESS tournament; outside play window; or `end_date` >3 days past | Per-round scores (strokes, score-to-par), finish positions, earnings, golfer status (CUT/WD/etc.); publishes `TOURNAMENT_IN_PROGRESS` while playoff rounds are unresolved |
-| `results_finalization` | Daily 09:00, 15:00, 21:00 UTC | **Hard** | A COMPLETED tournament has at least one pick with `points_earned = NULL` | All picks already scored | Force-syncs the tournament first (fresh earnings), then sets `picks.points_earned` (golfer earnings × multiplier); safety net if SQS `TOURNAMENT_COMPLETED` pipeline missed anything |
+| `live_score_sync` | Every 5 minutes | Always uses per-golfer /linescores | `tournament.status == "in_progress"` AND within play window | No IN_PROGRESS tournament; outside play window; or `end_date` >3 days past | Per-round scores (strokes, score-to-par), finish positions, tee times, golfer status (CUT/WD/etc.); publishes `TOURNAMENT_IN_PROGRESS` while playoff rounds are unresolved |
+| `results_finalization` | 6× daily: 03:00, 06:00, 09:00, 12:00, 15:00, 21:00 UTC | **Hard** | A COMPLETED tournament has at least one pick with `points_earned = NULL` | All picks already scored | Force-syncs the tournament first (earnings fetched concurrently during field sync), then runs `score_picks()` which defers until all made-the-cut entries have earnings (earnings completeness gate); 72-hour escape hatch if ESPN never publishes |
 | `pick_reminder_send` | Wednesday 18:00 UTC (1 PM CDT) | N/A | Always — looks for upcoming tournaments in next 7 days | Leagues with no active season (silently skipped) | Creates `PickReminder` rows; publishes single `PICK_REMINDER_SEND` SQS event for the worker to send consolidated emails |
 
 **Live sync play window:** Computed from `tournament_entry_rounds.tee_time` values stored in the DB (UTC-aware). If no tee times yet: wide fallback `[10:00–07:00 UTC]` covers all PGA Tour locations (US East through Hawaii). No day-of-week restriction — Monday weather carryovers continue syncing automatically.
 
-**Results finalization:** 3× daily so any finish time on any day is caught. Acts as a safety net if the SQS `TOURNAMENT_COMPLETED` pipeline missed anything.
+**Results finalization:** 6× daily so earnings are picked up as soon as ESPN publishes them (earnings trickle in over 12-48 hours after completion). The `score_picks()` earnings completeness gate defers scoring until all made-the-cut entries have earnings, with a 72-hour escape hatch.
 
 ### SQS Worker (in `app/worker_main.py`)
 

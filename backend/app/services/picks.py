@@ -111,6 +111,46 @@ def validate_new_pick(
             ),
         )
 
+    # Block regular-season picks on future playoff tournaments when the bracket
+    # hasn't been seeded yet (pending config + unscored completed tournaments).
+    # Without this, a user could submit a regular Pick for what should be a
+    # playoff tournament before the PlayoffRound rows exist to trigger the
+    # check above.
+    if not playoff_round:
+        pending_config = (
+            db.query(PlayoffConfig)
+            .filter_by(league_id=league_id, season_id=season.id, status="pending")
+            .first()
+        )
+        if pending_config:
+            # Check if this tournament would be a playoff round. The playoff
+            # uses the last N scheduled tournaments; if this one is among the
+            # remaining scheduled tournaments and equals the playoff size's
+            # required round count, it's a future playoff tournament.
+            unscored = (
+                db.query(Pick)
+                .join(Tournament, Pick.tournament_id == Tournament.id)
+                .filter(
+                    Pick.league_id == league_id,
+                    Pick.season_id == season.id,
+                    Tournament.status == TournamentStatus.COMPLETED.value,
+                    Pick.points_earned.is_(None),
+                )
+                .first()
+            )
+            if unscored:
+                pending_name = (
+                    db.query(Tournament.name).filter_by(id=unscored.tournament_id).scalar()
+                )
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"Picks are temporarily unavailable — scoring for the "
+                        f"{pending_name} is still being finalized. The playoff "
+                        f"bracket will be seeded once all earnings are published."
+                    ),
+                )
+
     if tournament.status == TournamentStatus.COMPLETED.value:
         log.warning(
             "Pick validation failed: tournament=%s already completed, user=%s",

@@ -312,6 +312,27 @@ export function Dashboard() {
                 );
               }
 
+              // Playoff scoring pending — bracket can't be seeded yet
+              if (myPod?.playoff_scoring_pending) {
+                return (
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center flex-shrink-0">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-amber-700">Scoring in progress</p>
+                      <p className="text-xs text-amber-600">
+                        {myPod.scoring_pending_tournament_name
+                          ? `Waiting for ${myPod.scoring_pending_tournament_name} earnings to be finalized`
+                          : "Waiting for tournament earnings to be finalized"}
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+
               // Regular week
               if (myPickForActive) {
                 return (
@@ -416,6 +437,29 @@ export function Dashboard() {
         </div>
       ) : (() => {
         const hasCompletedTournaments = tournaments?.some((t) => t.status === "completed");
+        const pendingTournament = tournaments?.find((t) => t.scoring_pending);
+
+        if (pendingTournament) {
+          // All tournaments have completed or are scheduled (no active tournament),
+          // but at least one completed tournament still has earnings pending.
+          // Don't show season-complete or playoff champion until scoring finishes.
+          return (
+            <div className="rounded-2xl overflow-hidden shadow-sm border border-amber-200 bg-amber-50">
+              <div className="px-6 py-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+                <h2 className="text-xl font-bold text-amber-800">Scoring in Progress</h2>
+                <p className="text-sm text-amber-700 max-w-sm mx-auto">
+                  Official earnings for the {pendingTournament.name} are still being finalized.
+                  Standings and results will update once scoring is complete.
+                </p>
+              </div>
+            </div>
+          );
+        }
 
         if (hasCompletedTournaments) {
           // Season is over — all scheduled tournaments have completed

@@ -830,18 +830,20 @@ def score_round(db: Session, playoff_round: PlayoffRound) -> None:
     }
 
     # ── Validate earnings then score in a single pass ────────────────────
-    # First check all picks have earnings before modifying any records.
-    for pick in all_picks:
-        entry = entries_by_golfer.get(pick.golfer_id)
-        if entry is not None and entry.earnings_usd is None:
-            raise HTTPException(
-                status_code=422,
-                detail=(
-                    "Earnings are not yet available for all golfers in this round. "
-                    "Please wait for official tournament results to be published "
-                    "and try again."
-                ),
-            )
+    # Check that the overall earnings gate has passed for this tournament
+    # before scoring any picks. Individual entries may still have NULL
+    # earnings (amateurs, ESPN edge cases) — those are treated as $0.
+    from app.services.scraper import _all_earnings_available
+
+    if not _all_earnings_available(db, str(tournament.id)):
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Earnings are not yet available for all golfers in this round. "
+                "Please wait for official tournament results to be published "
+                "and try again."
+            ),
+        )
 
     # Score picks and compute member totals.
     for pod in playoff_round.pods:

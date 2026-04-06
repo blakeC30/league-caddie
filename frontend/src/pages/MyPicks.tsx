@@ -148,16 +148,19 @@ export function MyPicks() {
   // Regular-season-only picks and tournaments — excludes playoff rounds from stats.
   const regularPicks = scheduledPicks?.filter((p) => !playoffTournamentIds.has(p.tournament_id)) ?? null;
   const regularCompletedTournaments = completedTournaments.filter(
-    (t) => !playoffTournamentIds.has(t.id)
+    (t) => !playoffTournamentIds.has(t.id) && !t.scoring_pending
   );
 
   // Fully finished regular-season tournaments with no pick submitted — penalty applies to these.
   // Playoff tournaments are excluded: their penalty is already baked into total_points from the
   // playoff scoring service and must not be double-counted here.
+  // Scoring-pending tournaments are excluded: ESPN hasn't published all earnings yet, so the
+  // tournament doesn't count toward standings until scoring completes.
   const noPickCompletedCount = completedTournaments.filter(
     (t) =>
       t.status === "completed" &&
       !playoffTournamentIds.has(t.id) &&
+      !t.scoring_pending &&
       !scheduledPicks?.some((p) => p.tournament_id === t.id)
   ).length;
   const penaltyTotal = noPickCompletedCount * (league?.no_pick_penalty ?? 0);

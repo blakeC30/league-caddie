@@ -90,7 +90,7 @@ export function PicksTable({
     } else if (sortField === "points") {
       const penalty = league?.no_pick_penalty ?? 0;
       const noPick = (row: typeof a) =>
-        !row.pick && row.tournament.status === "completed" ? penalty : (row.pick?.points_earned ?? 0);
+        !row.pick && row.tournament.status === "completed" && !row.tournament.scoring_pending ? penalty : (row.pick?.points_earned ?? 0);
       cmp = noPick(a) - noPick(b);
     }
     return sortDir === "asc" ? cmp : -cmp;
@@ -396,7 +396,7 @@ export function PicksTable({
                   <p className={`text-xs sm:text-sm font-medium ${tournament.status === "scheduled" ? "text-gray-400" : "text-red-400"}`}>
                     {tournament.status === "scheduled" ? "No pick yet" : "No pick"}
                   </p>
-                  {tournament.status === "completed" && league?.no_pick_penalty !== undefined ? (
+                  {tournament.status === "completed" && !tournament.scoring_pending && league?.no_pick_penalty !== undefined ? (
                     <p className="text-base sm:text-lg font-bold text-red-500 tabular-nums">
                       {formatPoints(league.no_pick_penalty)}
                     </p>

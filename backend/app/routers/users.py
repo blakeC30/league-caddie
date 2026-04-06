@@ -376,6 +376,8 @@ def get_league_summaries(
         is_playoff_week = False
         is_in_playoffs = False
         my_playoff_picks_out: list[LeagueSummaryPlayoffPick] = []
+        playoff_scoring_pending = False
+        scoring_pending_tournament_name: str | None = None
 
         config = config_by_league.get(m.league_id)
         if config and config.playoff_size > 0 and current_lt is not None:
@@ -406,6 +408,29 @@ def get_league_summaries(
                                 partner_name=partner.golfer.name if partner else None,
                             )
                         )
+            elif config.status == "pending" and season:
+                # Bracket not seeded yet — check if scoring is pending.
+                unscored = (
+                    db.query(Pick)
+                    .join(Tournament, Pick.tournament_id == Tournament.id)
+                    .join(
+                        LeagueTournament,
+                        (LeagueTournament.league_id == Pick.league_id)
+                        & (LeagueTournament.tournament_id == Pick.tournament_id),
+                    )
+                    .filter(
+                        Pick.league_id == league.id,
+                        Pick.season_id == season.id,
+                        Tournament.status == "completed",
+                        Pick.points_earned.is_(None),
+                    )
+                    .first()
+                )
+                if unscored:
+                    playoff_scoring_pending = True
+                    scoring_pending_tournament_name = (
+                        db.query(Tournament.name).filter_by(id=unscored.tournament_id).scalar()
+                    )
 
         results.append(
             LeagueSummaryOut(
@@ -423,6 +448,8 @@ def get_league_summaries(
                 my_playoff_picks=my_playoff_picks_out,
                 pick_window_open=pick_window_open,
                 preceding_tournament_name=preceding_tournament_name,
+                playoff_scoring_pending=playoff_scoring_pending,
+                scoring_pending_tournament_name=scoring_pending_tournament_name,
             )
         )
 

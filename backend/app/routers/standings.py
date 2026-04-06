@@ -12,7 +12,15 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_active_season, require_active_purchase, require_league_member
-from app.models import League, LeagueMember, LeaguePurchase, Season
+from app.models import (
+    League,
+    LeagueMember,
+    LeaguePurchase,
+    LeagueTournament,
+    Season,
+    Tournament,
+)
+from app.models.tournament import TournamentStatus
 from app.schemas.standings import StandingsResponse, StandingsRow
 from app.services.scoring import calculate_standings
 
@@ -78,8 +86,26 @@ def get_standings(
         for i, row in enumerate(raw_rows)
     ]
 
+    # Find completed tournaments in this league's schedule where ESPN hasn't
+    # published all earnings yet. Uses the same gate as scoring/standings.
+    from app.services.scraper import _all_earnings_available
+
+    completed_in_schedule = (
+        db.query(Tournament)
+        .join(LeagueTournament, LeagueTournament.tournament_id == Tournament.id)
+        .filter(
+            LeagueTournament.league_id == league.id,
+            Tournament.status == TournamentStatus.COMPLETED.value,
+        )
+        .all()
+    )
+    scoring_pending = [
+        t.name for t in completed_in_schedule if not _all_earnings_available(db, str(t.id))
+    ]
+
     return StandingsResponse(
         league_id=league.id,
         season_year=season.year,
         rows=rows,
+        scoring_pending_tournaments=scoring_pending,
     )

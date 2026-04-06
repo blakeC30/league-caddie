@@ -299,12 +299,12 @@ def trigger_tournament_sync(
     if tournament.status == "completed":
         from app.models import PlayoffRound
         from app.services.playoff import advance_bracket, score_round
-        from app.services.scraper import _winner_has_earnings
+        from app.services.scraper import _all_earnings_available
 
         playoff_rounds = (
             db.query(PlayoffRound).filter_by(tournament_id=tournament.id, status="locked").all()
         )
-        if playoff_rounds and _winner_has_earnings(db, str(tournament.id)):
+        if playoff_rounds and _all_earnings_available(db, str(tournament.id)):
             for playoff_round in playoff_rounds:
                 try:
                     score_round(db, playoff_round)

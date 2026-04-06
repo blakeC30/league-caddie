@@ -246,6 +246,43 @@ export function MakePick() {
     );
   }
 
+  // Playoff scoring pending: bracket can't be seeded yet
+  if (myPod?.playoff_scoring_pending) {
+    return (
+      <div className="max-w-lg mx-auto space-y-6">
+        {tournament && (
+          <div className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5">
+            <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-1">
+              Up Next
+            </p>
+            <p className="text-xl font-bold text-white">{fmtTournamentName(tournament.name)}</p>
+          </div>
+        )}
+        <div className="bg-amber-50 rounded-2xl border border-amber-200 p-10 text-center space-y-3">
+          <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+          </div>
+          <p className="font-semibold text-amber-800">Scoring in Progress</p>
+          <p className="text-sm text-amber-700 max-w-xs mx-auto">
+            {myPod.scoring_pending_tournament_name
+              ? `Official earnings for the ${myPod.scoring_pending_tournament_name} are still being finalized. `
+              : "Official tournament earnings are still being finalized. "}
+            The playoff bracket will be seeded and picks will open once scoring is complete.
+          </p>
+          <Link
+            to={`/leagues/${leagueId}`}
+            className="inline-block text-sm font-semibold text-green-700 hover:text-green-900 mt-2 transition-colors"
+          >
+            ← Back to dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Playoff week: show playoff preference UI instead of regular pick
   if (myPod?.is_playoff_week) {
     const podId = myPod.active_pod_id;

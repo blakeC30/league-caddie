@@ -177,6 +177,21 @@ export function Leaderboard() {
         </div>
       ) : pageView === "standings" && standings ? (
         <div className="space-y-3">
+          {standings.scoring_pending_tournaments.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
+              <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+              </svg>
+              <p className="text-sm text-amber-700">
+                <span className="font-semibold">Scoring pending</span>
+                {" \u2014 "}
+                {standings.scoring_pending_tournaments.length === 1
+                  ? `Points for the ${standings.scoring_pending_tournaments[0]} are being finalized.`
+                  : `Points for ${standings.scoring_pending_tournaments.join(" and ")} are being finalized.`}
+                {" Standings will update once official earnings are published."}
+              </p>
+            </div>
+          )}
           {expanded && showStandingsSearch && (
             <input
               type="text"

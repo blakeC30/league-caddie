@@ -255,6 +255,11 @@ class MyPlayoffPodOut(BaseModel):
     picks_per_round: int | None
     required_preference_count: int | None  # pod_size * picks_per_round
     deadline: datetime | None
+    # True when a playoff config exists but the bracket can't be seeded yet
+    # because completed tournaments still have unscored picks (ESPN earnings
+    # not yet published). Blocks regular-season picks on playoff tournaments.
+    playoff_scoring_pending: bool = False
+    scoring_pending_tournament_name: str | None = None
 
 
 class PlayoffPickSummary(BaseModel):

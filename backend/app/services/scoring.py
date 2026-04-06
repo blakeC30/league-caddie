@@ -94,8 +94,25 @@ def rescore_league_picks(
     Pure SQL — no ESPN API calls, no writes to shared tables. Safe to call
     from user-facing endpoints (schedule save, admin pick override, bulk import).
 
+    Respects the earnings completeness gate: if the tournament is completed
+    but not all made-the-cut entries have earnings, scoring is deferred to
+    prevent premature $0 scores while ESPN is still publishing earnings.
+
     Returns the number of picks updated.
     """
+    # Earnings completeness gate — only applies to completed tournaments.
+    tournament = db.query(Tournament).filter_by(id=tournament_id).first()
+    if tournament and tournament.status == TournamentStatus.COMPLETED.value:
+        from app.services.scraper import _all_earnings_available
+
+        if not _all_earnings_available(db, str(tournament_id)):
+            log.info(
+                "Deferring rescore for league=%s tournament=%s — earnings not yet available",
+                str(league_id),
+                str(tournament_id),
+            )
+            return 0
+
     p = Pick.__table__.alias("p")
     te = TournamentEntry.__table__
     lt = LeagueTournament.__table__
@@ -235,6 +252,24 @@ def calculate_standings(db: Session, league: League, season: Season) -> list[dic
         playoff_tournament_ids = {row.tournament_id for row in rows}
 
     completed_ids = {t.id for t in season_tournaments if t.id not in playoff_tournament_ids}
+
+    # Exclude completed tournaments where ESPN hasn't published all earnings
+    # yet. The earnings gate (_all_earnings_available) checks that all
+    # made-the-cut entries have earnings_usd populated. Until that's true,
+    # the tournament should not count toward standings at all — no points,
+    # no penalties. This prevents both spurious no-pick penalties AND
+    # premature $0 scoring during the 12-48h ESPN earnings publication window.
+    if completed_ids:
+        from app.services.scraper import _all_earnings_available
+
+        pending_ids = {tid for tid in completed_ids if not _all_earnings_available(db, str(tid))}
+        if pending_ids:
+            log.info(
+                "Standings: excluding %d tournament(s) with incomplete earnings from league=%s",
+                len(pending_ids),
+                str(league.id),
+            )
+            completed_ids -= pending_ids
 
     # Only approved members appear in standings — pending requests are excluded.
     members = (

@@ -50,7 +50,6 @@ from app.models import (
     PlayoffRound,
     Season,
     Tournament,
-    TournamentEntry,
     User,
 )
 from app.models.tournament import TournamentStatus
@@ -565,10 +564,11 @@ def get_bracket(
     #      the last regular-season tournament is still live would produce incorrect
     #      standings (that tournament is excluded from calculate_standings until
     #      it reaches COMPLETED status).
-    #   3. The most recently completed tournament's picks all have non-null
-    #      earnings_usd.  score_picks() leaves earnings_usd null when ESPN hasn't
-    #      published prize money yet; seeding on those standings would rank members
-    #      as if the last tournament's pickers all earned $0.
+    #   3. All picks for completed tournaments in this league have been scored
+    #      (points_earned IS NOT NULL).  ESPN publishes earnings gradually over
+    #      12-48h after completion; the score_picks() earnings gate defers scoring
+    #      until all made-the-cut entries have earnings.  Seeding before scoring
+    #      completes would produce incorrect standings.
     if config_loaded.status == "pending":
         num_rounds_needed = _required_rounds(config_loaded.playoff_size)
         scheduled_count = (
@@ -587,34 +587,30 @@ def get_bracket(
                 .filter(Tournament.status == TournamentStatus.IN_PROGRESS.value)
                 .count()
             )
-            # Condition 3: last completed tournament's pick earnings are published
-            earnings_ready = True
+            # Condition 3: all picks for completed tournaments are scored.
+            # Checks points_earned (set by score_picks) rather than raw
+            # earnings_usd, so we know standings reflect actual scored results.
+            all_scored = True
             if in_progress_count == 0:
-                last_reg = (
-                    db.query(LeagueTournament)
-                    .filter_by(league_id=league.id)
-                    .join(Tournament, LeagueTournament.tournament_id == Tournament.id)
-                    .filter(Tournament.status == TournamentStatus.COMPLETED.value)
-                    .order_by(Tournament.start_date.desc())
+                unscored_pick = (
+                    db.query(Pick)
+                    .join(Tournament, Pick.tournament_id == Tournament.id)
+                    .join(
+                        LeagueTournament,
+                        (LeagueTournament.league_id == Pick.league_id)
+                        & (LeagueTournament.tournament_id == Pick.tournament_id),
+                    )
+                    .filter(
+                        Pick.league_id == league.id,
+                        Pick.season_id == season.id,
+                        Tournament.status == TournamentStatus.COMPLETED.value,
+                        Pick.points_earned.is_(None),
+                    )
                     .first()
                 )
-                if last_reg:
-                    pick_golfer_ids_sq = db.query(Pick.golfer_id).filter(
-                        Pick.league_id == league.id,
-                        Pick.tournament_id == last_reg.tournament_id,
-                    )
-                    unfinalized = (
-                        db.query(TournamentEntry)
-                        .filter(
-                            TournamentEntry.tournament_id == last_reg.tournament_id,
-                            TournamentEntry.golfer_id.in_(pick_golfer_ids_sq),
-                            TournamentEntry.earnings_usd.is_(None),
-                        )
-                        .first()
-                    )
-                    earnings_ready = unfinalized is None
+                all_scored = unscored_pick is None
 
-            if in_progress_count == 0 and earnings_ready:
+            if in_progress_count == 0 and all_scored:
                 try:
                     seed_playoff(db, config_loaded)
                     config_loaded = _load_config()
@@ -662,13 +658,44 @@ def seed_bracket(
     it on demand — useful if no member has hit the bracket page yet and the
     first playoff tournament is about to start.
 
-    Raises 422 if the bracket is already seeded or seeding conditions are not met.
+    Raises 422 if the bracket is already seeded, seeding conditions are not met,
+    or any completed tournament in the schedule has unscored picks.
     """
     league, _ = league_and_member
     config = db.query(PlayoffConfig).filter_by(league_id=league.id, season_id=season.id).first()
     if not config:
         raise HTTPException(
             status_code=404, detail="No playoff configuration found for this league"
+        )
+
+    # Guard: all picks for completed tournaments must be scored before seeding.
+    # ESPN publishes earnings gradually (12-48h); score_picks() defers until all
+    # made-the-cut entries have earnings. Seeding before scoring completes would
+    # produce incorrect standings.
+    unscored_pick = (
+        db.query(Pick)
+        .join(Tournament, Pick.tournament_id == Tournament.id)
+        .join(
+            LeagueTournament,
+            (LeagueTournament.league_id == Pick.league_id)
+            & (LeagueTournament.tournament_id == Pick.tournament_id),
+        )
+        .filter(
+            Pick.league_id == league.id,
+            Pick.season_id == season.id,
+            Tournament.status == TournamentStatus.COMPLETED.value,
+            Pick.points_earned.is_(None),
+        )
+        .first()
+    )
+    if unscored_pick:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Cannot seed the bracket yet — some completed tournaments have "
+                "unscored picks. Earnings are still being published by ESPN. "
+                "Please wait and try again later."
+            ),
         )
 
     seed_playoff(db, config)
@@ -1147,6 +1174,46 @@ def get_my_playoff_pod(
         .first()
     )
     if not active_round:
+        # No playoff round assigned to this tournament yet. If the config is
+        # pending (bracket not seeded) and there are unscored picks for completed
+        # tournaments, the bracket is waiting for earnings to be published.
+        # Signal this to the frontend so it blocks regular-season picks.
+        if config.status == "pending":
+            unscored = (
+                db.query(Pick)
+                .join(Tournament, Pick.tournament_id == Tournament.id)
+                .join(
+                    LeagueTournament,
+                    (LeagueTournament.league_id == Pick.league_id)
+                    & (LeagueTournament.tournament_id == Pick.tournament_id),
+                )
+                .filter(
+                    Pick.league_id == league.id,
+                    Pick.season_id == season.id,
+                    Tournament.status == TournamentStatus.COMPLETED.value,
+                    Pick.points_earned.is_(None),
+                )
+                .first()
+            )
+            if unscored:
+                pending_name = (
+                    db.query(Tournament.name).filter_by(id=unscored.tournament_id).scalar()
+                )
+                return MyPlayoffPodOut(
+                    is_playoff_week=False,
+                    is_in_playoffs=False,
+                    active_pod_id=None,
+                    active_round_number=None,
+                    tournament_id=None,
+                    round_status=None,
+                    has_submitted=False,
+                    submitted_count=0,
+                    picks_per_round=None,
+                    required_preference_count=None,
+                    deadline=None,
+                    playoff_scoring_pending=True,
+                    scoring_pending_tournament_name=pending_name,
+                )
         return _false
 
     # It is a playoff week — check if current user is in a pod

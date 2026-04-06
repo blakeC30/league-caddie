@@ -62,6 +62,7 @@ class LeagueTournamentOut(TournamentOut):
     effective_multiplier: float
     all_r1_teed_off: bool = False
     is_playoff_round: bool = False
+    scoring_pending: bool = False
 
 
 # ---------------------------------------------------------------------------

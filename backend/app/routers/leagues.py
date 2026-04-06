@@ -1056,6 +1056,15 @@ def _build_league_tournament_out(
         TournamentStatus.IN_PROGRESS.value,
         TournamentStatus.SCHEDULED.value,
     )
+    # Check earnings completeness for completed tournaments.
+    check_earnings = t.status == TournamentStatus.COMPLETED.value
+    if check_earnings:
+        from app.services.scraper import _all_earnings_available
+
+        earnings_available = _all_earnings_available(db, str(t.id))
+    else:
+        earnings_available = True
+
     return LeagueTournamentOut(
         id=t.id,
         pga_tour_id=t.pga_tour_id,
@@ -1068,6 +1077,7 @@ def _build_league_tournament_out(
         effective_multiplier=effective,
         all_r1_teed_off=_all_r1_teed_off(db, t.id) if check_tee_times else False,
         is_playoff_round=t.id in playoff_ids,
+        scoring_pending=not earnings_available,
     )
 
 

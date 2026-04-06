@@ -541,15 +541,22 @@ class TestScoreRound:
         assert "completed" in exc.value.detail.lower()
 
     def test_raises_if_earnings_not_published(self, db):
-        """score_round aborts with 422 if any assigned pick's golfer has null earnings_usd."""
+        """score_round aborts with 422 when <80% of made-the-cut entries have earnings."""
         from fastapi import HTTPException
+
+        from app.models import TournamentEntryRound
 
         manager = _make_user(db, "mgr_enp@test.com")
         league, season = _make_league(db, manager)
-        tournament = _make_tournament(db, league, status="completed")
+        # days_ago=1: ended yesterday (within 72h escape hatch window)
+        tournament = _make_tournament(db, league, status="completed", days_ago=1)
         golfer = _make_golfer(db)
-        # Entry exists but earnings not published yet
-        _make_entry(db, tournament, golfer, earnings_usd=None)
+        # Entry exists but earnings not published yet.
+        # Must have rounds so the earnings gate counts it as made-the-cut.
+        entry = _make_entry(db, tournament, golfer, earnings_usd=None)
+        for rn in range(1, 5):
+            db.add(TournamentEntryRound(tournament_entry_id=entry.id, round_number=rn))
+        db.commit()
 
         config = _make_config(db, league, season, picks_per_round=[1])
         round_obj = _make_round(db, config, tournament, status="locked")

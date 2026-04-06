@@ -53,6 +53,8 @@ export interface LeagueTournamentOut extends Tournament {
   all_r1_teed_off: boolean;
   // true when this tournament is assigned to a PlayoffRound for this league.
   is_playoff_round: boolean;
+  // true when tournament is completed but ESPN hasn't published all earnings yet.
+  scoring_pending: boolean;
 }
 
 export interface Golfer {
@@ -134,6 +136,7 @@ export interface StandingsResponse {
   league_id: string;
   season_year: number;
   rows: StandingsRow[];
+  scoring_pending_tournaments: string[];
 }
 
 export interface PickerInfo {
@@ -245,6 +248,8 @@ export interface MyPlayoffPodOut {
   picks_per_round: number | null;
   required_preference_count: number | null;
   deadline: string | null;
+  playoff_scoring_pending: boolean;
+  scoring_pending_tournament_name: string | null;
 }
 
 export interface PlayoffPickSummary {
@@ -372,6 +377,8 @@ export interface LeagueSummary {
   my_playoff_picks: LeagueSummaryPlayoffPick[];
   pick_window_open: boolean;
   preceding_tournament_name: string | null;
+  playoff_scoring_pending: boolean;
+  scoring_pending_tournament_name: string | null;
 }
 
 export const usersApi = {
