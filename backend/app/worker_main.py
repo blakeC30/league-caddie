@@ -67,6 +67,12 @@ def handle(message: dict) -> None:
             _handle_tournament_completed(db, tournament_id)
         elif event_type == "PICK_REMINDER_SEND":
             _handle_pick_reminder_send(db, message)
+        elif event_type == "LEAGUE_EMAIL_SEND":
+            league_email_id = message.get("league_email_id")
+            if not league_email_id:
+                log.warning("LEAGUE_EMAIL_SEND missing league_email_id")
+                return
+            _handle_league_email_send(db, league_email_id)
         else:
             # Unknown event type — log and let the message be deleted so it
             # doesn't clog the queue. Do not raise (that would retry).
@@ -257,6 +263,51 @@ def _handle_pick_reminder_send(db, message: dict) -> None:
         result["skipped"],
         result["failed"],
     )
+
+
+def _handle_league_email_send(db, league_email_id: str) -> None:
+    """Send a manager-composed email to opted-in league members."""
+    from sqlalchemy.orm import joinedload
+
+    from app.models import League, LeagueEmail, LeagueMember, LeagueMemberStatus, User
+    from app.services.email import send_manager_league_email
+
+    email_row = db.query(LeagueEmail).filter_by(id=league_email_id).first()
+    if not email_row:
+        log.warning("LEAGUE_EMAIL_SEND: email record %s not found", league_email_id)
+        return
+
+    league = db.query(League).filter_by(id=email_row.league_id).first()
+    sender = db.query(User).filter_by(id=email_row.sender_id).first()
+    if not league or not sender:
+        log.warning("LEAGUE_EMAIL_SEND: league or sender not found for %s", league_email_id)
+        return
+
+    members = (
+        db.query(LeagueMember)
+        .filter_by(league_id=league.id, status=LeagueMemberStatus.APPROVED.value)
+        .options(joinedload(LeagueMember.user))
+        .all()
+    )
+    opted_in = [m for m in members if m.user.manager_emails_enabled]
+
+    sent = 0
+    for m in opted_in:
+        try:
+            send_manager_league_email(
+                to_email=m.user.email,
+                member_name=m.user.display_name,
+                league_name=league.name,
+                sender_name=sender.display_name,
+                subject=email_row.subject,
+                body=email_row.body,
+                league_id=str(league.id),
+            )
+            sent += 1
+        except Exception as exc:
+            log.error("LEAGUE_EMAIL_SEND: failed to send to %s: %s", m.user.email, exc)
+
+    log.info("LEAGUE_EMAIL_SEND: sent %d/%d emails for %s", sent, len(opted_in), league_email_id)
 
 
 def _configure_logging() -> None:

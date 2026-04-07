@@ -122,6 +122,8 @@ All routes are prefixed with `/api/v1`.
 | DELETE | `/leagues/{league_id}/requests/{user_id}` | manager | Deny request |
 | GET | `/leagues/{league_id}/tournaments` | member | League's selected tournaments (returns `LeagueTournamentOut` with `effective_multiplier` and `all_r1_teed_off`) |
 | PUT | `/leagues/{league_id}/tournaments` | manager | Atomically replace schedule; body: `{tournaments: [{tournament_id, multiplier?}]}`; validates sufficient future tournaments for playoff config if pending |
+| POST | `/leagues/{league_id}/send-email` | manager | Send email to league members; body: `{recipient_user_ids, subject, body}`; empty recipient list = all opted-in; rate limit 2/hour; returns 202 + audit record |
+| GET | `/leagues/{league_id}/emails` | manager | List last 20 emails sent to this league |
 | GET | `/tournaments` | token | All/filtered by status |
 | GET | `/tournaments/{id}` | token | Tournament details |
 | GET | `/tournaments/{id}/field` | token | Golfers in field — returns `GolferInFieldOut[]` (includes `tee_time`); WD golfers excluded; all others returned regardless of status so frontend can grey out teed-off golfers |
@@ -219,7 +221,7 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 
 | Table | Key Columns |
 |-------|-------------|
-| `users` | id (UUID), email (unique), password_hash (nullable), google_id (nullable), display_name, first_name (VARCHAR 50, default ''), last_name (VARCHAR 50, default ''), is_platform_admin |
+| `users` | id (UUID), email (unique), password_hash (nullable), google_id (nullable), display_name, first_name (VARCHAR 50, default ''), last_name (VARCHAR 50, default ''), is_platform_admin, pick_reminders_enabled (bool, default true), manager_emails_enabled (bool, default true) |
 | `password_reset_tokens` | id (UUID), user_id (FK→users, CASCADE), token_hash (SHA-256 hex, indexed), expires_at, used_at (nullable — set on redemption), created_at |
 | `leagues` | id (UUID), name, invite_code (unique, 16-char token), is_public, accepting_requests, auto_accept_requests, is_admin_league (bool, default false), has_active_purchase (bool, default false), no_pick_penalty (default=-50000) — no description column |
 | `league_members` | league_id, user_id, role ("manager"\|"member"), status ("pending"\|"approved") |
@@ -230,6 +232,7 @@ Always call `db.commit()` explicitly. Never rely on auto-commit. Use `db.refresh
 | `golfers` | pga_tour_id (unique), name, world_ranking, country |
 | `picks` | league_id, season_id, user_id, tournament_id, golfer_id, points_earned (nullable); UNIQUE(league_id, season_id, user_id, tournament_id) |
 | `league_tournaments` | league_id, tournament_id, multiplier (float nullable); UNIQUE(league_id, tournament_id) |
+| `league_emails` | id (UUID), league_id (FK→leagues SET NULL, nullable), sender_id (FK→users SET NULL, nullable), subject (VARCHAR 100), body (TEXT), recipient_count (int), created_at; INDEX(league_id) |
 | `playoff_configs` | id (UUID), league_id, season_id, is_enabled, playoff_size, draft_style, picks_per_round (JSON int array, one entry per round), status, seeded_at; UNIQUE(league_id, season_id) |
 | `playoff_rounds` | id (int), playoff_config_id, round_number, tournament_id (nullable), draft_opens_at, draft_resolved_at, status; UNIQUE(playoff_config_id, round_number) |
 | `playoff_pods` | id (int), playoff_round_id, bracket_position, winner_user_id (nullable), status; UNIQUE(playoff_round_id, bracket_position) |
@@ -299,6 +302,7 @@ Existing migration files (in order):
 34. `5b6c7d8e9f0a` — add `stripe_webhook_failures` table
 35. `c7e2a1f9b4d3` — add `thru` and `started_on_back` columns to `tournament_entry_rounds`
 36. `f2b3c4d5e6a7` — add partial unique index enforcing one active season per league
+37. `w9x1y3z5a7b9` — add `league_emails` table and `users.manager_emails_enabled` (bool, default true)
 
 New migrations still go in `alembic/versions/` with correct `down_revision` chaining.
 - Local dev: apply manually via psql (above)
@@ -359,6 +363,7 @@ The worker handles event-triggered operations that don't belong on a clock.
 | `TOURNAMENT_IN_PROGRESS` | `sync_tournament()` (every 5 min while in_progress + unresolved rounds) | `resolve_draft()` for any "drafting" playoff rounds once `any_r1_teed_off()` returns True |
 | `TOURNAMENT_COMPLETED` | `sync_schedule()` on status transition | `score_picks()` → `score_round()` → `advance_bracket()` in order |
 | `PICK_REMINDER_SEND` | `_run_pick_reminder_send()` APScheduler job (Wed 18:00 UTC) | Query all unsent `PickReminder` rows, aggregate by user, send one consolidated email per user via Resend |
+| `LEAGUE_EMAIL_SEND` | `POST /leagues/{id}/send-email` (manager action) | Read `LeagueEmail` audit row, send to all opted-in members via Resend |
 
 All handlers are **idempotent** — SQS at-least-once delivery is safe. The visibility timeout (120 s) prevents two worker pods from processing the same message simultaneously.
 

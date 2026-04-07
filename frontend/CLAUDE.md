@@ -88,6 +88,7 @@ src/
 │       ├── PlayoffConfigSection.tsx
 │       ├── LeaguePlanSection.tsx
 │       ├── RevisePickSection.tsx
+│       ├── SendEmailSection.tsx
 │       └── DangerZoneSection.tsx
 └── App.tsx                 # Route definitions
 ```
@@ -151,6 +152,7 @@ Always use these exact key shapes — mismatches cause stale data:
 | `["tournamentLeaderboard", tournamentId]` | `useTournamentLeaderboard(tournamentId)` — invalidated by sync-status polling, no self-refetch |
 | `["tournamentSyncStatus", tournamentId]` | `useTournamentSyncStatus(tournamentId)` — polls every 30s when in_progress; on `last_synced_at` change, invalidates `tournamentLeaderboard` |
 | `["leaguePurchase", leagueId]` | `useLeaguePurchase(leagueId)` — season pass purchase status; invalidated on BillingSuccess |
+| `["leagueEmails", leagueId]` | `useLeagueEmails(leagueId)` — manager-sent email history (last 20); invalidated on send |
 | `["stripePricing"]` | `stripeApi.getPricing()` — public pricing tiers; fetched directly in Pricing page |
 
 ## API Conventions

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.schemas.user import UserOut
 
@@ -118,3 +118,35 @@ class RosterMemberOut(BaseModel):
     email: str | None = None
     role: str
     joined_at: str
+
+
+# ---------------------------------------------------------------------------
+# Manager league email
+# ---------------------------------------------------------------------------
+
+
+class SendLeagueEmailRequest(BaseModel):
+    """Manager sends an email to selected (or all) league members."""
+
+    recipient_user_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        max_length=500,
+        description="Specific user IDs to email. Empty list = all opted-in members.",
+    )
+    subject: str = Field(min_length=1, max_length=100)
+    body: str = Field(min_length=1, max_length=2000)
+
+    @model_validator(mode="after")
+    def strip_whitespace(self):
+        self.subject = self.subject.strip()
+        self.body = self.body.strip()
+        return self
+
+
+class LeagueEmailOut(BaseModel):
+    id: uuid.UUID
+    subject: str
+    recipient_count: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

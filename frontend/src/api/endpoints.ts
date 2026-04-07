@@ -385,7 +385,7 @@ export const usersApi = {
   me: () =>
     api.get<User>("/users/me").then((r) => r.data),
 
-  updateMe: (fields: { display_name?: string; pick_reminders_enabled?: boolean }) =>
+  updateMe: (fields: { display_name?: string; pick_reminders_enabled?: boolean; manager_emails_enabled?: boolean }) =>
     api.patch<User>("/users/me", fields).then((r) => r.data),
 
   myLeagues: () =>
@@ -394,6 +394,23 @@ export const usersApi = {
   leagueSummaries: () =>
     api.get<LeagueSummary[]>("/users/me/league-summaries").then((r) => r.data),
 };
+
+// ---------------------------------------------------------------------------
+// League email types
+// ---------------------------------------------------------------------------
+
+export interface SendLeagueEmailRequest {
+  recipient_user_ids: string[];
+  subject: string;
+  body: string;
+}
+
+export interface LeagueEmailOut {
+  id: string;
+  subject: string;
+  recipient_count: number;
+  created_at: string;
+}
 
 // ---------------------------------------------------------------------------
 // Leagues
@@ -456,6 +473,12 @@ export const leaguesApi = {
 
   getPurchaseEvents: (leagueId: string) =>
     api.get<LeaguePurchaseEvent[]>(`/leagues/${leagueId}/purchase/events`).then((r) => r.data),
+
+  sendEmail: (leagueId: string, data: SendLeagueEmailRequest) =>
+    api.post<LeagueEmailOut>(`/leagues/${leagueId}/send-email`, data).then((r) => r.data),
+
+  getEmails: (leagueId: string) =>
+    api.get<LeagueEmailOut[]>(`/leagues/${leagueId}/emails`).then((r) => r.data),
 };
 
 // ---------------------------------------------------------------------------

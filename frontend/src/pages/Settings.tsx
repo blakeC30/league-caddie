@@ -121,6 +121,10 @@ export function Settings() {
     user?.pick_reminders_enabled ?? true
   );
   const [remindersLoading, setRemindersLoading] = useState(false);
+  const [managerEmailsEnabled, setManagerEmailsEnabled] = useState(
+    user?.manager_emails_enabled ?? true
+  );
+  const [managerEmailsLoading, setManagerEmailsLoading] = useState(false);
 
   const { data: leagues, isLoading: leaguesLoading } = useMyLeagues();
   const [isEditingLeagues, setIsEditingLeagues] = useState(false);
@@ -178,10 +182,22 @@ export function Settings() {
       const updated = await usersApi.updateMe({ pick_reminders_enabled: enabled });
       setAuth(updated, token!);
     } catch {
-      // Revert optimistic update on failure.
       setRemindersEnabled(!enabled);
     } finally {
       setRemindersLoading(false);
+    }
+  }
+
+  async function handleManagerEmailsToggle(enabled: boolean) {
+    setManagerEmailsEnabled(enabled);
+    setManagerEmailsLoading(true);
+    try {
+      const updated = await usersApi.updateMe({ manager_emails_enabled: enabled });
+      setAuth(updated, token!);
+    } catch {
+      setManagerEmailsEnabled(!enabled);
+    } finally {
+      setManagerEmailsLoading(false);
     }
   }
 
@@ -388,6 +404,33 @@ export function Settings() {
             <span
               className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
                 remindersEnabled ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-0.5 flex-1">
+            <p className="text-sm font-medium text-gray-800">
+              League manager emails
+            </p>
+            <p className="text-xs text-gray-400 leading-relaxed">
+              Receive emails sent by your league managers.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={managerEmailsEnabled}
+            disabled={managerEmailsLoading}
+            onClick={() => handleManagerEmailsToggle(!managerEmailsEnabled)}
+            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-50 ${
+              managerEmailsEnabled ? "bg-green-700" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                managerEmailsEnabled ? "translate-x-6" : "translate-x-1"
               }`}
             />
           </button>

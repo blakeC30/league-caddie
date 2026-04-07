@@ -90,6 +90,15 @@ class User(Base):
         nullable=False,
     )
 
+    # Opt-out flag for emails sent by league managers. Default True — all users
+    # receive manager emails unless they explicitly turn them off in Settings.
+    manager_emails_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        default=True,
+        server_default="true",
+        nullable=False,
+    )
+
     # server_default=func.now() means the DB sets this automatically on INSERT.
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

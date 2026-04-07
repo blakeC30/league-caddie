@@ -5,7 +5,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import { leaguesApi, stripeApi, usersApi } from "../api/endpoints";
-import type { LeaguePurchaseEvent, LeaguePurchaseStatus, PricingTier } from "../api/endpoints";
+import type { LeagueEmailOut, LeaguePurchaseEvent, LeaguePurchaseStatus, PricingTier, SendLeagueEmailRequest } from "../api/endpoints";
 
 export function useLeagueSummaries() {
   return useQuery({
@@ -235,6 +235,25 @@ export function useRoster(leagueId: string) {
   return useQuery<RosterMember[]>({
     queryKey: ["roster", leagueId],
     queryFn: () => api.get(`/leagues/${leagueId}/roster`).then((r) => r.data),
+    enabled: !!leagueId,
+  });
+}
+
+export function useSendLeagueEmail(leagueId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (data: SendLeagueEmailRequest) =>
+      leaguesApi.sendEmail(leagueId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["leagueEmails", leagueId] });
+    },
+  });
+}
+
+export function useLeagueEmails(leagueId: string) {
+  return useQuery<LeagueEmailOut[]>({
+    queryKey: ["leagueEmails", leagueId],
+    queryFn: () => leaguesApi.getEmails(leagueId),
     enabled: !!leagueId,
   });
 }

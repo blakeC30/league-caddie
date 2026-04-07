@@ -5,5 +5,6 @@ export { MembersSection } from "./MembersSection";
 export { TournamentScheduleSection } from "./TournamentScheduleSection";
 export { PlayoffConfigSection } from "./PlayoffConfigSection";
 export { RevisePickSection } from "./RevisePickSection";
+export { SendEmailSection } from "./SendEmailSection";
 export { LeaguePlanSection } from "./LeaguePlanSection";
 export { DangerZoneSection } from "./DangerZoneSection";

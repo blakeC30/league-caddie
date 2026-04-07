@@ -8,6 +8,7 @@ from app.models.base import Base
 from app.models.deleted_league import DeletedLeague
 from app.models.golfer import Golfer
 from app.models.league import League, LeagueMember, LeagueMemberRole, LeagueMemberStatus
+from app.models.league_email import LeagueEmail
 from app.models.league_purchase import (
     LeaguePurchase,
     LeaguePurchaseEvent,
@@ -41,6 +42,7 @@ __all__ = [
     "User",
     "League",
     "LeagueMember",
+    "LeagueEmail",
     "LeagueMemberRole",
     "LeagueMemberStatus",
     "Season",

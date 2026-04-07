@@ -33,6 +33,7 @@ import {
   TournamentScheduleSection,
   PlayoffConfigSection,
   RevisePickSection,
+  SendEmailSection,
   LeaguePlanSection,
   DangerZoneSection,
 } from "../components/manage";
@@ -275,6 +276,11 @@ export function ManageLeague() {
           poReviseFieldLoading={poReviseFieldLoading}
           onConfirm={setConfirmModal}
         />
+      )}
+
+      {/* Send Email — manager only */}
+      {isManager && (
+        <SendEmailSection leagueId={leagueId!} members={members} />
       )}
 
       {/* Revise Pick — manager only */}

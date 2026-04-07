@@ -40,6 +40,7 @@ from app.dependencies import (
 from app.limiter import limiter
 from app.models import (
     League,
+    LeagueEmail,
     LeagueMember,
     LeagueMemberRole,
     LeagueMemberStatus,
@@ -61,6 +62,7 @@ from app.models.deleted_league import DeletedLeague
 from app.models.tournament import TournamentStatus
 from app.schemas.league import (
     LeagueCreate,
+    LeagueEmailOut,
     LeagueJoinPreview,
     LeagueMemberOut,
     LeagueOut,
@@ -68,6 +70,7 @@ from app.schemas.league import (
     LeagueUpdate,
     RoleUpdate,
     RosterMemberOut,
+    SendLeagueEmailRequest,
 )
 from app.schemas.tournament import LeagueTournamentOut
 from app.services.picks import all_r1_teed_off as _all_r1_teed_off
@@ -1308,3 +1311,150 @@ def update_league_tournaments(
     )
     playoff_ids = _playoff_tournament_ids_for_league(league.id, db)
     return [_build_league_tournament_out(row, db, playoff_ids) for row in rows]
+
+
+# ---------------------------------------------------------------------------
+# Manager email to league
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{league_id}/send-email",
+    status_code=202,
+    response_model=LeagueEmailOut,
+)
+@limiter.limit("1/day")
+def send_league_email(
+    request: Request,
+    body: SendLeagueEmailRequest,
+    league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Manager: send an email to league members.
+
+    recipient_user_ids selects specific members. Empty list = all opted-in
+    members. Members who have disabled manager_emails_enabled are excluded
+    regardless.
+
+    The email is sent asynchronously via the SQS worker. Returns 202 with
+    the audit record. Limited to 1 email per league per day (DB-enforced).
+    """
+    from datetime import UTC, timedelta
+
+    league, _ = league_and_manager
+
+    # DB-enforced: 1 email per league per 24 hours.
+    recent = (
+        db.query(LeagueEmail)
+        .filter(
+            LeagueEmail.league_id == league.id,
+            LeagueEmail.created_at >= datetime.datetime.now(UTC) - timedelta(hours=24),
+        )
+        .first()
+    )
+    if recent:
+        raise HTTPException(
+            status_code=422,
+            detail="You can only send one email per day. Please try again later.",
+        )
+
+    # Query opted-in approved members.
+    members = (
+        db.query(LeagueMember)
+        .filter_by(
+            league_id=league.id,
+            status=LeagueMemberStatus.APPROVED.value,
+        )
+        .options(joinedload(LeagueMember.user))
+        .all()
+    )
+    opted_in = [m for m in members if m.user.manager_emails_enabled]
+
+    # Filter to selected recipients if specified.
+    if body.recipient_user_ids:
+        selected_ids = set(body.recipient_user_ids)
+        recipients = [m for m in opted_in if m.user_id in selected_ids]
+    else:
+        recipients = opted_in
+
+    if not recipients:
+        raise HTTPException(
+            status_code=422,
+            detail="No eligible recipients. Members may have opted out.",
+        )
+
+    # Create audit record.
+    email_record = LeagueEmail(
+        league_id=league.id,
+        sender_id=current_user.id,
+        subject=body.subject,
+        body=body.body,
+        recipient_count=len(recipients),
+    )
+    db.add(email_record)
+    db.commit()
+    db.refresh(email_record)
+
+    # Publish SQS event for async sending.
+    import os
+
+    if os.environ.get("SQS_QUEUE_URL"):
+        from app.services.sqs import publish
+
+        try:
+            publish(
+                "LEAGUE_EMAIL_SEND",
+                league_email_id=str(email_record.id),
+            )
+        except Exception as exc:
+            log.error(
+                "Failed to publish LEAGUE_EMAIL_SEND for %s: %s",
+                str(email_record.id),
+                exc,
+            )
+    else:
+        # No SQS — send inline (local dev).
+        from app.services.email import send_manager_league_email
+
+        for m in recipients:
+            send_manager_league_email(
+                to_email=m.user.email,
+                member_name=m.user.display_name,
+                league_name=league.name,
+                sender_name=current_user.display_name,
+                subject=body.subject,
+                body=body.body,
+                league_id=str(league.id),
+            )
+
+    log.info(
+        "League email queued: league=%s sender=%s recipients=%d subject=%r",
+        str(league.id),
+        str(current_user.id),
+        len(recipients),
+        body.subject,
+    )
+    return email_record
+
+
+@router.get(
+    "/{league_id}/emails",
+    response_model=list[LeagueEmailOut],
+)
+def get_league_emails(
+    league_and_manager: tuple[League, LeagueMember] = Depends(require_league_manager),
+    purchase: LeaguePurchase | None = Depends(require_active_purchase),
+    db: Session = Depends(get_db),
+):
+    """Manager: list recent emails sent to this league (last 20)."""
+    league, _ = league_and_manager
+    return (
+        db.query(LeagueEmail)
+        .filter_by(league_id=league.id)
+        .order_by(LeagueEmail.created_at.desc())
+        .limit(20)
+        .all()
+    )

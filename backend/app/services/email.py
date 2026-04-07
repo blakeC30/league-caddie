@@ -70,19 +70,7 @@ def send_password_reset_email(to_email: str, raw_token: str) -> None:
           <!-- Header — matches Login/Register page gradient -->
           <tr>
             <td style="background:linear-gradient(to bottom right,#052e16,#14532d,#166534);padding:36px 40px;text-align:center;">
-              <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                <tr>
-                  <td style="padding-right:8px;vertical-align:middle;">
-                    <!-- Exact FlagIcon path from FlagIcon.tsx -->
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                      <path fill-rule="evenodd" clip-rule="evenodd" d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054A8.25 8.25 0 0 0 18 4.524l3.11-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.77l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" />
-                    </svg>
-                  </td>
-                  <td style="vertical-align:middle;">
-                    <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">League Caddie</span>
-                  </td>
-                </tr>
-              </table>
+              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">League Caddie</span>
             </td>
           </tr>
 
@@ -161,6 +149,9 @@ def send_pick_reminder_email(
         len(unpicked),
     )
 
+    frontend = settings.FRONTEND_URL.rstrip("/")
+    settings_url = f"{frontend}/settings"
+
     # Subject uses the first tournament name for brevity.
     first = unpicked[0]
     subject = (
@@ -191,7 +182,7 @@ def send_pick_reminder_email(
 
     lines.append(
         "To stop receiving pick reminders, visit "
-        f"{settings.FRONTEND_URL}/settings and turn off email notifications.\n"
+        f"{settings_url} and turn off email notifications.\n"
     )
     text_body = "\n".join(lines)
 
@@ -273,18 +264,7 @@ def send_pick_reminder_email(
           <!-- Header -->
           <tr>
             <td style="background:linear-gradient(to bottom right,#052e16,#14532d,#166534);padding:36px 40px;text-align:center;">
-              <table cellpadding="0" cellspacing="0" style="margin:0 auto;">
-                <tr>
-                  <td style="padding-right:8px;vertical-align:middle;">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                      <path fill-rule="evenodd" clip-rule="evenodd" d="M3 2.25a.75.75 0 0 1 .75.75v.54l1.838-.46a9.75 9.75 0 0 1 6.725.738l.108.054A8.25 8.25 0 0 0 18 4.524l3.11-.732a.75.75 0 0 1 .917.81 47.784 47.784 0 0 0 .005 10.337.75.75 0 0 1-.574.812l-3.114.733a9.75 9.75 0 0 1-6.594-.77l-.108-.054a8.25 8.25 0 0 0-5.69-.625l-2.202.55V21a.75.75 0 0 1-1.5 0V3A.75.75 0 0 1 3 2.25Z" />
-                    </svg>
-                  </td>
-                  <td style="vertical-align:middle;">
-                    <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">League Caddie</span>
-                  </td>
-                </tr>
-              </table>
+              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">League Caddie</span>
             </td>
           </tr>
 
@@ -312,8 +292,13 @@ def send_pick_reminder_email(
           <!-- Footer -->
           <tr>
             <td style="background-color:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#9ca3af;">
+              <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">
                 &copy; 2026 League Caddie
+              </p>
+              <p style="margin:0;font-size:11px;">
+                <a href="{settings_url}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>
+                <span style="color:#d1d5db;">&nbsp;&middot;&nbsp;</span>
+                <a href="{frontend}" style="color:#9ca3af;text-decoration:underline;">Open app</a>
               </p>
             </td>
           </tr>
@@ -326,3 +311,120 @@ def send_pick_reminder_email(
 </html>"""
 
     _send(to_email, subject, html_body, text_body)
+
+
+# ---------------------------------------------------------------------------
+# Manager league email
+# ---------------------------------------------------------------------------
+
+
+def send_manager_league_email(
+    to_email: str,
+    member_name: str,
+    league_name: str,
+    sender_name: str,
+    subject: str,
+    body: str,
+    league_id: str,
+) -> None:
+    """Send a manager-composed email to one league member."""
+    frontend = settings.FRONTEND_URL.rstrip("/")
+    league_url = f"{frontend}/leagues/{league_id}"
+    settings_url = f"{frontend}/settings"
+
+    # Escape user-provided content to prevent XSS in the HTML version.
+    import html as html_mod
+
+    safe_subject = html_mod.escape(subject)
+    safe_body = html_mod.escape(body).replace("\n", "<br>")
+    safe_sender = html_mod.escape(sender_name)
+    safe_league = html_mod.escape(league_name)
+    safe_member = html_mod.escape(member_name)
+
+    full_subject = f"[{league_name}] {subject}"
+
+    text_body = f"""Message from {sender_name} in {league_name}
+
+Hi {member_name},
+
+{body}
+
+---
+Open your league: {league_url}
+To stop receiving these emails, update your preferences: {settings_url}
+"""
+
+    html_body = f"""\
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{safe_subject}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f3f4f6;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width:520px;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+          <!-- Header — League Caddie branding -->
+          <tr>
+            <td style="background:linear-gradient(to bottom right,#052e16,#14532d,#166534);padding:36px 40px;text-align:center;">
+              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:-0.3px;">League Caddie</span>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:40px 40px 32px;">
+              <p style="margin:0 0 2px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#15803d;">
+                {safe_league}
+              </p>
+              <p style="margin:0 0 16px;font-size:13px;color:#9ca3af;">
+                From {safe_sender}
+              </p>
+              <h1 style="margin:0 0 20px;font-size:24px;font-weight:700;color:#111827;line-height:1.3;">
+                {safe_subject}
+              </h1>
+              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
+                Hi {safe_member},
+              </p>
+              <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.6;">
+                {safe_body}
+              </p>
+
+              <table cellpadding="0" cellspacing="0" style="margin:0 auto 28px;">
+                <tr>
+                  <td style="background-color:#166534;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.12);">
+                    <a href="{league_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:12px;">
+                      Open League
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;text-align:center;">
+              <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;">
+                &copy; 2026 League Caddie &nbsp;&middot;&nbsp; Sent by your league manager
+              </p>
+              <p style="margin:0;font-size:11px;">
+                <a href="{settings_url}" style="color:#9ca3af;text-decoration:underline;">Unsubscribe</a>
+                <span style="color:#d1d5db;">&nbsp;&middot;&nbsp;</span>
+                <a href="{league_url}" style="color:#9ca3af;text-decoration:underline;">View league</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    _send(to_email, full_subject, html_body, text_body)

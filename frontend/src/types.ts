@@ -16,6 +16,7 @@ export interface User {
   last_name: string;
   is_platform_admin: boolean;
   pick_reminders_enabled: boolean;
+  manager_emails_enabled: boolean;
   created_at: string;
 }
 
