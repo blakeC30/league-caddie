@@ -11,9 +11,6 @@ export interface SendEmailSectionProps {
 export function SendEmailSection({ leagueId, members }: SendEmailSectionProps) {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [selectAll, setSelectAll] = useState(true);
-  const [recipientSearch, setRecipientSearch] = useState("");
   const [success, setSuccess] = useState<{ count: number } | null>(null);
   const [error, setError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
@@ -23,55 +20,22 @@ export function SendEmailSection({ leagueId, members }: SendEmailSectionProps) {
 
   const approved = members?.filter((m) => m.status === "approved") ?? [];
   const optedIn = approved.filter((m) => m.user.manager_emails_enabled);
-  const optedOut = approved.filter((m) => !m.user.manager_emails_enabled);
-  const q = recipientSearch.toLowerCase();
-  const filteredOptedIn = q ? optedIn.filter((m) => m.user.display_name.toLowerCase().includes(q)) : optedIn;
-  const filteredOptedOut = q ? optedOut.filter((m) => m.user.display_name.toLowerCase().includes(q)) : optedOut;
-
-  function toggleMember(userId: string) {
-    setSelectAll(false);
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(userId)) next.delete(userId);
-      else next.add(userId);
-      return next;
-    });
-  }
-
-  function handleSelectAll() {
-    if (selectAll) {
-      setSelectAll(false);
-      setSelectedIds(new Set());
-    } else {
-      setSelectAll(true);
-      setSelectedIds(new Set());
-    }
-  }
-
-  const recipientCount = selectAll
-    ? optedIn.length
-    : optedIn.filter((m) => selectedIds.has(m.user_id)).length;
+  const optedOutCount = approved.length - optedIn.length;
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setSuccess(null);
 
-    const recipientUserIds = selectAll
-      ? [] // empty = all opted-in
-      : Array.from(selectedIds);
-
     try {
       const result = await sendEmail.mutateAsync({
-        recipient_user_ids: recipientUserIds,
+        recipient_user_ids: [], // empty = all opted-in
         subject: subject.trim(),
         body: body.trim(),
       });
       setSuccess({ count: result.recipient_count });
       setSubject("");
       setBody("");
-      setSelectAll(true);
-      setSelectedIds(new Set());
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(msg ?? "Failed to send email. Please try again.");
@@ -107,56 +71,12 @@ export function SendEmailSection({ leagueId, members }: SendEmailSectionProps) {
       )}
 
       <form onSubmit={handleSend} className="space-y-4">
-        {/* Recipients */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Recipients</label>
-          {approved.length > 10 && (
-            <input
-              type="text"
-              placeholder="Search members..."
-              value={recipientSearch}
-              onChange={(e) => setRecipientSearch(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
+        {/* Recipient summary */}
+        <div className="text-sm text-gray-500">
+          Sending to <span className="font-medium text-gray-700">{optedIn.length} member{optedIn.length !== 1 ? "s" : ""}</span>
+          {optedOutCount > 0 && (
+            <span className="text-gray-400"> ({optedOutCount} opted out)</span>
           )}
-          <div className="border border-gray-200 rounded-xl max-h-48 overflow-y-auto divide-y divide-gray-100">
-            {/* Select all toggle */}
-            {!recipientSearch && (
-              <label className="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={selectAll}
-                  onChange={handleSelectAll}
-                  className="rounded border-gray-300 text-green-700 focus:ring-green-500"
-                />
-                <span className="text-sm font-medium text-gray-900">
-                  All members ({optedIn.length})
-                </span>
-              </label>
-            )}
-            {filteredOptedIn.map((m) => (
-              <label key={m.user_id} className="flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-50">
-                <input
-                  type="checkbox"
-                  checked={selectAll || selectedIds.has(m.user_id)}
-                  disabled={selectAll}
-                  onChange={() => toggleMember(m.user_id)}
-                  className="rounded border-gray-300 text-green-700 focus:ring-green-500 disabled:opacity-40"
-                />
-                <span className="text-sm text-gray-700">{m.user.display_name}</span>
-              </label>
-            ))}
-            {filteredOptedOut.map((m) => (
-              <div key={m.user_id} className="flex items-center gap-3 px-4 py-2 opacity-40">
-                <input type="checkbox" disabled checked={false} className="rounded border-gray-300" />
-                <span className="text-sm text-gray-400">{m.user.display_name}</span>
-                <span className="text-[10px] text-gray-400 ml-auto">opted out</span>
-              </div>
-            ))}
-            {recipientSearch && filteredOptedIn.length === 0 && filteredOptedOut.length === 0 && (
-              <p className="px-4 py-3 text-sm text-gray-400 text-center">No members match your search.</p>
-            )}
-          </div>
         </div>
 
         {/* Subject */}
@@ -193,14 +113,10 @@ export function SendEmailSection({ leagueId, members }: SendEmailSectionProps) {
 
         <button
           type="submit"
-          disabled={sendEmail.isPending || recipientCount === 0 || !subject.trim() || !body.trim()}
+          disabled={sendEmail.isPending || optedIn.length === 0 || !subject.trim() || !body.trim()}
           className="w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xl transition-colors"
         >
-          {sendEmail.isPending
-            ? "Sending..."
-            : selectAll
-              ? "Send to all members"
-              : `Send to ${recipientCount} member${recipientCount !== 1 ? "s" : ""}`}
+          {sendEmail.isPending ? "Sending..." : "Send to all members"}
         </button>
       </form>
 
