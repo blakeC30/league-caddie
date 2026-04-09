@@ -129,6 +129,11 @@ spec:
                 configMapKeyRef:
                   name: {{ include "league-caddie.configmapName" . }}
                   key: AWS_ENDPOINT_URL
+            - name: SQS_QUEUE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "league-caddie.configmapName" . }}
+                  key: SQS_QUEUE_URL
             - name: EMAIL_FROM
               valueFrom:
                 configMapKeyRef:

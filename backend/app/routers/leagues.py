@@ -1420,15 +1420,22 @@ def send_league_email(
         from app.services.email import send_manager_league_email
 
         for m in recipients:
-            send_manager_league_email(
-                to_email=m.user.email,
-                member_name=m.user.display_name,
-                league_name=league.name,
-                sender_name=current_user.display_name,
-                subject=body.subject,
-                body=body.body,
-                league_id=str(league.id),
-            )
+            try:
+                send_manager_league_email(
+                    to_email=m.user.email,
+                    member_name=m.user.display_name,
+                    league_name=league.name,
+                    sender_name=current_user.display_name,
+                    subject=body.subject,
+                    body=body.body,
+                    league_id=str(league.id),
+                )
+            except Exception as exc:
+                log.error(
+                    "Inline email send failed for %s: %s",
+                    m.user.email,
+                    exc,
+                )
 
     log.info(
         "League email queued: league=%s sender=%s recipients=%d subject=%r",
