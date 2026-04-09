@@ -339,13 +339,10 @@ def send_manager_league_email(
     safe_body = html_mod.escape(body).replace("\n", "<br>")
     safe_sender = html_mod.escape(sender_name)
     safe_league = html_mod.escape(league_name)
-    safe_member = html_mod.escape(member_name)
 
     full_subject = f"[{league_name}] {subject}"
 
     text_body = f"""Message from {sender_name} in {league_name}
-
-Hi {member_name},
 
 {body}
 
@@ -387,9 +384,6 @@ To stop receiving these emails, update your preferences: {settings_url}
               <h1 style="margin:0 0 20px;font-size:24px;font-weight:700;color:#111827;line-height:1.3;">
                 {safe_subject}
               </h1>
-              <p style="margin:0 0 24px;font-size:15px;color:#6b7280;line-height:1.6;">
-                Hi {safe_member},
-              </p>
               <p style="margin:0 0 28px;font-size:15px;color:#374151;line-height:1.6;">
                 {safe_body}
               </p>
