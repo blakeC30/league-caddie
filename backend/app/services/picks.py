@@ -25,7 +25,7 @@ Rules enforced:
 
 import logging
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 from fastapi import HTTPException
 from sqlalchemy import func as sqlfunc
@@ -322,7 +322,10 @@ def validate_new_pick(
                     detail="Pick deadline has passed — golfer has already teed off",
                 )
         else:
-            if tournament.start_date <= date.today():
+            # Fallback when no per-golfer tee_time is available. Use strict <
+            # so that a same-day tournament (Thursday start) doesn't reject
+            # picks made before any tee times have actually passed.
+            if tournament.start_date < datetime.now(UTC).date():
                 log.warning(
                     "Pick validation failed: tournament=%s already started, user=%s",
                     str(tournament_id),
@@ -446,16 +449,10 @@ def validate_pick_change(
                 detail="Pick is locked — golfer has already teed off or tee time is unavailable",
             )
     else:
-        # SCHEDULED: apply the same start_date deadline as a new pick.
-        if tournament.start_date <= date.today():
-            log.warning(
-                "Pick change failed: tournament=%s deadline passed, user=%s",
-                str(tournament.id),
-                str(user_id),
-            )
-            raise HTTPException(status_code=400, detail="Pick deadline has passed")
-
-        # Only enforce the field check if entries have been released.
+        # SCHEDULED: check the new golfer's tee_time against now (mirrors
+        # validate_new_pick logic). Falls back to start_date only when no
+        # tee_time has been set yet.
+        entry = None
         if field_released:
             entry = (
                 db.query(TournamentEntry)
@@ -471,6 +468,29 @@ def validate_pick_change(
                 raise HTTPException(
                     status_code=400, detail="Golfer is not entered in this tournament"
                 )
+
+        now = datetime.now(UTC)
+        if entry is not None and entry.tee_time is not None:
+            if entry.tee_time <= now:
+                log.warning(
+                    "Pick change failed: golfer=%s already teed off, user=%s",
+                    str(new_golfer_id),
+                    str(user_id),
+                )
+                raise HTTPException(
+                    status_code=400,
+                    detail="Pick deadline has passed — golfer has already teed off",
+                )
+        else:
+            # Fallback: no per-golfer tee_time available. Use the tournament
+            # start_date but only as a last resort. Compare against UTC date.
+            if tournament.start_date < datetime.now(UTC).date():
+                log.warning(
+                    "Pick change failed: tournament=%s deadline passed, user=%s",
+                    str(tournament.id),
+                    str(user_id),
+                )
+                raise HTTPException(status_code=400, detail="Pick deadline has passed")
 
     # No-repeat: new golfer can't already be used this season (excluding this pick's golfer).
     existing = (

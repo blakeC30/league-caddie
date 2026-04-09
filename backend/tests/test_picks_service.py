@@ -506,6 +506,31 @@ class TestValidateNewPickGolferChecks:
         assert exc_info.value.status_code == 400
         assert "deadline has passed" in exc_info.value.detail.lower()
 
+    def test_scheduled_same_day_with_future_tee_time_succeeds(self, db):
+        """REGRESSION: Submitting a new pick early on tournament-start day
+        (e.g. 1am CST Thursday for a Thursday-start event) must succeed when
+        the golfer's tee_time is still in the future. The fix uses per-golfer
+        tee_time rather than calendar-day comparison."""
+        user = _make_user(db, "u1@example.com")
+        league, season = _make_league(db, user)
+        # Tournament starts TODAY (same calendar day).
+        tournament = _make_tournament(db, status=TournamentStatus.SCHEDULED.value, days_from_now=0)
+        _add_to_schedule(db, league, tournament)
+        golfer = _make_golfer(db)
+        # Tee time is 6 hours in the future.
+        future_tee = datetime.now(UTC) + timedelta(hours=6)
+        _make_entry(db, tournament, golfer, tee_time=future_tee)
+
+        # Should succeed — no exception raised.
+        validate_new_pick(
+            db,
+            league_id=league.id,
+            season=season,
+            user_id=user.id,
+            tournament_id=tournament.id,
+            golfer_id=golfer.id,
+        )
+
     def test_in_progress_no_field_raises_400(self, db):
         """For IN_PROGRESS tournaments with no field entries, new picks are blocked."""
         user = _make_user(db, "u1@example.com")
@@ -839,7 +864,8 @@ class TestValidatePickChange:
         assert "locked" in exc_info.value.detail.lower()
 
     def test_scheduled_past_start_date_raises_400(self, db):
-        """For SCHEDULED tournaments, changing a pick is blocked once start_date has passed."""
+        """For SCHEDULED tournaments with no per-golfer tee_time data,
+        changing a pick is blocked once start_date is strictly in the past."""
         user = _make_user(db, "u1@example.com")
         league, season = _make_league(db, user)
         # Tournament started yesterday.
@@ -848,6 +874,8 @@ class TestValidatePickChange:
         golfer_a = _make_golfer(db, "Golfer A")
         golfer_b = _make_golfer(db, "Golfer B")
         _make_entry(db, tournament, golfer_a)
+        # New golfer is in the field but has no tee_time → fallback to start_date check
+        _make_entry(db, tournament, golfer_b)
         pick = _make_pick(db, league, season, user, tournament, golfer_a)
 
         with pytest.raises(HTTPException) as exc_info:
@@ -861,6 +889,37 @@ class TestValidatePickChange:
             )
         assert exc_info.value.status_code == 400
         assert "deadline has passed" in exc_info.value.detail.lower()
+
+    def test_scheduled_same_day_new_golfer_with_future_tee_time_succeeds(self, db):
+        """REGRESSION: A user reported being unable to change their pick at 1am
+        CST Thursday before any tee times had passed. The bug was the calendar-day
+        check (start_date <= today) firing on Thursday morning when the actual
+        tee times weren't until Thursday afternoon. Fix: check the new golfer's
+        per-golfer tee_time against now() instead of comparing dates."""
+        from datetime import UTC, datetime, timedelta
+
+        user = _make_user(db, "u1@example.com")
+        league, season = _make_league(db, user)
+        # Tournament starts TODAY but tee times are in the future.
+        tournament = _make_tournament(db, status=TournamentStatus.SCHEDULED.value, days_from_now=0)
+        _add_to_schedule(db, league, tournament)
+        golfer_a = _make_golfer(db, "Golfer A")
+        golfer_b = _make_golfer(db, "Golfer B")
+        # Both golfers have tee times 6 hours from now.
+        future_tee = datetime.now(UTC) + timedelta(hours=6)
+        _make_entry(db, tournament, golfer_a, tee_time=future_tee)
+        _make_entry(db, tournament, golfer_b, tee_time=future_tee)
+        pick = _make_pick(db, league, season, user, tournament, golfer_a)
+
+        # Should succeed — no exception raised.
+        validate_pick_change(
+            db,
+            pick=pick,
+            new_golfer_id=golfer_b.id,
+            season=season,
+            league_id=league.id,
+            user_id=user.id,
+        )
 
     def test_scheduled_field_released_new_golfer_not_in_field_raises_400(self, db):
         """For SCHEDULED tournaments with a released field, the new golfer must be in the field."""
