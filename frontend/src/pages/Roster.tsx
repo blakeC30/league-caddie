@@ -34,7 +34,9 @@ export function Roster() {
     () =>
       roster
         ? [...roster].sort((a, b) =>
-            a.display_name.localeCompare(b.display_name, undefined, { sensitivity: "base" }),
+            a.display_name
+              .trim()
+              .localeCompare(b.display_name.trim(), undefined, { sensitivity: "base" }),
           )
         : [],
     [roster],

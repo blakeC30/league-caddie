@@ -16,6 +16,11 @@ class LeagueCreate(BaseModel):
     no_pick_penalty: int = -50_000
     auto_accept_requests: bool = False
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v):
+        return v.strip() if isinstance(v, str) else v
+
     @field_validator("no_pick_penalty")
     @classmethod
     def normalize_penalty(cls, v: int) -> int:
@@ -33,6 +38,14 @@ class LeagueUpdate(BaseModel):
     no_pick_penalty: int | None = None
     accepting_requests: bool | None = None
     auto_accept_requests: bool | None = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, v):
+        if isinstance(v, str):
+            stripped = v.strip()
+            return stripped if stripped else v
+        return v
 
     @field_validator("no_pick_penalty")
     @classmethod

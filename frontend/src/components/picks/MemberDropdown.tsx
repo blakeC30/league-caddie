@@ -45,7 +45,9 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
 
   const sortedMembers = useMemo(
     () => [...approvedMembers].sort((a, b) =>
-      a.user.display_name.localeCompare(b.user.display_name)
+      a.user.display_name
+        .trim()
+        .localeCompare(b.user.display_name.trim(), undefined, { sensitivity: "base" })
     ),
     [approvedMembers],
   );

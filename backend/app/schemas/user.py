@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class UserOut(BaseModel):
@@ -37,6 +37,14 @@ class UserUpdate(BaseModel):
     last_name: str | None = Field(default=None, min_length=1, max_length=50)
     pick_reminders_enabled: bool | None = None
     manager_emails_enabled: bool | None = None
+
+    @field_validator("display_name", "first_name", "last_name", mode="before")
+    @classmethod
+    def _strip_names(cls, v):
+        if isinstance(v, str):
+            stripped = v.strip()
+            return stripped if stripped else v  # let min_length validator catch empty
+        return v
 
 
 # ---------------------------------------------------------------------------

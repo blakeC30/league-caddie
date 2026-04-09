@@ -147,7 +147,11 @@ export function RevisePickSection({
                 members
                   ?.filter((m) => m.status === "approved")
                   .slice()
-                  .sort((a, b) => a.user.display_name.localeCompare(b.user.display_name))
+                  .sort((a, b) =>
+                    a.user.display_name
+                      .trim()
+                      .localeCompare(b.user.display_name.trim(), undefined, { sensitivity: "base" })
+                  )
                   .map((m) => ({ value: m.user_id, label: m.user.display_name })) ?? []
               }
             />

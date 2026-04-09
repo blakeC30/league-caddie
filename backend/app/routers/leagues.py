@@ -616,7 +616,7 @@ def get_roster(
             )
             for m in members
         ],
-        key=lambda r: r.display_name.lower(),
+        key=lambda r: r.display_name.strip().lower(),
     )
 
 

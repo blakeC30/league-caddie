@@ -158,9 +158,11 @@ def google_auth(
 
     google_id = claims["sub"]
     email = claims.get("email", "").lower()
-    name = claims.get("name", email)[:50]
-    first_name = claims.get("given_name", "")[:50]
-    last_name = claims.get("family_name", "")[:50]
+    # Strip whitespace — some Google profiles include trailing/leading spaces
+    # which would corrupt alphabetical sorting in standings/roster.
+    name = claims.get("name", email).strip()[:50]
+    first_name = claims.get("given_name", "").strip()[:50]
+    last_name = claims.get("family_name", "").strip()[:50]
 
     # Try to find the user by google_id first, then by email (account linking).
     user = db.query(User).filter_by(google_id=google_id).first()

@@ -36,7 +36,9 @@ export function MembersSection({
     const sorted = [...(members ?? [])].sort((a, b) => {
       if (a.role === "manager" && b.role !== "manager") return -1;
       if (b.role === "manager" && a.role !== "manager") return 1;
-      return a.user.display_name.localeCompare(b.user.display_name);
+      return a.user.display_name
+        .trim()
+        .localeCompare(b.user.display_name.trim(), undefined, { sensitivity: "base" });
     });
     if (!search.trim()) return sorted;
     const q = search.trim().toLowerCase();
