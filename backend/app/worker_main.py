@@ -291,6 +291,8 @@ def _handle_league_email_send(db, league_email_id: str) -> None:
     )
     opted_in = [m for m in members if m.user.manager_emails_enabled]
 
+    import time
+
     sent = 0
     for m in opted_in:
         try:
@@ -304,6 +306,9 @@ def _handle_league_email_send(db, league_email_id: str) -> None:
                 league_id=str(league.id),
             )
             sent += 1
+            # Resend rate limit: 5 requests/second. Sleep 250ms between sends
+            # to stay under the limit (~4 req/sec with overhead).
+            time.sleep(0.25)
         except Exception as exc:
             log.error("LEAGUE_EMAIL_SEND: failed to send to %s: %s", m.user.email, exc)
 
