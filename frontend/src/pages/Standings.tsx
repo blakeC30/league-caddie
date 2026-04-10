@@ -27,13 +27,13 @@ import { StandingsTr } from "../components/leaderboard/StandingsTr";
 // Page
 // ---------------------------------------------------------------------------
 
-export function Leaderboard() {
+export function Standings() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const [searchParams] = useSearchParams();
   const { data: standings, isLoading, isError } = useStandings(leagueId!);
 
   useEffect(() => {
-    document.title = "Leaderboard — League Caddie";
+    document.title = "Standings — League Caddie";
   }, []);
   const { data: bracket } = useBracket(leagueId!);
   const currentUserId = useAuthStore((s) => s.user?.id);
@@ -128,7 +128,7 @@ export function Leaderboard() {
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-            Leaderboard
+            Standings
           </p>
           <h1 className="text-3xl font-bold text-gray-900">
             {pageView === "bracket" ? "Playoff Bracket" : "Season Standings"}

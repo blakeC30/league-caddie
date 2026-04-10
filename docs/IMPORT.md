@@ -263,7 +263,7 @@ If validation fails, no data is written and the response lists all errors.
 
 After importing all members and picks:
 
-1. **Compare standings** — check the Leaderboard page standings against the commissioner's spreadsheet
+1. **Compare standings** — check the Standings page against the commissioner's spreadsheet
 2. **Spot-check picks** — select a few members in the Picks page and verify their pick history matches the PDFs
 3. **Check edge cases**:
    - Members with no picks for certain weeks should show the no-pick penalty

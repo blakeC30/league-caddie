@@ -110,8 +110,8 @@ frontend/
         ├── CreateLeague.tsx     # Multi-step league creation wizard
         ├── Dashboard.tsx        # Per-league home: active tournament, standings preview
         ├── MakePick.tsx         # Golfer selection (regular season + playoff preferences)
-        ├── MyPicks.tsx          # Season pick history + stat cards + member filter
-        ├── Leaderboard.tsx      # Full standings table with tournament breakdown
+        ├── Picks.tsx             # Season pick history + stat cards + member filter
+        ├── Standings.tsx         # Full standings table with tournament breakdown
         ├── TournamentDetail.tsx # Live leaderboard with expandable scorecards
         ├── LeagueRules.tsx      # Read-only rules + league config + playoff info
         ├── ManageLeague.tsx     # Manager panel: members, schedule, playoff config
@@ -204,9 +204,9 @@ All routes are defined in [src/App.tsx](src/App.tsx). Routes that require authen
 | `/leagues/new` | `CreateLeague` | ✅ | Multi-step league creation wizard |
 | `/leagues/:leagueId` | `Dashboard` | ✅ | Per-league home with active tournament + standings |
 | `/leagues/:leagueId/pick` | `MakePick` | ✅ | Golfer selection (regular season and playoff preferences) |
-| `/leagues/:leagueId/picks` | `MyPicks` | ✅ | Season pick history with member filter |
+| `/leagues/:leagueId/picks` | `Picks` | ✅ | Season pick history with member filter |
 | `/leagues/:leagueId/tournaments/:tournamentId` | `TournamentDetail` | ✅ | Live leaderboard + scorecards |
-| `/leagues/:leagueId/leaderboard` | `Leaderboard` | ✅ | Full standings table |
+| `/leagues/:leagueId/standings` | `Standings` | ✅ | Full standings table |
 | `/leagues/:leagueId/rules` | `LeagueRules` | ✅ | Read-only rules + league config |
 | `/leagues/:leagueId/manage` | `ManageLeague` | ✅ | Manager panel (redirects non-managers away) |
 | `/leagues/:leagueId/roster` | `Roster` | ✅ | League member roster |
@@ -479,9 +479,9 @@ All functions return unwrapped data (not the raw Axios response). TypeScript int
 
 **`MakePick.tsx`** — Golfer selection for the current tournament. Fetches the tournament field and the user's pick history to determine which golfers are "used" (no-repeat rule) and which have "teed off" (locked). In playoff weeks, renders `PlayoffPreferenceEditor` instead of a standard golfer picker. Supports both submitting a new pick and changing an existing one.
 
-**`MyPicks.tsx`** — Season pick history showing each tournament, the picked golfer, earnings, and whether picks are pending/hidden/visible. A member dropdown lets managers (or any user) view another member's picks. Stat cards at the top summarize total points, pick count, and missed picks. Handles both regular-season and playoff pick displays.
+**`Picks.tsx`** — Season pick history showing each tournament, the picked golfer, earnings, and whether picks are pending/hidden/visible. A member dropdown lets managers (or any user) view another member's picks. Stat cards at the top summarize total points, pick count, and missed picks. Handles both regular-season and playoff pick displays.
 
-**`Leaderboard.tsx`** — Full standings table using `StandingsTable`. Shows rank, display name, total points, picks made, and missed picks. Medal highlights (gold/silver/bronze) for the top 3.
+**`Standings.tsx`** — Full standings table. Shows rank, display name, total points, picks made, and missed picks. Medal highlights (gold/silver/bronze) for the top 3. Includes tournament pick breakdown section (chart + table views).
 
 **`TournamentDetail.tsx`** — Live tournament leaderboard with position, golfer name, score-to-par, and earnings. Syncs automatically via `useTournamentSyncStatus` polling. Each row is expandable to show per-round hole-by-hole scorecards.
 
@@ -655,7 +655,7 @@ The app is **mobile-first**. Every screen must work well at 390×844 (iPhone 14 
 **Bottom tab bar tabs** (inside a league):
 1. Dashboard
 2. Picks
-3. Leaderboard
+3. Standings
 4. Manage (if manager) / Settings (if member)
 
 ### Layout Rules

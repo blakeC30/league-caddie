@@ -35,8 +35,8 @@ src/
 │   ├── CreateLeague.tsx    # Multi-step league creation wizard (name, schedule, no-pick penalty)
 │   ├── Dashboard.tsx       # Per-league home — current tournament, pick status, standings
 │   ├── MakePick.tsx        # Golfer selection form for upcoming tournament
-│   ├── MyPicks.tsx         # Season pick history + stat cards
-│   ├── Leaderboard.tsx     # Full standings table with tournament breakdown
+│   ├── Picks.tsx            # Season pick history + stat cards
+│   ├── Standings.tsx        # Full standings table with tournament breakdown
 │   ├── ManageLeague.tsx    # Manager panel — invite, settings, members, schedule, playoff config (auto-uses last N future tournaments as playoff rounds)
 │   ├── LeagueRules.tsx     # Read-only rules + league config view (all members) — shows league settings + game rules; playoffs section shown only when enabled
 │   ├── PlayoffBracket.tsx  # Full bracket view + per-pod draft (submission status, preference editor, resolved picks, pod detail modal)
@@ -110,10 +110,10 @@ src/
 /leagues/new                    → CreateLeague (auth required — create a new league with schedule)
 /leagues/:leagueId              → Dashboard
 /leagues/:leagueId/pick         → MakePick
-/leagues/:leagueId/picks        → MyPicks
+/leagues/:leagueId/picks        → Picks
 /leagues/:leagueId/tournaments/:tournamentId → TournamentDetail
 /leagues/:leagueId/roster       → Roster (all members — name, email, join date table)
-/leagues/:leagueId/leaderboard  → Leaderboard
+/leagues/:leagueId/standings     → Standings
 /leagues/:leagueId/rules        → LeagueRules (all members — read-only rules + league config)
 /leagues/:leagueId/manage       → ManageLeague (manager only — settings, members, schedule, playoff config)
 /leagues/:leagueId/playoff      → PlayoffBracket (all members — bracket view, pod draft, preferences)

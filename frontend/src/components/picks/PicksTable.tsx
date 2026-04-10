@@ -235,7 +235,7 @@ export function PicksTable({
         const rowLinkTarget = isPlayoffTournament && tournament.status !== "scheduled"
           ? `/leagues/${leagueId}/tournaments/${tournament.id}`
           : isPlayoffTournament
-          ? `/leagues/${leagueId}/leaderboard?view=bracket`
+          ? `/leagues/${leagueId}/standings?view=bracket`
           : `/leagues/${leagueId}/tournaments/${tournament.id}`;
         const rowLinkState = isPlayoffTournament && tournament.status !== "scheduled" && playoffPickNames.length > 0
           ? { playoffPickNames }

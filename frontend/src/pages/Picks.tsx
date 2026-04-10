@@ -15,7 +15,7 @@ import { PicksStatCards } from "../components/picks/PicksStatCards";
 import { PicksTable } from "../components/picks/PicksTable";
 import type { OtherPlayoffEntry } from "../components/picks/PicksTable";
 
-export function MyPicks() {
+export function Picks() {
   const { leagueId } = useParams<{ leagueId: string }>();
   const currentUser = useAuthStore((s) => s.user);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -284,7 +284,7 @@ export function MyPicks() {
       {leagueTournaments?.some((t) => t.status === "in_progress" || t.status === "completed") && (
         <p className="text-xs text-gray-400 text-center">
           {leagueTournaments.some((t) => t.status === "completed" && !t.scoring_pending)
-            ? "Click a tournament to view field, scores, and earnings"
+            ? "Click a tournament to view leaderboard"
             : "Click a tournament to view field and scores"}
         </p>
       )}

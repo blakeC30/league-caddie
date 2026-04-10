@@ -190,12 +190,12 @@ export function Dashboard() {
                     )}
                   </div>
                 </div>
-                <p className="text-xs text-green-300 flex items-center gap-1 flex-shrink-0 self-center">
-                  View Tournament
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <div className="flex items-center gap-1 self-center flex-shrink-0">
+                  <span className="text-xs text-green-300 hidden sm:inline">View Leaderboard</span>
+                  <svg className="w-4 h-4 sm:w-3 sm:h-3 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                   </svg>
-                </p>
+                </div>
               </div>
             </Link>
           ) : (
@@ -539,10 +539,10 @@ export function Dashboard() {
                     {completedCount} tournament{completedCount !== 1 ? "s" : ""} played
                   </p>
                   <Link
-                    to={`/leagues/${leagueId}/leaderboard`}
+                    to={`/leagues/${leagueId}/standings`}
                     className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
                   >
-                    Full Leaderboard →
+                    Full Standings →
                   </Link>
                 </div>
               </div>
@@ -629,7 +629,7 @@ export function Dashboard() {
           <h2 className="text-lg font-bold text-gray-900">Standings</h2>
           {playoffSeeded && (
             <Link
-              to={`/leagues/${leagueId}/leaderboard?view=bracket`}
+              to={`/leagues/${leagueId}/standings?view=bracket`}
               className="text-sm font-semibold text-green-700 hover:text-green-900 bg-green-50 hover:bg-green-100 px-4 py-1.5 rounded-lg transition-colors"
             >
               Playoff →
@@ -686,7 +686,7 @@ export function Dashboard() {
               <div className="flex items-center justify-center px-3 py-2">
                 {standings.rows.length > 5 ? (
                   <Link
-                    to={`/leagues/${leagueId}/leaderboard?view=standings&expand=1`}
+                    to={`/leagues/${leagueId}/standings?view=standings&expand=1`}
                     className="text-xs text-gray-400 hover:text-green-700 transition-colors"
                   >
                     View all {standings.rows.length} members →

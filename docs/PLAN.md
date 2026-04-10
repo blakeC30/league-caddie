@@ -446,9 +446,9 @@ frontend/src/
 │   ├── CreateLeague.tsx            # /leagues/new (multi-step wizard)
 │   ├── Dashboard.tsx               # /leagues/:leagueId
 │   ├── MakePick.tsx                # /leagues/:leagueId/pick
-│   ├── MyPicks.tsx                 # /leagues/:leagueId/picks
+│   ├── Picks.tsx                    # /leagues/:leagueId/picks
 │   ├── TournamentDetail.tsx        # /leagues/:leagueId/tournaments/:tournamentId
-│   ├── Leaderboard.tsx             # /leagues/:leagueId/leaderboard
+│   ├── Standings.tsx                # /leagues/:leagueId/standings
 │   ├── ManageLeague.tsx            # /leagues/:leagueId/manage (manager only)
 │   ├── PlayoffBracket.tsx          # /leagues/:leagueId/playoff
 │   ├── PlayoffDraft.tsx            # /leagues/:leagueId/playoff/pod/:podId
@@ -480,9 +480,9 @@ frontend/src/
 /leagues/new                            → Create League wizard
 /leagues/:leagueId                      → Dashboard
 /leagues/:leagueId/pick                 → Make Pick
-/leagues/:leagueId/picks                → My Picks
+/leagues/:leagueId/picks                → Picks
 /leagues/:leagueId/tournaments/:tid     → Tournament Detail
-/leagues/:leagueId/leaderboard          → Leaderboard
+/leagues/:leagueId/standings             → Standings
 /leagues/:leagueId/manage               → Manage League
 /leagues/:leagueId/playoff              → Playoff Bracket
 /leagues/:leagueId/playoff/pod/:podId   → Playoff Draft

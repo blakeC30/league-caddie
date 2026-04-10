@@ -307,7 +307,7 @@ export function Settings() {
                 <p className="text-[11px] text-gray-400 text-right tabular-nums">{displayName.length}/50</p>
               ) : (
                 <p className="text-xs text-gray-400">
-                  This is how you appear on leaderboards and pick history.
+                  This is how you appear on standings and pick history.
                 </p>
               )}
             </div>

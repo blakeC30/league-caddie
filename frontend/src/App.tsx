@@ -29,8 +29,8 @@ import { NotFound } from "./pages/NotFound";
 
 // Lazy-loaded pages — fetched on first navigation to reduce initial bundle
 const MakePick = lazy(() => import("./pages/MakePick").then(m => ({ default: m.MakePick })));
-const MyPicks = lazy(() => import("./pages/MyPicks").then(m => ({ default: m.MyPicks })));
-const Leaderboard = lazy(() => import("./pages/Leaderboard").then(m => ({ default: m.Leaderboard })));
+const Picks = lazy(() => import("./pages/Picks").then(m => ({ default: m.Picks })));
+const Standings = lazy(() => import("./pages/Standings").then(m => ({ default: m.Standings })));
 const ManageLeague = lazy(() => import("./pages/ManageLeague").then(m => ({ default: m.ManageLeague })));
 const CreateLeague = lazy(() => import("./pages/CreateLeague").then(m => ({ default: m.CreateLeague })));
 const TournamentDetail = lazy(() => import("./pages/TournamentDetail").then(m => ({ default: m.TournamentDetail })));
@@ -75,10 +75,10 @@ export default function App() {
         <Route path="/leagues/new" element={<Suspense fallback={<PageFallback />}><CreateLeague /></Suspense>} />
         <Route path="/leagues/:leagueId" element={<Dashboard />} />
         <Route path="/leagues/:leagueId/pick" element={<Suspense fallback={<PageFallback />}><MakePick /></Suspense>} />
-        <Route path="/leagues/:leagueId/picks" element={<Suspense fallback={<PageFallback />}><MyPicks /></Suspense>} />
+        <Route path="/leagues/:leagueId/picks" element={<Suspense fallback={<PageFallback />}><Picks /></Suspense>} />
         <Route path="/leagues/:leagueId/tournaments/:tournamentId" element={<Suspense fallback={<PageFallback />}><TournamentDetail /></Suspense>} />
         <Route path="/leagues/:leagueId/roster" element={<Suspense fallback={<PageFallback />}><Roster /></Suspense>} />
-        <Route path="/leagues/:leagueId/leaderboard" element={<Suspense fallback={<PageFallback />}><Leaderboard /></Suspense>} />
+        <Route path="/leagues/:leagueId/standings" element={<Suspense fallback={<PageFallback />}><Standings /></Suspense>} />
         <Route path="/leagues/:leagueId/manage" element={<Suspense fallback={<PageFallback />}><ManageLeague /></Suspense>} />
         <Route path="/leagues/:leagueId/playoff" element={<Suspense fallback={<PageFallback />}><PlayoffBracket /></Suspense>} />
         <Route path="/leagues/:leagueId/rules" element={<Suspense fallback={<PageFallback />}><LeagueRules /></Suspense>} />

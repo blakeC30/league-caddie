@@ -230,7 +230,7 @@ export function MakePick() {
             Your preferences are saved. Picks will be assigned automatically when the tournament begins.
           </p>
           <Link
-            to={`/leagues/${leagueId}/leaderboard?view=bracket`}
+            to={`/leagues/${leagueId}/standings?view=bracket`}
             className="inline-block w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
           >
             View Bracket
@@ -344,7 +344,7 @@ export function MakePick() {
               The preference window has closed and your picks have been locked in.
             </p>
             <Link
-              to={`/leagues/${leagueId}/leaderboard?view=bracket`}
+              to={`/leagues/${leagueId}/standings?view=bracket`}
               className="inline-block text-sm font-semibold text-green-700 hover:text-green-900 mt-2 transition-colors"
             >
               View Bracket →
@@ -426,7 +426,7 @@ export function MakePick() {
 
           <div className="flex items-center gap-4 pt-2">
             <Link
-              to={`/leagues/${leagueId}/leaderboard?view=bracket`}
+              to={`/leagues/${leagueId}/standings?view=bracket`}
               className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
             >
               View Bracket →
