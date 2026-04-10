@@ -15,6 +15,7 @@ export interface PickBarChartProps {
   isCompleted: boolean;
   myGolferName: string | null; // golfer the current user picked, or null if no pick
   effectiveMultiplier?: number;
+  totalMembers: number; // total approved members in the league (for % calculation)
 }
 
 type Bar = {
@@ -26,8 +27,8 @@ type Bar = {
   names: string[];
 };
 
-export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName, effectiveMultiplier }: PickBarChartProps) {
-  const [tooltip, setTooltip] = useState<{ header: string; names: string } | null>(null);
+export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName, effectiveMultiplier, totalMembers }: PickBarChartProps) {
+  const [tooltip, setTooltip] = useState<{ header: string; pct: string; names: string } | null>(null);
 
   const bars = useMemo(() => {
     // Sort by pick count desc, then alphabetically by last name for ties.
@@ -75,15 +76,15 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
   function labelColor(b: Bar): string {
     if (b.label === "No Pick") return "text-red-400";
     if (myGolferName && b.fullName === myGolferName) return "text-green-800 font-semibold";
-    return "text-gray-400";
+    return "text-gray-500";
   }
 
   function countColor(b: Bar): string {
     if (myGolferName && b.fullName === myGolferName) return "text-green-800 font-semibold";
-    return "text-gray-400";
+    return "text-gray-500";
   }
 
-  function buildTooltip(b: Bar): { header: string; names: string } {
+  function buildTooltip(b: Bar): { header: string; pct: string; names: string } {
     let earningsStr = "";
     if (b.earnings != null) {
       const mult = effectiveMultiplier ?? 1;
@@ -95,10 +96,13 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
       }
     }
     const header = b.label === "No Pick" ? "No Pick" : `${b.fullName}${earningsStr}`;
+    const pct = totalMembers > 0
+      ? `${((b.count / totalMembers) * 100).toFixed(1)}% of league`
+      : "";
     const names = b.names.length
       ? [...b.names].sort((a, c) => a.localeCompare(c)).join(", ")
       : "";
-    return { header, names };
+    return { header, pct, names };
   }
 
   return (
@@ -117,8 +121,10 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
                   setTooltip((prev) => (prev?.header === tt.header ? null : tt));
                 }}
               >
-                {/* Count label sits directly above the bar, pushed down by flex justify-end */}
-                <span className={`text-[10px] mb-0.5 ${countColor(b)}`}>{b.count}</span>
+                {/* Count + percentage label sits directly above the bar */}
+                <span className={`text-[10px] mb-0.5 ${countColor(b)}`}>
+                  {b.count}{totalMembers > 0 && <span className="text-gray-500"> ({((b.count / totalMembers) * 100).toFixed(1)}%)</span>}
+                </span>
                 {/* Bar — percentage height resolves against the h-full column */}
                 <div
                   className={`w-full rounded-t transition-opacity group-hover:opacity-70 ${barColor(b)}`}
@@ -153,6 +159,7 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
       {tooltip && (
         <div className="text-xs bg-gray-100 rounded-lg px-3 py-2 mt-1 space-y-1">
           <p className="font-semibold text-gray-800">{tooltip.header}</p>
+          {tooltip.pct && <p className="text-gray-500">{tooltip.pct}</p>}
           {tooltip.names && <p className="text-gray-600">{tooltip.names}</p>}
         </div>
       )}

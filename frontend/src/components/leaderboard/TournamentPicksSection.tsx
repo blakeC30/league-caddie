@@ -38,7 +38,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
   const { data: bracket } = useBracket(leagueId);
   const currentUserId = useAuthStore((s) => s.user?.id);
   const [selectedId, setSelectedId] = useState<string>("");
-  const [view, setView] = useState<"table" | "chart">("table");
+  const [view, setView] = useState<"table" | "chart">("chart");
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [dropdownSearch, setDropdownSearch] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -307,20 +307,20 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
           {/* View toggle */}
           <div className="flex items-center gap-1 bg-gray-200 rounded-lg p-1 w-fit">
             <button
-              onClick={() => setView("table")}
-              className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
-                view === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
-              }`}
-            >
-              Table
-            </button>
-            <button
               onClick={() => setView("chart")}
               className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
                 view === "chart" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
               }`}
             >
               Chart
+            </button>
+            <button
+              onClick={() => setView("table")}
+              className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
+                view === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              }`}
+            >
+              Table
             </button>
           </div>
 
@@ -559,6 +559,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                     )?.golfer_name ?? null
                   }
                   effectiveMultiplier={selectedTournament?.effective_multiplier}
+                  totalMembers={summary.member_count}
                 />
               )}
             </div>
