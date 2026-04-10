@@ -121,10 +121,13 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
                   setTooltip((prev) => (prev?.header === tt.header ? null : tt));
                 }}
               >
-                {/* Count + percentage label sits directly above the bar */}
-                <span className={`text-[10px] mb-0.5 ${countColor(b)}`}>
-                  {b.count}{totalMembers > 0 && <span className="text-gray-500"> ({((b.count / totalMembers) * 100).toFixed(1)}%)</span>}
-                </span>
+                {/* Count + percentage stacked above the bar */}
+                <div className={`text-[10px] mb-0.5 text-center leading-tight ${countColor(b)}`}>
+                  <span className="block">{b.count}</span>
+                  {totalMembers > 0 && (
+                    <span className="block text-gray-500">{((b.count / totalMembers) * 100).toFixed(1)}%</span>
+                  )}
+                </div>
                 {/* Bar — percentage height resolves against the h-full column */}
                 <div
                   className={`w-full rounded-t transition-opacity group-hover:opacity-70 ${barColor(b)}`}
