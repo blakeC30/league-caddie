@@ -302,29 +302,35 @@ def _fetch_competitor_rounds(
         # unplayed placeholder entries have displayValue=None or displayValue="".
         # "thru" = 0 means the round is scheduled but not started; 18 = complete.
         #
-        # Important: ESPN's per-round `score` (total strokes, from the `value`
-        # field) is only populated when the round is COMPLETE. ESPN never reports
-        # a mid-round stroke total. So if `score is not None`, the round is
-        # finished — regardless of how many entries appear in the linescores
-        # array. (Sometimes ESPN returns an empty array; sometimes a partial
-        # array of 7 holes for a completed round; the array is unreliable for
-        # completed rounds.)
+        # ESPN quirks with the `value` field (total strokes):
+        #   - During live play: running stroke total (e.g. 20 after 6 holes)
+        #   - Completed round: final stroke total (e.g. 72 after 18 holes)
+        #   - So `value` alone cannot determine completion.
         #
-        # Note: `score_to_par` (from `displayValue`) updates LIVE during play,
-        # so it cannot be used to determine round completion. Only `score`
-        # (total strokes) is authoritative for completion.
+        # ESPN quirks with the linescores array:
+        #   - During live play: accurate hole-by-hole for the current round
+        #   - Completed rounds: sometimes full (18), sometimes partial (7),
+        #     sometimes empty (0). Unreliable for completed prior rounds.
+        #
+        # Strategy: use linescores count as primary. When the count seems wrong
+        # (e.g. 7 holes but score=75 — impossible mid-round), detect the
+        # inconsistency and override to 18. The heuristic: if strokes per hole
+        # > 5.0, the score is too high for that few holes, so the round must
+        # be complete with a partial linescores array from ESPN.
         linescores = item.get("linescores", [])
         played = [h for h in linescores if h.get("displayValue") not in (None, "")]
-        if score is not None:
-            # Total strokes present → round is complete.
-            thru: int | None = 18
-        elif linescores:
-            # Hole data present — count played holes.
-            thru = len(played)
-        elif score_to_par is not None:
-            # No hole data, no total strokes, but has score-to-par summary.
-            # This is a completed round where ESPN omitted both linescores
-            # and the stroke total. Mark as complete.
+        if linescores:
+            thru: int | None = len(played)
+            # Detect ESPN partial-array bug: a completed round reported with
+            # fewer holes than 18. A score >= 54 is impossible through fewer
+            # than 18 holes — 54 is the theoretical minimum for a full round
+            # (birdie every hole on a par-72). Mid-round running totals through
+            # e.g. 7 holes max out around 40-50 even in worst-case scenarios.
+            if score is not None and 0 < thru < 18 and score >= 54:
+                thru = 18
+        elif score is not None or score_to_par is not None:
+            # No hole data but round has summary data (strokes or score-to-par)
+            # → ESPN only omits linescores for completed rounds → mark complete.
             thru = 18
         else:
             # No hole data, no summary data → round is upcoming or not started.
