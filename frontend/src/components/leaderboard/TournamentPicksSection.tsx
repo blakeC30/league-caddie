@@ -56,6 +56,26 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
   // Reset pagination when tournament changes
   useEffect(() => { setBreakdownPage(0); setMemberSearch(""); }, [selectedId]);
 
+  // Auto-select: in-progress tournament if one exists, otherwise the most
+  // recently completed tournament. Skip if the season is over (all tournaments
+  // completed, none scheduled) — let the user browse manually.
+  useEffect(() => {
+    if (!selectedId && leagueTournaments) {
+      const hasScheduled = leagueTournaments.some((t) => t.status === "scheduled");
+      const live = leagueTournaments.find((t) => t.status === "in_progress");
+      if (live) {
+        setSelectedId(live.id);
+      } else if (hasScheduled) {
+        // Season still in progress — default to most recently completed
+        const lastCompleted = [...leagueTournaments]
+          .filter((t) => t.status === "completed")
+          .sort((a, b) => b.start_date.localeCompare(a.start_date))[0];
+        if (lastCompleted) setSelectedId(lastCompleted.id);
+      }
+      // else: all completed, no scheduled → season over → leave empty
+    }
+  }, [leagueTournaments, selectedId]);
+
   // Reset sort and search when the selected tournament changes.
   useEffect(() => {
     setSortField("member");
