@@ -283,9 +283,7 @@ export function Picks() {
       />
       {leagueTournaments?.some((t) => t.status === "in_progress" || t.status === "completed") && (
         <p className="text-xs text-gray-400 text-center">
-          {leagueTournaments.some((t) => t.status === "completed" && !t.scoring_pending)
-            ? "Click a tournament to view leaderboard"
-            : "Click a tournament to view field and scores"}
+          Click a tournament to view leaderboard
         </p>
       )}
     </div>
