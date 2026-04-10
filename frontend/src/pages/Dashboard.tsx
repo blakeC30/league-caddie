@@ -190,6 +190,12 @@ export function Dashboard() {
                     )}
                   </div>
                 </div>
+                <p className="text-xs text-green-300 flex items-center gap-1 flex-shrink-0 self-center">
+                  View Tournament
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </p>
               </div>
             </Link>
           ) : (

@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import type { GolferInField, Pick } from "../api/endpoints";
+import { ClearableInput } from "./ClearableInput";
 import { GolferCard } from "./GolferCard";
 
 interface Props {
@@ -46,11 +47,11 @@ export function PickForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       {/* Search */}
-      <input
-        type="text"
+      <ClearableInput
         placeholder="Search golfers…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
+        onClear={() => setSearch("")}
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
       />
 

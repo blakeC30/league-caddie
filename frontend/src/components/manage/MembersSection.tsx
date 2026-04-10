@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { LeagueMember, LeaguePurchaseStatus, User } from "../../api/endpoints";
+import { ClearableInput } from "../ClearableInput";
 import { useRemoveMember, useUpdateMemberRole } from "../../hooks/useLeague";
 import { MembersTableSkeleton } from "../Skeleton";
 import { SectionIcon, type ConfirmModalState } from "./shared";
@@ -113,11 +114,11 @@ export function MembersSection({
 
       {/* Search — only shown when there are enough members to warrant it */}
       {(members?.length ?? 0) > 10 && (
-        <input
-          type="text"
+        <ClearableInput
           placeholder="Search members…"
           value={search}
           onChange={(e) => handleSearchChange(e.target.value)}
+          onClear={() => handleSearchChange("")}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
         />
       )}

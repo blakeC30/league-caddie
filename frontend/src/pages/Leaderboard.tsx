@@ -12,6 +12,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
+import { ClearableInput } from "../components/ClearableInput";
 import { useStandings } from "../hooks/usePick";
 import { useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { useBracket } from "../hooks/usePlayoff";
@@ -193,12 +194,12 @@ export function Leaderboard() {
             </div>
           )}
           {expanded && showStandingsSearch && (
-            <input
-              type="text"
+            <ClearableInput
               placeholder="Search members…"
               aria-label="Search members"
               value={standingsSearch}
               onChange={(e) => { setStandingsSearch(e.target.value); setPage(0); }}
+              onClear={() => { setStandingsSearch(""); setPage(0); }}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
             />
           )}

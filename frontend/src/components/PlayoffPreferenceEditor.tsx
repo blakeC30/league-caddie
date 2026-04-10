@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { ClearableInput } from "./ClearableInput";
 import { useTournamentField, useAllGolfers } from "../hooks/usePick";
 import { useSubmitPreferences } from "../hooks/usePlayoff";
 import type { PlayoffPreference } from "../hooks/usePlayoff";
@@ -293,11 +294,11 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
       {/* Search & add — hidden once the preference window has closed */}
       {!isWindowClosed && <div className="space-y-2 border-t border-gray-100 pt-4">
         <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Add golfers</p>
-        <input
-          type="text"
+        <ClearableInput
           placeholder="Search tournament field…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onClear={() => setSearch("")}
           className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-600"
         />
         <div className="max-h-64 overflow-y-auto space-y-1">

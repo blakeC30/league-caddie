@@ -281,6 +281,13 @@ export function MyPicks() {
         completedTournaments={completedTournaments}
         myPod={myPod}
       />
+      {leagueTournaments?.some((t) => t.status === "in_progress" || t.status === "completed") && (
+        <p className="text-xs text-gray-400 text-center">
+          {leagueTournaments.some((t) => t.status === "completed" && !t.scoring_pending)
+            ? "Click a tournament to view field, scores, and earnings"
+            : "Click a tournament to view field and scores"}
+        </p>
+      )}
     </div>
   );
 }

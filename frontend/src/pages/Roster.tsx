@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { ClearableInput } from "../components/ClearableInput";
 import { useRoster, useLeagueMembers } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
 import { RosterSkeleton } from "../components/Skeleton";
@@ -83,23 +84,14 @@ export function Roster() {
       {/* Search + count */}
       {sorted.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
-          <div className="relative w-full sm:w-72">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-            </svg>
-            <input
-              type="text"
+          <div className="w-full sm:w-72">
+            <ClearableInput
               placeholder="Search members..."
               aria-label="Search members"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+              onClear={() => setSearch("")}
+              className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
             />
           </div>
           <p className="text-sm text-gray-500">

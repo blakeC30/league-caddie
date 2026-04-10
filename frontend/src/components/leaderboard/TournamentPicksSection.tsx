@@ -10,6 +10,7 @@ import { useBracket } from "../../hooks/usePlayoff";
 import { useAuthStore } from "../../store/authStore";
 import { fmtTournamentName } from "../../utils";
 import type { PlayoffRoundOut } from "../../api/endpoints";
+import { ClearableInput } from "../ClearableInput";
 import { useDropdownDirection } from "../../hooks/useDropdownDirection";
 import { SkeletonBlock } from "../Skeleton";
 import { PickBarChart } from "./PickBarChart";
@@ -451,10 +452,10 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                 {/* Member search — shown when there are enough members */}
                 {allRows.length > BREAKDOWN_PAGE_SIZE && (
                 <div className="px-3 py-2 border-b border-gray-100 bg-white">
-                  <input
-                    type="text"
+                  <ClearableInput
                     value={memberSearch}
                     onChange={(e) => { setMemberSearch(e.target.value); setBreakdownPage(0); }}
+                    onClear={() => { setMemberSearch(""); setBreakdownPage(0); }}
                     placeholder="Search members…"
                     className="w-full text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600"
                   />
