@@ -353,6 +353,19 @@ def _fetch_competitor_rounds(
             except (TypeError, ValueError):
                 pass
 
+        # Skip phantom rounds: ESPN includes empty future rounds for CUT/WD
+        # players (e.g. R3 for a player who missed the R2 cut). These have no
+        # score, no score-to-par, no tee time, and no played holes. Creating
+        # DB rows for them causes allFinishedCurrentRound on the frontend to
+        # incorrectly block the "next round tee time" display.
+        if (
+            score is None
+            and score_to_par is None
+            and tee_time_utc is None
+            and (thru is None or thru == 0)
+        ):
+            continue
+
         rounds.append(
             {
                 "round_number": round_number,

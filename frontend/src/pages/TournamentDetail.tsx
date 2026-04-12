@@ -552,6 +552,10 @@ export function TournamentDetail() {
       const rd = e.rounds.find((x) => x.round_number === currentRoundNumber);
       // Golfers with no data for this round (CUT/WD) don't block the check.
       if (!rd) return true;
+      // Phantom round entries (ESPN includes empty future rounds for CUT/WD
+      // players) have thru=null and score=null. Skip them — they're not real
+      // participants in this round.
+      if (rd.thru == null && rd.score == null) return true;
       return rd.thru === 18;
     });
 

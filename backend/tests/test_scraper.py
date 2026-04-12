@@ -17,6 +17,7 @@ tests and run only when the ESPN API is reachable. They are not included here.
 from datetime import date, timedelta
 
 from app.services.scraper import (
+    _fetch_competitor_rounds,
     _map_espn_status,
     _parse_date,
     parse_schedule_response,
@@ -493,3 +494,162 @@ class TestScorePicks:
 
         count = score_picks(db, tournament)
         assert count == 0
+
+
+# ---------------------------------------------------------------------------
+# _fetch_competitor_rounds: phantom round filtering
+# ---------------------------------------------------------------------------
+
+
+class TestFetchCompetitorRoundsPhantomFiltering:
+    """ESPN includes phantom future rounds for CUT/WD players (e.g. R3 for
+    a player who missed the R2 cut). These have value=0, displayValue="-",
+    and an empty linescores array. They must be filtered out to avoid
+    creating DB rows that block allFinishedCurrentRound on the frontend."""
+
+    def _make_linescores_response(self, rounds_data):
+        """Build a minimal ESPN /linescores JSON response."""
+        items = []
+        for rd in rounds_data:
+            item = {"period": rd["period"]}
+            if "value" in rd:
+                item["value"] = rd["value"]
+            if "displayValue" in rd:
+                item["displayValue"] = rd["displayValue"]
+            if "teeTime" in rd:
+                item["teeTime"] = rd["teeTime"]
+            if "linescores" in rd:
+                item["linescores"] = rd["linescores"]
+            else:
+                item["linescores"] = []
+            items.append(item)
+        return {"items": items}
+
+    def test_phantom_round_for_cut_player_is_skipped(self):
+        """CUT player: R1+R2 completed, phantom R3 (value=0, display='-').
+        Only R1 and R2 should be returned."""
+        from unittest.mock import MagicMock, patch
+
+        import httpx
+
+        response_data = self._make_linescores_response(
+            [
+                {
+                    "period": 1,
+                    "value": 75.0,
+                    "displayValue": "+3",
+                    "teeTime": "2026-04-09T14:00Z",
+                    "linescores": [{"displayValue": "4"}] * 18,
+                },
+                {
+                    "period": 2,
+                    "value": 77.0,
+                    "displayValue": "+5",
+                    "teeTime": "2026-04-10T14:30Z",
+                    "linescores": [{"displayValue": "4"}] * 18,
+                },
+                {
+                    "period": 3,
+                    "value": 0.0,
+                    "displayValue": "-",
+                    "linescores": [],
+                },
+            ]
+        )
+
+        response = httpx.Response(200, json=response_data)
+        with patch("httpx.Client") as mock_client:
+            mock_client.return_value.__enter__ = lambda s: s
+            mock_client.return_value.__exit__ = MagicMock(return_value=False)
+            mock_client.return_value.get.return_value = response
+
+            aid, rounds = _fetch_competitor_rounds("401811941", "401811941", "5532")
+
+        assert len(rounds) == 2
+        assert rounds[0]["round_number"] == 1
+        assert rounds[1]["round_number"] == 2
+        # R3 phantom should NOT be in the results
+
+    def test_real_future_round_with_tee_time_is_kept(self):
+        """A golfer who made the cut has R3 with a tee time but no score
+        yet. This is NOT a phantom — it's a real upcoming round."""
+        from unittest.mock import MagicMock, patch
+
+        import httpx
+
+        response_data = self._make_linescores_response(
+            [
+                {
+                    "period": 1,
+                    "value": 68.0,
+                    "displayValue": "-4",
+                    "teeTime": "2026-04-09T14:00Z",
+                    "linescores": [{"displayValue": "4"}] * 18,
+                },
+                {
+                    "period": 2,
+                    "value": 70.0,
+                    "displayValue": "-2",
+                    "teeTime": "2026-04-10T14:30Z",
+                    "linescores": [{"displayValue": "4"}] * 18,
+                },
+                {
+                    "period": 3,
+                    "value": 0.0,
+                    "displayValue": "-",
+                    "teeTime": "2026-04-11T15:00Z",
+                    "linescores": [],
+                },
+            ]
+        )
+
+        response = httpx.Response(200, json=response_data)
+        with patch("httpx.Client") as mock_client:
+            mock_client.return_value.__enter__ = lambda s: s
+            mock_client.return_value.__exit__ = MagicMock(return_value=False)
+            mock_client.return_value.get.return_value = response
+
+            aid, rounds = _fetch_competitor_rounds("401811941", "401811941", "1234")
+
+        assert len(rounds) == 3
+        # R3 has a tee time → it's a real round, not a phantom
+        assert rounds[2]["round_number"] == 3
+        assert rounds[2]["tee_time"] is not None
+
+    def test_mid_round_with_played_holes_is_kept(self):
+        """A golfer currently playing R2 with 6 holes done. This must NOT
+        be filtered out — it has real hole data."""
+        from unittest.mock import MagicMock, patch
+
+        import httpx
+
+        response_data = self._make_linescores_response(
+            [
+                {
+                    "period": 1,
+                    "value": 72.0,
+                    "displayValue": "E",
+                    "teeTime": "2026-04-09T14:00Z",
+                    "linescores": [{"displayValue": "4"}] * 18,
+                },
+                {
+                    "period": 2,
+                    "value": 20.0,
+                    "displayValue": "-3",
+                    "teeTime": "2026-04-10T14:30Z",
+                    "linescores": [{"displayValue": "3"}] * 6,
+                },
+            ]
+        )
+
+        response = httpx.Response(200, json=response_data)
+        with patch("httpx.Client") as mock_client:
+            mock_client.return_value.__enter__ = lambda s: s
+            mock_client.return_value.__exit__ = MagicMock(return_value=False)
+            mock_client.return_value.get.return_value = response
+
+            aid, rounds = _fetch_competitor_rounds("401811941", "401811941", "11119")
+
+        assert len(rounds) == 2
+        assert rounds[1]["round_number"] == 2
+        assert rounds[1]["thru"] == 6
