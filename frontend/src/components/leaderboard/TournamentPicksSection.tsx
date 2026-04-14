@@ -151,7 +151,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
   const submissionRate = summary ? (totalPickers / summary.member_count) * 100 : 0;
   const topPick = summary?.picks_by_golfer[0];
   const missedCutPicks = summary?.picks_by_golfer
-    .filter((g) => g.earnings_usd === 0)
+    .filter((g) => g.missed_cut)
     .reduce((s, g) => s + g.pick_count, 0) ?? 0;
   const missedCutPct = totalPickers > 0 ? Math.round((missedCutPicks / totalPickers) * 100) : 0;
   const multiplier = selectedTournament?.effective_multiplier ?? 1;

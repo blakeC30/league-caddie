@@ -151,6 +151,7 @@ export interface GolferPickGroup {
   pick_count: number;
   pickers: PickerInfo[];
   earnings_usd: number | null;
+  missed_cut: boolean;
 }
 
 // ---------------------------------------------------------------------------

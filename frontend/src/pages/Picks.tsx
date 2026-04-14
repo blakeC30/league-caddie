@@ -170,8 +170,8 @@ export function Picks() {
     (regularPicks?.reduce((sum, p) => sum + (p.points_earned ?? 0), 0) ?? 0) + penaltyTotal;
   // Picks for which we have a final score
   const scoredPicks = regularPicks?.filter((p) => p.points_earned !== null) ?? [];
-  // Picks that earned $0 (missed the cut)
-  const cutsMissed = scoredPicks.filter((p) => p.points_earned === 0);
+  // Picks where the golfer missed the cut
+  const cutsMissed = scoredPicks.filter((p) => p.golfer_status === "CUT");
   // Picks submitted for final (status === "completed") regular-season tournaments only
   const submittedForFinal = regularPicks?.filter((p) =>
     regularCompletedTournaments.some((t) => t.id === p.tournament_id && t.status === "completed")

@@ -69,6 +69,7 @@ class GolferPickGroup(BaseModel):
     pick_count: int
     pickers: list[PickerInfo]
     earnings_usd: float | None  # raw golfer earnings before multiplier
+    missed_cut: bool  # True when entry.status == "CUT"
 
 
 class NoPicker(BaseModel):
@@ -373,6 +374,7 @@ def get_tournament_picks_summary(
             "golfer_name": None,
             "pickers": [],
             "earnings_usd": None,
+            "missed_cut": False,
         }
     )
     picker_ids: set[uuid.UUID] = set()
@@ -382,6 +384,7 @@ def get_tournament_picks_summary(
         golfer_map[gid]["golfer_id"] = gid
         golfer_map[gid]["golfer_name"] = pick.golfer.name
         golfer_map[gid]["earnings_usd"] = pick.earnings_usd  # same for all pickers of this golfer
+        golfer_map[gid]["missed_cut"] = pick.entry is not None and pick.entry.status == "CUT"
         golfer_map[gid]["pickers"].append(
             PickerInfo(
                 user_id=str(pick.user_id),
@@ -399,6 +402,7 @@ def get_tournament_picks_summary(
                 pick_count=len(v["pickers"]),
                 pickers=v["pickers"],
                 earnings_usd=v["earnings_usd"],
+                missed_cut=v["missed_cut"],
             )
             for v in golfer_map.values()
         ],
