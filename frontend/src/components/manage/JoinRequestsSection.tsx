@@ -60,8 +60,8 @@ export function JoinRequestsSection({
           </button>
         )}
       </div>
-      {/* Auto-accept info banner */}
-      {league?.auto_accept_requests && (
+      {/* Auto-accept info banner — hidden when requests are paused (paused banner takes precedence) */}
+      {league?.auto_accept_requests && league.accepting_requests && (
         <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
           <svg className="w-4 h-4 flex-shrink-0 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
