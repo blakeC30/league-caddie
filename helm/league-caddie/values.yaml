@@ -16,7 +16,7 @@
 image:
   registry: ""
   tag: latest
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
 # -----------------------------------------------------------------------------
 # Backend API  (backend Dockerfile target: api)
