@@ -5,8 +5,6 @@
 # ECR tokens expire every 12 hours. This file provisions:
 #   1. RBAC — ServiceAccount + Role + RoleBinding scoped to this namespace
 #   2. CronJob — refreshes the ecr-registry ImagePullSecret every 6 hours
-#   3. Hook Job — refreshes credentials before every `helm upgrade` so new
-#      image tags can be pulled immediately without waiting for the CronJob
 #
 # The ecr-registry Secret is referenced by imagePullSecrets in every
 # deployment and the migrate job (guarded by `if .Values.image.registry`
@@ -17,12 +15,14 @@
 # via the instance metadata service; no access keys are needed.
 #
 # First install: on a brand-new cluster the RBAC does not exist yet when
-# pre-install hooks run, so the hook is pre-upgrade only (same pattern as
-# migrate-job). After the first `helm install`, trigger the CronJob manually
-# once to create the ecr-registry secret before pods can pull images:
+# pre-install hooks run, so trigger the CronJob manually once to create the
+# ecr-registry secret before pods can pull images:
 #
 #   kubectl create job --from=cronjob/<release>-ecr-refresh ecr-refresh-init \
 #     -n <namespace>
+#
+# Deploy-time credentials: the CI/CD pipeline handles ECR login directly via
+# the "Refresh ECR pull secret" step — no Helm hook needed.
 
 # --- ServiceAccount ---
 apiVersion: v1
@@ -33,10 +33,6 @@ metadata:
   labels:
     {{- include "league-caddie.labels" . | nindent 4 }}
     app.kubernetes.io/component: ecr-credential-refresh
-  annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation
 
 ---
 # --- Role ---
@@ -51,10 +47,6 @@ metadata:
   labels:
     {{- include "league-caddie.labels" . | nindent 4 }}
     app.kubernetes.io/component: ecr-credential-refresh
-  annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
@@ -74,10 +66,6 @@ metadata:
   labels:
     {{- include "league-caddie.labels" . | nindent 4 }}
     app.kubernetes.io/component: ecr-credential-refresh
-  annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-weight": "-10"
-    "helm.sh/hook-delete-policy": before-hook-creation
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -169,85 +157,4 @@ spec:
                   cpu: "100m"
                   memory: "256Mi"
 
----
-# --- Hook Job: refresh credentials before every helm upgrade ---
-# pre-upgrade only (not pre-install) because the ServiceAccount does not
-# exist yet on first install. See the first-install note at the top.
-apiVersion: batch/v1
-kind: Job
-metadata:
-  name: {{ include "league-caddie.fullname" . }}-ecr-refresh-hook
-  namespace: {{ .Release.Namespace }}
-  labels:
-    {{- include "league-caddie.labels" . | nindent 4 }}
-    app.kubernetes.io/component: ecr-credential-refresh
-  annotations:
-    "helm.sh/hook": pre-upgrade
-    "helm.sh/hook-delete-policy": before-hook-creation
-    "helm.sh/hook-weight": "-5"
-spec:
-  backoffLimit: 3
-  template:
-    metadata:
-      labels:
-        {{- include "league-caddie.selectorLabels" . | nindent 8 }}
-        app.kubernetes.io/component: ecr-credential-refresh
-    spec:
-      serviceAccountName: ecr-credential-refresh
-      restartPolicy: OnFailure
-      containers:
-        - name: ecr-refresh
-          image: public.ecr.aws/aws-cli/aws-cli:latest
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: AWS_REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "league-caddie.configmapName" . }}
-                  key: AWS_REGION
-            - name: ECR_REGISTRY
-              value: {{ .Values.image.registry | quote }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              ECR_TOKEN=$(aws ecr get-login-password --region "${AWS_REGION}")
-              AUTH=$(printf "AWS:%s" "${ECR_TOKEN}" | base64 | tr -d '\n')
-              DOCKER_CONFIG=$(printf '{"auths":{"%s":{"username":"AWS","password":"%s","auth":"%s"}}}' \
-                "${ECR_REGISTRY}" "${ECR_TOKEN}" "${AUTH}")
-              DOCKER_CONFIG_B64=$(printf '%s' "${DOCKER_CONFIG}" | base64 | tr -d '\n')
-              SA_TOKEN=$(cat /var/run/secrets/kubernetes.io/serviceaccount/token)
-              NAMESPACE=$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace)
-              K8S_API="https://kubernetes.default.svc"
-              CA="/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
-              HTTP_STATUS=$(curl -s -o /tmp/response.json -w "%{http_code}" \
-                -X PATCH \
-                -H "Authorization: Bearer ${SA_TOKEN}" \
-                -H "Content-Type: application/strategic-merge-patch+json" \
-                --cacert "${CA}" \
-                "${K8S_API}/api/v1/namespaces/${NAMESPACE}/secrets/ecr-registry" \
-                -d "{\"data\":{\".dockerconfigjson\":\"${DOCKER_CONFIG_B64}\"}}")
-              if [ "${HTTP_STATUS}" = "404" ]; then
-                curl -sf -X POST \
-                  -H "Authorization: Bearer ${SA_TOKEN}" \
-                  -H "Content-Type: application/json" \
-                  --cacert "${CA}" \
-                  "${K8S_API}/api/v1/namespaces/${NAMESPACE}/secrets" \
-                  -d "{\"apiVersion\":\"v1\",\"kind\":\"Secret\",\"metadata\":{\"name\":\"ecr-registry\",\"namespace\":\"${NAMESPACE}\"},\"type\":\"kubernetes.io/dockerconfigjson\",\"data\":{\".dockerconfigjson\":\"${DOCKER_CONFIG_B64}\"}}"
-                echo "ecr-registry secret created"
-              elif [ "${HTTP_STATUS}" = "200" ]; then
-                echo "ecr-registry secret refreshed"
-              else
-                echo "Unexpected HTTP status: ${HTTP_STATUS}"
-                cat /tmp/response.json
-                exit 1
-              fi
-          resources:
-            requests:
-              cpu: "50m"
-              memory: "32Mi"
-            limits:
-              cpu: "100m"
-              memory: "64Mi"
 {{- end }}
