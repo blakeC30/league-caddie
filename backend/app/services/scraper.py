@@ -2270,24 +2270,16 @@ def full_sync(db: Session, year: int, *, force: bool = False) -> dict:
         finally:
             session.close()
 
-    # Parallelize tournament syncs — each gets its own DB session and makes
-    # independent ESPN API calls. Cap at 3 workers to avoid overwhelming
-    # ESPN's API and the Postgres connection pool.
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
-    max_workers = min(3, len(sync_targets)) or 1
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        future_to_name = {
-            pool.submit(_sync_one, t_id, t_name): (t_id, t_name) for t_id, t_name in sync_targets
-        }
-        for future in as_completed(future_to_name):
-            t_id, t_name = future_to_name[future]
-            try:
-                result = future.result()
-                tournament_results.append(result)
-            except Exception as exc:
-                log.error("Failed to sync tournament '%s': %s", t_name, exc)
-                errors.append({"pga_tour_id": t_id, "name": t_name, "error": str(exc)})
+    # Sync tournaments sequentially — this is a background job with no latency
+    # requirement, and sequential processing keeps peak memory low by avoiding
+    # concurrent HTTP responses and DB sessions in flight at the same time.
+    for t_id, t_name in sync_targets:
+        try:
+            result = _sync_one(t_id, t_name)
+            tournament_results.append(result)
+        except Exception as exc:
+            log.error("Failed to sync tournament '%s': %s", t_name, exc)
+            errors.append({"pga_tour_id": t_id, "name": t_name, "error": str(exc)})
 
     # Publish TOURNAMENT_COMPLETED for any completed tournament that has
     # unscored playoff rounds. This covers the case where the original SQS
