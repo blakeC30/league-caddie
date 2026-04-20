@@ -382,6 +382,22 @@ jobs:
           kubectl delete secret -l owner=helm,status=pending-upgrade -n prod --ignore-not-found
           kubectl delete secret -l owner=helm,status=pending-install -n prod --ignore-not-found
 
+      # Adopt RBAC resources that were previously created as Helm hook resources
+      # and are missing ownership annotations. Helm cannot manage them until
+      # these annotations are present. Safe to run every deploy — --overwrite is
+      # a no-op once the annotations are already correct.
+      - name: Adopt orphaned ECR RBAC resources
+        run: |
+          for RESOURCE in serviceaccount/ecr-credential-refresh role/ecr-credential-refresh rolebinding/ecr-credential-refresh; do
+            kubectl annotate -n prod "$RESOURCE" \
+              meta.helm.sh/release-name=league-caddie \
+              meta.helm.sh/release-namespace=prod \
+              --overwrite 2>/dev/null || true
+            kubectl label -n prod "$RESOURCE" \
+              app.kubernetes.io/managed-by=Helm \
+              --overwrite 2>/dev/null || true
+          done
+
       - name: Deploy to prod namespace
         run: |
           helm upgrade --install league-caddie helm/league-caddie \
