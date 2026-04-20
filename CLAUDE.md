@@ -58,7 +58,7 @@ When a member **leaves or is removed** during a season with an active playoff co
 - Docker (multi-stage builds for small images)
 - K3s (lightweight Kubernetes — NOT EKS, which costs $72/month)
 - Helm 3 for Kubernetes package management
-- AWS: EC2 t2.micro — all services (frontend, backend, Postgres) run here, no RDS
+- AWS: EC2 t3a.medium — all services (frontend, backend, Postgres) run here, no RDS
 - Postgres runs inside K3s as a Deployment with a PersistentVolumeClaim (data on EBS)
 - AWS ECR for container image registry
 - Dev and Production namespaces on the same K3s cluster
