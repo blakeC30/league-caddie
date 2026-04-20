@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect, useMemo } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMyPicks, useAllPicks, useTournaments, useTournamentField } from "../hooks/usePick";
 import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
 import { useAuthStore } from "../store/authStore";
@@ -17,8 +17,11 @@ import type { OtherPlayoffEntry } from "../components/picks/PicksTable";
 
 export function Picks() {
   const { leagueId } = useParams<{ leagueId: string }>();
+  const [searchParams] = useSearchParams();
   const currentUser = useAuthStore((s) => s.user);
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(
+    () => searchParams.get("member")
+  );
 
   useEffect(() => {
     document.title = "Picks — League Caddie";

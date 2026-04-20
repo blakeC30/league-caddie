@@ -227,6 +227,7 @@ export function Standings() {
                         row={row}
                         isMe={row.user_id === currentUserId}
                         stripe={i % 2 !== 0}
+                        leagueId={leagueId}
                       />
                     ))}
                     {currentUserSeparatorRow && (
@@ -236,6 +237,7 @@ export function Standings() {
                         isMe={true}
                         stripe={false}
                         borderTop="border-t-2 border-gray-300"
+                        leagueId={leagueId}
                       />
                     )}
                   </>

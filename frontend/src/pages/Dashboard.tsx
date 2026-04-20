@@ -9,48 +9,13 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useLeague, useLeagueTournaments, useLeagueMembers, useLeaguePurchase } from "../hooks/useLeague";
-import { fmtTournamentName, formatDate, formatPurse, formatPoints, formatRank, rankClass } from "../utils";
+import { fmtTournamentName, formatDate, formatPurse } from "../utils";
 import { useMyPicks, useStandings, useTournaments } from "../hooks/usePick";
 import { useAuthStore } from "../store/authStore";
 import { GolferAvatar } from "../components/GolferAvatar";
 import { useBracket, usePlayoffConfig, useMyPlayoffPod, useMyPlayoffPicks } from "../hooks/usePlayoff";
 import { DashboardSkeleton, SkeletonStandingsTable } from "../components/Skeleton";
-import type { StandingsRow } from "../api/endpoints";
-
-function StandingsTr({
-  row,
-  isMe,
-  stripe,
-  borderTop,
-}: {
-  row: StandingsRow;
-  isMe: boolean;
-  stripe: boolean;
-  borderTop?: string;
-}) {
-  return (
-    <tr
-      className={`${borderTop ?? "border-t border-gray-100"} ${
-        isMe
-          ? "bg-green-50 border-l-2 border-l-green-400"
-          : stripe
-          ? "bg-gray-50"
-          : "bg-white"
-      }`}
-    >
-      <td className={`px-4 py-3 tabular-nums ${rankClass(row.rank)}`}>
-        {formatRank(row.rank, row.is_tied)}
-      </td>
-      <td className={`px-4 py-3 ${isMe ? "font-semibold" : ""}`}>
-        {row.display_name}
-      </td>
-      <td className="px-4 py-3 text-right tabular-nums font-medium">
-        <span className="sm:hidden">{formatPoints(row.total_points)}</span>
-        <span className="hidden sm:inline">{formatPoints(row.total_points, false)}</span>
-      </td>
-    </tr>
-  );
-}
+import { StandingsTr } from "../components/leaderboard/StandingsTr";
 
 export function Dashboard() {
   const { leagueId } = useParams<{ leagueId: string }>();
@@ -668,6 +633,7 @@ export function Dashboard() {
                           row={row}
                           isMe={row.user_id === currentUserId}
                           stripe={i % 2 !== 0}
+                          leagueId={leagueId}
                         />
                       ))}
                       {myRow && (
@@ -677,6 +643,7 @@ export function Dashboard() {
                           isMe={true}
                           stripe={false}
                           borderTop="border-t-2 border-gray-300"
+                          leagueId={leagueId}
                         />
                       )}
                     </>

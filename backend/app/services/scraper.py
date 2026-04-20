@@ -1205,6 +1205,12 @@ def parse_schedule_response(data: dict) -> tuple[list[dict], dict[str, dict]]:
         # Detect team format: ESPN marks team-event competitors with type="team".
         competitors_sample = comp.get("competitors") or []
         is_team_event = bool(competitors_sample and competitors_sample[0].get("type") == "team")
+        # The Zurich Classic is always a team event — hardcode it so the flag is
+        # set correctly before the field is released (ESPN only exposes type="team"
+        # once teams are announced, which can be days before the tournament starts).
+        event_name = event.get("name") or event.get("shortName", "")
+        if "zurich" in event_name.lower():
+            is_team_event = True
 
         # Harvest athlete info from inline competitor data.
         for c in competitors_sample:
@@ -1279,10 +1285,15 @@ def upsert_tournaments(
             existing.start_date = item["start_date"]
             existing.end_date = item["end_date"]
             existing.status = new_status
-            # Only update team-event fields if not yet set (preserves manual corrections).
+            # Only update competition_id if not yet set (preserves manual corrections).
             if existing.competition_id is None:
                 existing.competition_id = item.get("competition_id")
                 existing.is_team_event = item.get("is_team_event", False)
+            elif item.get("is_team_event") and not existing.is_team_event:
+                # ESPN now reporting team-format competitors — update even after
+                # competition_id was set. Happens when the field is announced
+                # after the initial schedule sync ran with no competitors listed.
+                existing.is_team_event = True
             updated += 1
             if old_status != new_status:
                 # db.flush so existing.id is available; commit happens below.

@@ -99,11 +99,11 @@ export function SendEmailSection({ leagueId, members }: SendEmailSectionProps) {
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-gray-700">Message</label>
-            <span className="text-[10px] text-gray-400 tabular-nums">{body.length}/2000</span>
+            <span className="text-[10px] text-gray-400 tabular-nums">{body.length}/5000</span>
           </div>
           <textarea
             value={body}
-            onChange={(e) => setBody(e.target.value.slice(0, 2000))}
+            onChange={(e) => setBody(e.target.value.slice(0, 5000))}
             placeholder="Write your message..."
             rows={5}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-y"

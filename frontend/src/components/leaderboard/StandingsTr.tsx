@@ -2,6 +2,7 @@
  * StandingsTr — a single row in the season standings table.
  */
 
+import { useNavigate } from "react-router-dom";
 import { formatPoints, formatRank, rankClass } from "../../utils";
 import type { StandingsRow } from "../../api/endpoints";
 
@@ -10,6 +11,7 @@ export interface StandingsTrProps {
   isMe: boolean;
   stripe: boolean;
   borderTop?: string;
+  leagueId?: string;
 }
 
 export function StandingsTr({
@@ -17,10 +19,19 @@ export function StandingsTr({
   isMe,
   stripe,
   borderTop,
+  leagueId,
 }: StandingsTrProps) {
+  const navigate = useNavigate();
+  const picksHref = leagueId
+    ? isMe
+      ? `/leagues/${leagueId}/picks`
+      : `/leagues/${leagueId}/picks?member=${row.user_id}`
+    : undefined;
+
   return (
     <tr
-      className={`${borderTop ?? "border-t border-gray-100"} ${
+      onClick={() => picksHref && navigate(picksHref)}
+      className={`${borderTop ?? "border-t border-gray-100"} ${picksHref ? "cursor-pointer hover:bg-green-50" : ""} ${
         isMe
           ? "bg-green-50 border-l-2 border-l-green-400"
           : stripe

@@ -251,7 +251,7 @@ export function LeagueRules() {
             }
           >
             <Bullet>
-              Some PGA Tour events — like the Zurich Classic — are played in a <strong>two-person team format</strong>. These are marked with a <strong>Teams</strong> badge in the app.
+              Some PGA Tour events — like the Zurich Classic — are played in a <strong>two-person team format</strong>.
             </Bullet>
             <Bullet>
               <strong>Earnings are the team's full prize money.</strong> Points for your pick are calculated on the team's total earnings (× tournament multiplier) — the same as any individual event.

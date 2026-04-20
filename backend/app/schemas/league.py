@@ -147,7 +147,7 @@ class SendLeagueEmailRequest(BaseModel):
         description="Specific user IDs to email. Empty list = all opted-in members.",
     )
     subject: str = Field(min_length=1, max_length=100)
-    body: str = Field(min_length=1, max_length=2000)
+    body: str = Field(min_length=1, max_length=5000)
 
     @model_validator(mode="after")
     def strip_whitespace(self):

@@ -2,6 +2,7 @@
  * StandingsTable — displays league standings rows.
  */
 
+import { useNavigate, useParams } from "react-router-dom";
 import type { StandingsRow } from "../api/endpoints";
 import { useAuthStore } from "../store/authStore";
 import { formatPoints, formatRank, rankClass } from "../utils";
@@ -13,6 +14,8 @@ interface Props {
 
 export function StandingsTable({ rows, limit }: Props) {
   const currentUserId = useAuthStore((s) => s.user?.id);
+  const { leagueId } = useParams<{ leagueId: string }>();
+  const navigate = useNavigate();
   const displayed = limit ? rows.slice(0, limit) : rows;
 
   return (
@@ -28,10 +31,16 @@ export function StandingsTable({ rows, limit }: Props) {
         <tbody>
           {displayed.map((row, i) => {
             const isMe = row.user_id === currentUserId;
+            const picksHref = leagueId
+              ? isMe
+                ? `/leagues/${leagueId}/picks`
+                : `/leagues/${leagueId}/picks?member=${row.user_id}`
+              : undefined;
             return (
               <tr
                 key={row.user_id}
-                className={`border-t border-gray-100 ${
+                onClick={() => picksHref && navigate(picksHref)}
+                className={`border-t border-gray-100 ${picksHref ? "cursor-pointer hover:bg-green-50" : ""} ${
                   isMe
                     ? "bg-green-50 border-l-2 border-l-green-400"
                     : i % 2 === 0
