@@ -506,7 +506,8 @@ export function TournamentDetail() {
           {groups.length === 0 ? (
             <p className="text-sm text-gray-400">Tee times are not yet available for this tournament.</p>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-y-auto divide-y divide-gray-200" style={{ maxHeight: "65vh" }}>
+            <div className="overflow-x-auto rounded-2xl border border-gray-200">
+              <div className="bg-white divide-y divide-gray-200 min-w-max">
               {groups.map(({ time, onBack, golfers }) => {
                 const localTime = new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
                 const suffix = onBack ? "*" : "";
@@ -515,7 +516,7 @@ export function TournamentDetail() {
                     <span className="text-sm font-semibold text-gray-500 tabular-nums w-20 shrink-0 text-right">
                       {localTime}{suffix}
                     </span>
-                    <div className="flex flex-col gap-1.5 min-w-0 flex-1">
+                    <div className="flex flex-col gap-1.5">
                       {golfers.map((g) => {
                         const isMyPick =
                           g.id === myPickedGolferIdForField ||
@@ -536,7 +537,7 @@ export function TournamentDetail() {
                             ) : (
                               <>
                                 <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-7 h-7 shrink-0" />
-                                <span className={`text-sm font-medium truncate ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
+                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
                                   {g.name}
                                   {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
                                 </span>
@@ -552,6 +553,7 @@ export function TournamentDetail() {
                   </div>
                 );
               })}
+              </div>
             </div>
           )}
         </div>
