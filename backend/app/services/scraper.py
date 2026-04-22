@@ -1522,7 +1522,10 @@ def upsert_field(
     # this for IN_PROGRESS or COMPLETED tournaments: a golfer who teed off and
     # then withdrew or was DQ'd must keep their entry so that picks made against
     # them still display correctly.
-    if tournament.status == TournamentStatus.SCHEDULED.value:
+    # Guard: if ESPN returned an empty field (transient failure / data not yet published),
+    # skip the stale-entry cleanup entirely.  Deleting against an empty espn_pga_ids set
+    # would treat every existing entry as stale and wipe the whole field.
+    if tournament.status == TournamentStatus.SCHEDULED.value and golfers:
         espn_pga_ids = {g["pga_tour_id"] for g in golfers}
         stale_entries = (
             db.query(TournamentEntry)
