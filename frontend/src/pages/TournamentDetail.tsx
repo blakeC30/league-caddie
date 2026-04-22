@@ -506,7 +506,7 @@ export function TournamentDetail() {
           {groups.length === 0 ? (
             <p className="text-sm text-gray-400">Tee times are not yet available for this tournament.</p>
           ) : (
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-200">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-y-auto divide-y divide-gray-200" style={{ maxHeight: "65vh" }}>
               {groups.map(({ time, onBack, golfers }) => {
                 const localTime = new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
                 const suffix = onBack ? "*" : "";
