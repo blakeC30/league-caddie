@@ -428,6 +428,49 @@ def _fetch_competitor_status(
         return competitor_id, None, None, None
 
 
+_LEADERBOARD_API_BASE = "https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard"
+
+
+def _fetch_start_holes(pga_tour_id: str) -> dict[str, tuple[int, int]]:
+    """Return {competitor_id: (round_number, start_hole)} from ESPN's leaderboard endpoint.
+
+    This endpoint populates ``status.startHole`` as soon as tee-time pairings are
+    released — well before the round begins — making it the only reliable pre-tournament
+    source for back-nine detection.  The per-golfer /linescores and /status endpoints
+    return empty data until the round is actually in progress.
+
+    Competitor IDs match what the Core API uses: individual athlete IDs for solo
+    tournaments, team competitor IDs for team events (e.g. Zurich Classic).
+    """
+    url = f"{_LEADERBOARD_API_BASE}?event={pga_tour_id}"
+    try:
+        data = _get_json(url)
+    except Exception as exc:
+        log.warning("Start-hole fetch failed for %s: %s", pga_tour_id, exc)
+        return {}
+
+    result: dict[str, tuple[int, int]] = {}
+    events = data.get("events", [])
+    if not events:
+        return result
+
+    comps = events[0].get("competitions", [{}])[0].get("competitors", [])
+    for c in comps:
+        cid = str(c.get("id", ""))
+        if not cid:
+            continue
+        status = c.get("status", {})
+        try:
+            start_hole = int(status["startHole"])
+            period = int(status["period"])
+            result[cid] = (period, start_hole)
+        except (KeyError, TypeError, ValueError):
+            pass
+
+    log.debug("Start-hole fetch for %s: %d competitors", pga_tour_id, len(result))
+    return result
+
+
 def _fetch_tournament_data(
     pga_tour_id: str,
     known_golfer_ids: set[str] | None = None,
@@ -591,6 +634,14 @@ def _fetch_tournament_data(
                     except Exception as exc:
                         log.warning("Status fetch failed: %s", exc)
 
+        # Supplement with the leaderboard endpoint which provides startHole
+        # pre-tournament (before /status or /linescores return anything useful).
+        # Only fills gaps — doesn't overwrite data already from /status.
+        leaderboard_holes = _fetch_start_holes(pga_tour_id)
+        for aid, hole_pair in leaderboard_holes.items():
+            if aid not in start_hole_by_athlete:
+                start_hole_by_athlete[aid] = hole_pair
+
     # Step 5 (optional): fetch earnings concurrently for completed tournaments.
     # This populates earnings_usd in the same pass as field data, so force syncs
     # repopulate earnings without needing a separate score_picks pre-step.
@@ -699,7 +750,7 @@ def _fetch_tournament_data(
     return golfers, results
 
 
-def _fetch_team_roster(competition_id: str, team_competitor_id: str) -> list[str]:
+def _fetch_team_roster(pga_tour_id: str, competition_id: str, team_competitor_id: str) -> list[str]:
     """
     Fetch the individual athlete IDs for one team competitor.
 
@@ -709,7 +760,10 @@ def _fetch_team_roster(competition_id: str, team_competitor_id: str) -> list[str
 
     Returns a list of pga_tour_id strings (individual athlete IDs).
     """
-    url = f"{_CORE_API_BASE}/competitions/{competition_id}/competitors/{team_competitor_id}/roster"
+    url = (
+        f"{_CORE_API_BASE}/events/{pga_tour_id}"
+        f"/competitions/{competition_id}/competitors/{team_competitor_id}/roster"
+    )
     try:
         data = _get_json(url)
         return [str(e["playerId"]) for e in data.get("entries", []) if e.get("playerId")]
@@ -784,7 +838,7 @@ def _fetch_team_field(
         if not team_id:
             continue
         finish_order = team.get("order")
-        athlete_ids = _fetch_team_roster(competition_id, team_id)
+        athlete_ids = _fetch_team_roster(pga_tour_id, competition_id, team_id)
         for athlete_id in athlete_ids:
             team_entries.append((athlete_id, team_id, finish_order))
 
@@ -817,70 +871,77 @@ def _fetch_team_field(
                     log.warning("Athlete fetch failed: %s", exc)
 
     # Fetch per-round linescores for all individual golfers when requested.
-    # For team events the /linescores URL uses the individual athlete_id, not the team_id.
-    # rounds_by_athlete maps athlete_id → list of per-round dicts.
-    all_athlete_ids_team = [aid for aid, _, _ in team_entries]
-    rounds_by_athlete: dict[str, list[dict]] = {}
-    status_by_athlete_team: dict[str, str | None] = {}
+    # For team events, linescores and status live on the team competitor (e.g. 132545),
+    # not on individual athletes. Individual-athlete linescores return count=0.
+    # rounds_by_team maps team_competitor_id → list of per-round dicts.
+    unique_team_ids_for_rounds = list(dict.fromkeys(tid for _, tid, _ in team_entries))
+    rounds_by_team: dict[str, list[dict]] = {}
+    status_by_team: dict[str, str | None] = {}
     if fetch_round_data and team_entries:
         with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
             futures_rd = {
-                pool.submit(_fetch_competitor_rounds, pga_tour_id, competition_id, aid): aid
-                for aid in all_athlete_ids_team
+                pool.submit(_fetch_competitor_rounds, pga_tour_id, competition_id, tid): tid
+                for tid in unique_team_ids_for_rounds
             }
             for future in concurrent.futures.as_completed(futures_rd):
                 try:
-                    aid, rounds = future.result()
-                    rounds_by_athlete[aid] = rounds
+                    tid, rounds = future.result()
+                    rounds_by_team[tid] = rounds
                 except Exception as exc:
                     log.warning("Round data fetch failed: %s", exc)
-        non_empty = sum(1 for rds in rounds_by_athlete.values() if rds)
+        non_empty = sum(1 for rds in rounds_by_team.values() if rds)
         log.info(
-            "Team tournament %s: fetched round data for %d golfers (%d with rounds)",
+            "Team tournament %s: fetched round data for %d teams (%d with rounds)",
             pga_tour_id,
-            len(rounds_by_athlete),
+            len(rounds_by_team),
             non_empty,
         )
 
         _NOTABLE_STATUSES_TEAM = {"WD", "CUT", "MDF", "DQ"}
-        start_hole_by_athlete_team: dict[str, tuple[int, int]] = {}
+        start_hole_by_team: dict[str, tuple[int, int]] = {}
 
-        # Targeted status fetch — only competitors with anomalies.
+        # Targeted status fetch — only team competitors with anomalies.
         max_rounds_team = max(
-            (len(rounds_by_athlete.get(aid, [])) for aid in all_athlete_ids_team),
+            (len(rounds_by_team.get(tid, [])) for tid in unique_team_ids_for_rounds),
             default=0,
         )
         needs_status_team: set[str] = set()
-        for aid in all_athlete_ids_team:
-            rounds = rounds_by_athlete.get(aid, [])
+        for tid in unique_team_ids_for_rounds:
+            rounds = rounds_by_team.get(tid, [])
             if len(rounds) < max_rounds_team:
-                needs_status_team.add(aid)
+                needs_status_team.add(tid)
             elif any(rd.get("started_on_back") is None for rd in rounds):
-                needs_status_team.add(aid)
+                needs_status_team.add(tid)
 
         log.info(
-            "Team tournament %s: fetching status for %d/%d golfers (targeted)",
+            "Team tournament %s: fetching status for %d/%d teams (targeted)",
             pga_tour_id,
             len(needs_status_team),
-            len(all_athlete_ids_team),
+            len(unique_team_ids_for_rounds),
         )
 
         if needs_status_team:
             with concurrent.futures.ThreadPoolExecutor(max_workers=_FETCH_WORKERS) as pool:
                 futures_st = {
-                    pool.submit(_fetch_competitor_status, pga_tour_id, competition_id, aid): aid
-                    for aid in needs_status_team
+                    pool.submit(_fetch_competitor_status, pga_tour_id, competition_id, tid): tid
+                    for tid in needs_status_team
                 }
                 for future in concurrent.futures.as_completed(futures_st):
                     try:
-                        aid, short_detail, current_round, start_hole = future.result()
-                        status_by_athlete_team[aid] = (
+                        tid, short_detail, current_round, start_hole = future.result()
+                        status_by_team[tid] = (
                             short_detail if short_detail in _NOTABLE_STATUSES_TEAM else None
                         )
                         if current_round is not None and start_hole is not None:
-                            start_hole_by_athlete_team[aid] = (current_round, start_hole)
+                            start_hole_by_team[tid] = (current_round, start_hole)
                     except Exception as exc:
                         log.warning("Status fetch failed: %s", exc)
+
+        # Supplement with the leaderboard endpoint for pre-tournament start holes.
+        leaderboard_holes = _fetch_start_holes(pga_tour_id)
+        for tid, hole_pair in leaderboard_holes.items():
+            if tid not in start_hole_by_team:
+                start_hole_by_team[tid] = hole_pair
 
     # Fetch earnings concurrently for completed team tournaments.
     # Team events use the team_competitor_id (not athlete_id) with is_team_event=True
@@ -939,11 +1000,13 @@ def _fetch_team_field(
             }
         )
 
-        rounds = rounds_by_athlete.get(athlete_id, []) if fetch_round_data else []
+        # Copy rounds so per-athlete mutations (started_on_back, _has_back_nine pop)
+        # don't affect the shared team round dicts for the partner athlete.
+        rounds = [dict(rd) for rd in rounds_by_team.get(team_id, [])] if fetch_round_data else []
 
         # Apply started_on_back from the /status endpoint (same logic as individual).
-        if athlete_id in start_hole_by_athlete_team:
-            status_round, start_hole = start_hole_by_athlete_team[athlete_id]
+        if team_id in start_hole_by_team:
+            status_round, start_hole = start_hole_by_team[team_id]
             for rd in rounds:
                 if rd["round_number"] == status_round and rd.get("started_on_back") is None:
                     rd["started_on_back"] = start_hole >= 10
@@ -974,7 +1037,7 @@ def _fetch_team_field(
                 "pga_tour_id": athlete_id,
                 "finish_position": finish_order,
                 "earnings_usd": earnings_by_team.get(team_id),
-                "status": status_by_athlete_team.get(athlete_id),
+                "status": status_by_team.get(team_id),
                 "tee_time": current_tee_time,
                 "rounds": rounds,
                 "team_competitor_id": team_id,
@@ -2361,6 +2424,7 @@ def fetch_golfer_scorecard(
     tournament: Tournament,
     golfer: Golfer,
     round_number: int,
+    team_competitor_id: str | None = None,
 ) -> dict:
     """Fetch hole-by-hole scoring for a golfer in a specific tournament round.
 
@@ -2368,21 +2432,25 @@ def fetch_golfer_scorecard(
     hole-level data if available.  Returns a dict matching ScorecardOut;
     ``holes`` will be an empty list if ESPN doesn't include hole-level data
     for this round (graceful degradation).
+
+    For team events, pass ``team_competitor_id`` so the correct ESPN team
+    competitor ID is used instead of the individual athlete ID — individual
+    linescores return empty for team tournaments like the Zurich Classic.
     """
     pga_tour_id = tournament.pga_tour_id
     competition_id = tournament.competition_id or pga_tour_id
-    athlete_id = golfer.pga_tour_id
+    competitor_id = team_competitor_id or golfer.pga_tour_id
 
     url = (
         f"{_CORE_API_BASE}/events/{pga_tour_id}"
-        f"/competitions/{competition_id}/competitors/{athlete_id}/linescores"
+        f"/competitions/{competition_id}/competitors/{competitor_id}/linescores"
     )
     try:
         data = _get_json(url)
     except Exception as exc:
         log.warning(
-            "Scorecard fetch failed for golfer %s round %d: %s",
-            athlete_id,
+            "Scorecard fetch failed for competitor %s round %d: %s",
+            competitor_id,
             round_number,
             exc,
         )

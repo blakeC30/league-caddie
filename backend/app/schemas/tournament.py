@@ -22,6 +22,7 @@ class GolferInFieldOut(BaseModel):
     world_ranking: int | None
     country: str | None
     tee_time: datetime | None = None
+    started_on_back: bool | None = None
     partner_name: str | None = None
     partner_golfer_id: str | None = None
     partner_pga_tour_id: str | None = None

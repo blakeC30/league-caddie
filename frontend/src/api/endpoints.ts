@@ -72,6 +72,7 @@ export interface Golfer {
 // off, preventing the user from selecting an ineligible golfer before submitting.
 export interface GolferInField extends Golfer {
   tee_time: string | null;
+  started_on_back: boolean | null;
   partner_name: string | null;
   partner_golfer_id: string | null;
   partner_pga_tour_id: string | null;

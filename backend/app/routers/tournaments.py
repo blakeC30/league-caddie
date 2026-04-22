@@ -153,7 +153,7 @@ def get_tournament_field(
             TournamentEntry.tournament_id == tournament_id,
             (TournamentEntry.status != "WD") | (TournamentEntry.status.is_(None)),
         )
-        .options(joinedload(TournamentEntry.golfer))
+        .options(joinedload(TournamentEntry.golfer), joinedload(TournamentEntry.rounds))
         .join(TournamentEntry.golfer)
         .order_by(Golfer.world_ranking.asc().nulls_last())
         .all()
@@ -176,6 +176,7 @@ def get_tournament_field(
     result = []
     for e in entries:
         partner = partner_map.get(e.golfer_id)
+        r1 = next((r for r in e.rounds if r.round_number == 1), None)
         result.append(
             GolferInFieldOut(
                 id=e.golfer.id,
@@ -184,6 +185,7 @@ def get_tournament_field(
                 world_ranking=e.golfer.world_ranking,
                 country=e.golfer.country,
                 tee_time=e.tee_time,
+                started_on_back=r1.started_on_back if r1 else None,
                 partner_name=partner.golfer.name if partner else None,
                 partner_golfer_id=(str(partner.golfer_id) if partner else None),
                 partner_pga_tour_id=(partner.golfer.pga_tour_id if partner else None),
@@ -291,6 +293,9 @@ def get_leaderboard(
     running_rank = 0
     prev_stp: object = object()  # sentinel — never equals any real stp
     active_count = 0  # counts active (non-bottom) entries seen so far
+    # For team events: only advance active_count once per team so that the 2nd
+    # partner on the same team doesn't push subsequent teams' positions down by 1.
+    counted_teams: set[str] = set()
     for entry in entries:
         stp = stp_per_entry[entry.id]
         if entry.status in _BOTTOM_STATUSES or stp is None:
@@ -300,21 +305,38 @@ def get_leaderboard(
                 running_rank = active_count + 1
                 prev_stp = stp
             display_position[entry.id] = running_rank
-            active_count += 1
+            team_key = entry.team_competitor_id
+            if team_key is None or team_key not in counted_teams:
+                active_count += 1
+                if team_key is not None:
+                    counted_teams.add(team_key)
 
     # Build separate stp counts for finishers vs. missed-cut players so that a
     # CUT/MDF/WD/DQ player at the same total STP as a finisher cannot create a
     # false tie (e.g. a CUT player at +10 should not mark the last finisher T73).
-    finisher_stp_counts: Counter = Counter(
-        stp_per_entry[e.id]
-        for e in entries
-        if e.status not in _BOTTOM_STATUSES and stp_per_entry[e.id] is not None
-    )
-    bottom_stp_counts: Counter = Counter(
-        stp_per_entry[e.id]
-        for e in entries
-        if e.status in _BOTTOM_STATUSES and stp_per_entry[e.id] is not None
-    )
+    # For team events, deduplicate by team_competitor_id so both partners don't
+    # double-count the same score (which would falsely mark a solo leader as tied).
+    _seen_ft: set[str] = set()
+    _seen_bt: set[str] = set()
+    _finisher_stps: list = []
+    _bottom_stps: list = []
+    for e in entries:
+        stp = stp_per_entry[e.id]
+        if stp is None:
+            continue
+        team_key = e.team_competitor_id
+        if e.status not in _BOTTOM_STATUSES:
+            if team_key is None or team_key not in _seen_ft:
+                _finisher_stps.append(stp)
+                if team_key is not None:
+                    _seen_ft.add(team_key)
+        else:
+            if team_key is None or team_key not in _seen_bt:
+                _bottom_stps.append(stp)
+                if team_key is not None:
+                    _seen_bt.add(team_key)
+    finisher_stp_counts: Counter = Counter(_finisher_stps)
+    bottom_stp_counts: Counter = Counter(_bottom_stps)
 
     def _stp_counts_for(entry) -> Counter:
         return bottom_stp_counts if entry.status in _BOTTOM_STATUSES else finisher_stp_counts
@@ -466,5 +488,14 @@ def get_scorecard(
         log.warning("Scorecard failed: golfer=%s not found", str(golfer_id))
         raise HTTPException(status_code=404, detail="Golfer not found")
 
-    result = fetch_golfer_scorecard(tournament, golfer, round)
+    entry = (
+        db.query(TournamentEntry)
+        .filter_by(tournament_id=tournament_id, golfer_id=golfer_id)
+        .first()
+    )
+    team_competitor_id = entry.team_competitor_id if entry else None
+
+    result = fetch_golfer_scorecard(
+        tournament, golfer, round, team_competitor_id=team_competitor_id
+    )
     return ScorecardOut(**result)

@@ -9,21 +9,29 @@ What's tested here:
   - upsert_tournaments()       — create new / update existing tournament rows
   - upsert_field()             — create new / update existing golfer + entry rows
   - score_picks()              — points_earned set correctly after results land
+  - _fetch_team_roster()       — correct URL construction (event ID required)
+  - _fetch_team_field()        — linescores fetched at team level; tee times propagate
 
 The high-level sync_* functions (which make real HTTP calls) are integration
 tests and run only when the ESPN API is reachable. They are not included here.
 """
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
+
+import httpx
 
 from app.services.scraper import (
     _fetch_competitor_rounds,
+    _fetch_team_field,
+    _fetch_team_roster,
     _map_espn_status,
     _parse_date,
     parse_schedule_response,
     score_picks,
     upsert_tournaments,
 )
+
+UTC = UTC
 
 # ---------------------------------------------------------------------------
 # Fixtures — sample ESPN API payloads
@@ -653,3 +661,192 @@ class TestFetchCompetitorRoundsPhantomFiltering:
         assert len(rounds) == 2
         assert rounds[1]["round_number"] == 2
         assert rounds[1]["thru"] == 6
+
+
+# ---------------------------------------------------------------------------
+# _fetch_team_roster: URL construction and response parsing
+# ---------------------------------------------------------------------------
+
+
+class TestFetchTeamRoster:
+    """
+    The roster endpoint requires /events/{pga_tour_id}/ in the path.
+    Previously the URL was missing the event segment, causing every call to
+    return 404 and the sync to store zero entries for the Zurich Classic.
+    """
+
+    def test_url_includes_event_id(self):
+        from unittest.mock import patch
+
+        with patch("app.services.scraper._get_json") as mock_get:
+            mock_get.return_value = {"entries": []}
+            _fetch_team_roster("EVT001", "COMP001", "TEAM001")
+
+        called_url = mock_get.call_args[0][0]
+        assert "/events/EVT001/" in called_url
+        assert "/competitions/COMP001/" in called_url
+        assert "/competitors/TEAM001/roster" in called_url
+
+    def test_returns_athlete_ids_as_strings(self):
+        from unittest.mock import patch
+
+        with patch("app.services.scraper._get_json") as mock_get:
+            mock_get.return_value = {"entries": [{"playerId": 6011}, {"playerId": 7001}]}
+            result = _fetch_team_roster("EVT001", "COMP001", "TEAM001")
+
+        assert result == ["6011", "7001"]
+
+    def test_skips_entries_without_player_id(self):
+        from unittest.mock import patch
+
+        with patch("app.services.scraper._get_json") as mock_get:
+            mock_get.return_value = {"entries": [{"playerId": 6011}, {}, {"playerId": None}]}
+            result = _fetch_team_roster("EVT001", "COMP001", "TEAM001")
+
+        assert result == ["6011"]
+
+    def test_returns_empty_list_on_http_error(self):
+        from unittest.mock import MagicMock, patch
+
+        with patch("app.services.scraper._get_json") as mock_get:
+            mock_get.side_effect = httpx.HTTPStatusError(
+                "404 Not Found",
+                request=MagicMock(),
+                response=MagicMock(status_code=404),
+            )
+            result = _fetch_team_roster("EVT001", "COMP001", "TEAM001")
+
+        assert result == []
+
+
+# ---------------------------------------------------------------------------
+# _fetch_team_field: team-level linescores, tee-time propagation, copy safety
+# ---------------------------------------------------------------------------
+
+
+def _processed_round(round_number: int = 1, tee_time_str: str = "2026-04-23T12:00Z") -> dict:
+    """Return a fully-processed round dict as _fetch_competitor_rounds would produce."""
+    return {
+        "round_number": round_number,
+        "tee_time": datetime.fromisoformat(tee_time_str.replace("Z", "+00:00")),
+        "score": None,
+        "score_to_par": None,
+        "position": None,
+        "is_playoff": False,
+        "thru": None,
+        "started_on_back": None,
+        "_has_back_nine_linescore": True,
+    }
+
+
+# Two-team fixture used by all TestFetchTeamField tests.
+_TWO_TEAMS_RESPONSE = {
+    "items": [
+        {"id": "TEAM001", "type": "team", "order": 1},
+        {"id": "TEAM002", "type": "team", "order": 2},
+    ]
+}
+
+
+class TestFetchTeamField:
+    """
+    _fetch_team_field must fetch linescores and status at the team-competitor
+    level, not at the individual-athlete level.  Individual-athlete linescores
+    return count=0 for team events like the Zurich Classic.
+    """
+
+    def _patch_all(self, roster_return=None, rounds_by_team=None):
+        """Return a context-manager stack that mocks every HTTP helper."""
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        roster_return = roster_return or ["A1", "A2"]
+
+        def fake_roster(pga_tour_id, competition_id, team_id):
+            return roster_return
+
+        def fake_athlete_info(aid):
+            return {"pga_tour_id": aid, "name": f"Golfer {aid}", "country": None}
+
+        def fake_rounds(pga, comp, tid):
+            rds = (rounds_by_team or {}).get(tid, [_processed_round()])
+            return tid, rds
+
+        def fake_status(pga, comp, tid):
+            return tid, None, None, None
+
+        stack = ExitStack()
+        stack.enter_context(
+            patch("app.services.scraper._get_json", return_value=_TWO_TEAMS_RESPONSE)
+        )
+        stack.enter_context(
+            patch("app.services.scraper._fetch_team_roster", side_effect=fake_roster)
+        )
+        stack.enter_context(
+            patch("app.services.scraper._fetch_athlete_info", side_effect=fake_athlete_info)
+        )
+        mock_rounds = stack.enter_context(
+            patch("app.services.scraper._fetch_competitor_rounds", side_effect=fake_rounds)
+        )
+        stack.enter_context(
+            patch("app.services.scraper._fetch_competitor_status", side_effect=fake_status)
+        )
+        return stack, mock_rounds
+
+    def test_linescores_fetched_by_team_id_not_athlete_id(self):
+        """_fetch_competitor_rounds must be called with TEAM001/TEAM002, never
+        with the individual athlete IDs A1/A2."""
+        stack, mock_rounds = self._patch_all(roster_return=["A1", "A2"])
+        with stack:
+            _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        called_ids = {call.args[2] for call in mock_rounds.call_args_list}
+        assert "TEAM001" in called_ids
+        assert "TEAM002" in called_ids
+        assert "A1" not in called_ids
+        assert "A2" not in called_ids
+
+    def test_tee_time_propagates_to_both_athletes_in_team(self):
+        """Both golfers on a team must receive the team's Round 1 tee time."""
+        tee_time = datetime(2026, 4, 23, 12, 0, tzinfo=UTC)
+        rounds_by_team = {
+            "TEAM001": [_processed_round(1, "2026-04-23T12:00Z")],
+            "TEAM002": [_processed_round(1, "2026-04-23T13:00Z")],
+        }
+        stack, _ = self._patch_all(roster_return=["A1", "A2"], rounds_by_team=rounds_by_team)
+        with stack:
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        # Four results total: A1+A2 on TEAM001, A1+A2 on TEAM002 (roster
+        # returns ["A1","A2"] for every team in this fixture).
+        team001_results = [r for r in results if r["team_competitor_id"] == "TEAM001"]
+        assert len(team001_results) == 2
+        for r in team001_results:
+            assert r["tee_time"] == tee_time, f"Expected {tee_time}, got {r['tee_time']}"
+
+    def test_round_dicts_are_independent_per_athlete(self):
+        """Each athlete gets its own copy of the round dicts so mutations in
+        the per-athlete processing loop (started_on_back, _has_back_nine pop)
+        don't bleed through to the partner athlete."""
+        stack, _ = self._patch_all(roster_return=["A1", "A2"])
+        with stack:
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        team001_results = [r for r in results if r["team_competitor_id"] == "TEAM001"]
+        assert len(team001_results) == 2
+        r0_rounds = team001_results[0]["rounds"]
+        r1_rounds = team001_results[1]["rounds"]
+        # Lists must be different objects.
+        assert r0_rounds is not r1_rounds
+        # The round dicts inside must also be different objects.
+        assert r0_rounds[0] is not r1_rounds[0]
+
+    def test_returns_empty_when_no_competitors(self):
+        """If ESPN returns no team competitors, both lists come back empty."""
+        from unittest.mock import patch
+
+        with patch("app.services.scraper._get_json", return_value={"items": []}):
+            golfers, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        assert golfers == []
+        assert results == []

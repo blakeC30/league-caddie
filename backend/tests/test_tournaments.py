@@ -380,3 +380,231 @@ class TestGetSyncStatus:
         tournament = _make_tournament(db)
         resp = client.get(f"/api/v1/tournaments/{tournament.id}/sync-status")
         assert resp.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Team event leaderboard — position and is_tied correctness
+# ---------------------------------------------------------------------------
+
+
+def _make_team_tournament(db, name: str = "Zurich Classic") -> Tournament:
+    start = date.today() - timedelta(days=5)
+    t = Tournament(
+        pga_tour_id=f"T{uuid.uuid4().hex[:6]}",
+        name=name,
+        start_date=start,
+        end_date=start + timedelta(days=3),
+        status=TournamentStatus.COMPLETED.value,
+        is_team_event=True,
+    )
+    db.add(t)
+    db.commit()
+    db.refresh(t)
+    return t
+
+
+def _make_team_entry(
+    db,
+    tournament: Tournament,
+    golfer: Golfer,
+    team_competitor_id: str,
+    score_to_par: int,
+    earnings: int = 0,
+) -> TournamentEntry:
+    entry = TournamentEntry(
+        tournament_id=tournament.id,
+        golfer_id=golfer.id,
+        earnings_usd=earnings,
+        team_competitor_id=team_competitor_id,
+    )
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    db.add(
+        TournamentEntryRound(
+            tournament_entry_id=entry.id,
+            round_number=4,
+            score_to_par=score_to_par,
+        )
+    )
+    db.commit()
+    return entry
+
+
+class TestTeamEventLeaderboardPositions:
+    def test_positions_not_double_counted_for_team_partners(self, client, db):
+        """Each team should occupy exactly one position slot, not two."""
+        tournament = _make_team_tournament(db)
+        # Three teams at -10, -8, -6
+        g1 = _make_golfer(db, "Player A1", ranking=1)
+        g2 = _make_golfer(db, "Player A2", ranking=2)
+        g3 = _make_golfer(db, "Player B1", ranking=3)
+        g4 = _make_golfer(db, "Player B2", ranking=4)
+        g5 = _make_golfer(db, "Player C1", ranking=5)
+        g6 = _make_golfer(db, "Player C2", ranking=6)
+
+        _make_team_entry(db, tournament, g1, "TEAM_A", score_to_par=-10, earnings=1_200_000)
+        _make_team_entry(db, tournament, g2, "TEAM_A", score_to_par=-10, earnings=1_200_000)
+        _make_team_entry(db, tournament, g3, "TEAM_B", score_to_par=-8, earnings=700_000)
+        _make_team_entry(db, tournament, g4, "TEAM_B", score_to_par=-8, earnings=700_000)
+        _make_team_entry(db, tournament, g5, "TEAM_C", score_to_par=-6, earnings=400_000)
+        _make_team_entry(db, tournament, g6, "TEAM_C", score_to_par=-6, earnings=400_000)
+
+        headers = _register_and_login(client)
+        resp = client.get(f"/api/v1/tournaments/{tournament.id}/leaderboard", headers=headers)
+        assert resp.status_code == 200
+        entries = resp.json()["entries"]
+
+        pos_by_name = {e["golfer_name"]: e["finish_position"] for e in entries}
+
+        # Both partners on Team A should be position 1
+        assert pos_by_name["Player A1"] == 1
+        assert pos_by_name["Player A2"] == 1
+
+        # Team B: should be 2 (not 3 — without the fix, double-counting shifts it)
+        assert pos_by_name["Player B1"] == 2
+        assert pos_by_name["Player B2"] == 2
+
+        # Team C: should be 3 (not 5)
+        assert pos_by_name["Player C1"] == 3
+        assert pos_by_name["Player C2"] == 3
+
+    def test_is_tied_false_for_solo_leader(self, client, db):
+        """The leading team with a unique score must NOT be marked as tied."""
+        tournament = _make_team_tournament(db)
+        g1 = _make_golfer(db, "Leader 1", ranking=1)
+        g2 = _make_golfer(db, "Leader 2", ranking=2)
+        g3 = _make_golfer(db, "Trailer 1", ranking=3)
+        g4 = _make_golfer(db, "Trailer 2", ranking=4)
+
+        _make_team_entry(db, tournament, g1, "TEAM_A", score_to_par=-12, earnings=1_200_000)
+        _make_team_entry(db, tournament, g2, "TEAM_A", score_to_par=-12, earnings=1_200_000)
+        _make_team_entry(db, tournament, g3, "TEAM_B", score_to_par=-8, earnings=700_000)
+        _make_team_entry(db, tournament, g4, "TEAM_B", score_to_par=-8, earnings=700_000)
+
+        headers = _register_and_login(client)
+        resp = client.get(f"/api/v1/tournaments/{tournament.id}/leaderboard", headers=headers)
+        assert resp.status_code == 200
+        entries = resp.json()["entries"]
+
+        tied_by_name = {e["golfer_name"]: e["is_tied"] for e in entries}
+
+        # Both leaders share a unique team score — not tied
+        assert tied_by_name["Leader 1"] is False
+        assert tied_by_name["Leader 2"] is False
+
+    def test_is_tied_true_for_genuinely_tied_teams(self, client, db):
+        """Two teams at the same score must both be marked tied."""
+        tournament = _make_team_tournament(db)
+        g1 = _make_golfer(db, "Tied A1", ranking=1)
+        g2 = _make_golfer(db, "Tied A2", ranking=2)
+        g3 = _make_golfer(db, "Tied B1", ranking=3)
+        g4 = _make_golfer(db, "Tied B2", ranking=4)
+
+        _make_team_entry(db, tournament, g1, "TEAM_A", score_to_par=-10, earnings=800_000)
+        _make_team_entry(db, tournament, g2, "TEAM_A", score_to_par=-10, earnings=800_000)
+        _make_team_entry(db, tournament, g3, "TEAM_B", score_to_par=-10, earnings=800_000)
+        _make_team_entry(db, tournament, g4, "TEAM_B", score_to_par=-10, earnings=800_000)
+
+        headers = _register_and_login(client)
+        resp = client.get(f"/api/v1/tournaments/{tournament.id}/leaderboard", headers=headers)
+        assert resp.status_code == 200
+        entries = resp.json()["entries"]
+
+        tied_by_name = {e["golfer_name"]: e["is_tied"] for e in entries}
+
+        assert tied_by_name["Tied A1"] is True
+        assert tied_by_name["Tied A2"] is True
+        assert tied_by_name["Tied B1"] is True
+        assert tied_by_name["Tied B2"] is True
+
+
+# ---------------------------------------------------------------------------
+# GET /tournaments/{id}/golfers/{gid}/scorecard — team_competitor_id routing
+# ---------------------------------------------------------------------------
+
+
+class TestScorecardEndpoint:
+    def test_scorecard_passes_team_competitor_id_for_team_event(self, client, db, monkeypatch):
+        """For a team event entry, fetch_golfer_scorecard must receive team_competitor_id."""
+        tournament = _make_team_tournament(db, name="Scorecard Team Test")
+        golfer = _make_golfer(db, "Team Golfer", ranking=5)
+        entry = TournamentEntry(
+            tournament_id=tournament.id,
+            golfer_id=golfer.id,
+            team_competitor_id="ESPN_TEAM_999",
+        )
+        db.add(entry)
+        db.commit()
+
+        calls: list[dict] = []
+
+        def fake_scorecard(tournament, golfer, round_number, team_competitor_id=None):
+            calls.append({"team_competitor_id": team_competitor_id})
+            return {
+                "golfer_id": str(golfer.id),
+                "round_number": round_number,
+                "holes": [],
+                "total_score": None,
+                "total_score_to_par": None,
+            }
+
+        monkeypatch.setattr(
+            "app.services.scraper.fetch_golfer_scorecard",
+            fake_scorecard,
+        )
+
+        headers = _register_and_login(client)
+        resp = client.get(
+            f"/api/v1/tournaments/{tournament.id}/golfers/{golfer.id}/scorecard?round=1",
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert len(calls) == 1
+        assert calls[0]["team_competitor_id"] == "ESPN_TEAM_999"
+
+    def test_scorecard_passes_none_for_individual_event(self, client, db, monkeypatch):
+        """For a non-team entry, team_competitor_id should be None."""
+        start = date.today() - timedelta(days=5)
+        tournament = Tournament(
+            pga_tour_id=f"I{uuid.uuid4().hex[:6]}",
+            name="Individual Open",
+            start_date=start,
+            end_date=start + timedelta(days=3),
+            status=TournamentStatus.COMPLETED.value,
+            is_team_event=False,
+        )
+        db.add(tournament)
+        db.commit()
+        db.refresh(tournament)
+
+        golfer = _make_golfer(db, "Solo Golfer", ranking=10)
+        entry = TournamentEntry(tournament_id=tournament.id, golfer_id=golfer.id)
+        db.add(entry)
+        db.commit()
+
+        calls: list[dict] = []
+
+        def fake_scorecard(tournament, golfer, round_number, team_competitor_id=None):
+            calls.append({"team_competitor_id": team_competitor_id})
+            return {
+                "golfer_id": str(golfer.id),
+                "round_number": round_number,
+                "holes": [],
+                "total_score": None,
+                "total_score_to_par": None,
+            }
+
+        monkeypatch.setattr(
+            "app.services.scraper.fetch_golfer_scorecard",
+            fake_scorecard,
+        )
+
+        headers = _register_and_login(client)
+        resp = client.get(
+            f"/api/v1/tournaments/{tournament.id}/golfers/{golfer.id}/scorecard?round=1",
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        assert len(calls) == 1
+        assert calls[0]["team_competitor_id"] is None

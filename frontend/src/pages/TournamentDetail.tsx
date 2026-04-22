@@ -444,21 +444,46 @@ export function TournamentDetail() {
       }
 
       const golferWithTeeTimes = (field ?? []).filter((g) => g.tee_time != null);
-      const sorted = golferWithTeeTimes.sort((a, b) =>
+      const sorted = [...golferWithTeeTimes].sort((a, b) =>
         new Date(a.tee_time!).getTime() - new Date(b.tee_time!).getTime()
       );
 
-      // Group by tee_time string so players sharing a slot appear together.
-      const groups: { time: string; golfers: typeof sorted }[] = [];
-      for (const g of sorted) {
+      // Team events: each golfer knows their partner via partner_golfer_id.
+      // Deduplicate to one entry per team so only one row is rendered per pair.
+      const isTeamEvent = sorted.some((g) => g.partner_name != null);
+      const displayEntries = isTeamEvent
+        ? (() => {
+            const seen = new Set<string>();
+            return sorted.filter((g) => {
+              if (seen.has(g.id)) return false;
+              seen.add(g.id);
+              if (g.partner_golfer_id) seen.add(g.partner_golfer_id);
+              return true;
+            });
+          })()
+        : sorted;
+
+      // Group by (tee_time, started_on_back) so that within the same clock time,
+      // hole-1 starters (no suffix) appear before hole-10 starters (* suffix).
+      // Sort key: time ascending, then false < true so front nine comes first.
+      const sortedForGroups = [...displayEntries].sort((a, b) => {
+        const tDiff = new Date(a.tee_time!).getTime() - new Date(b.tee_time!).getTime();
+        if (tDiff !== 0) return tDiff;
+        return (a.started_on_back ? 1 : 0) - (b.started_on_back ? 1 : 0);
+      });
+
+      const groups: { time: string; onBack: boolean; golfers: typeof displayEntries }[] = [];
+      for (const g of sortedForGroups) {
         const last = groups[groups.length - 1];
-        if (last && last.time === g.tee_time) {
+        const onBack = !!g.started_on_back;
+        if (last && last.time === g.tee_time && last.onBack === onBack) {
           last.golfers.push(g);
         } else {
-          groups.push({ time: g.tee_time!, golfers: [g] });
+          groups.push({ time: g.tee_time!, onBack, golfers: [g] });
         }
       }
 
+      const hasBackNine = displayEntries.some((g) => g.started_on_back);
       const myPickedGolferIdForField = myPicks?.find((p) => p.tournament_id === tournamentId)?.golfer_id ?? null;
 
       return (
@@ -473,29 +498,52 @@ export function TournamentDetail() {
             {myPickedGolferIdForField && (
               <p className="text-sm text-green-300 mt-1">Your pick is highlighted below</p>
             )}
+            {hasBackNine && (
+              <p className="text-xs text-green-300/70 mt-2">* = starting on hole 10</p>
+            )}
           </div>
 
           {groups.length === 0 ? (
             <p className="text-sm text-gray-400">Tee times are not yet available for this tournament.</p>
           ) : (
             <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden divide-y divide-gray-200">
-              {groups.map(({ time, golfers }) => {
+              {groups.map(({ time, onBack, golfers }) => {
                 const localTime = new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+                const suffix = onBack ? "*" : "";
                 return (
-                  <div key={time} className="flex items-center justify-center gap-4 px-4 py-4">
-                    <span className="text-sm font-semibold text-gray-500 tabular-nums w-20 shrink-0 text-right">{localTime}</span>
-                    <div className="flex flex-col gap-1.5 w-56">
+                  <div key={time + suffix} className="flex items-center gap-4 px-4 py-4">
+                    <span className="text-sm font-semibold text-gray-500 tabular-nums w-20 shrink-0 text-right">
+                      {localTime}{suffix}
+                    </span>
+                    <div className="flex flex-col gap-1.5 min-w-0 flex-1">
                       {golfers.map((g) => {
-                        const isMyPick = g.id === myPickedGolferIdForField;
+                        const isMyPick =
+                          g.id === myPickedGolferIdForField ||
+                          g.partner_golfer_id === myPickedGolferIdForField;
                         return (
-                          <div key={g.id} className={`flex items-center gap-2.5 rounded-lg px-2 py-0.5 -mx-2 ${isMyPick ? "bg-green-50" : ""}`}>
-                            <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-7 h-7 shrink-0" />
-                            <span className={`text-sm font-medium truncate ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
-                              {g.name}
-                              {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
-                            </span>
-                            {g.world_ranking != null && (
-                              <span className="text-xs text-gray-400 shrink-0">#{g.world_ranking}</span>
+                          <div key={g.id} className={`flex items-center gap-1.5 rounded-lg px-2 py-0.5 -mx-2 ${isMyPick ? "bg-green-50" : ""}`}>
+                            {isTeamEvent && g.partner_name && g.partner_pga_tour_id ? (
+                              <>
+                                <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-6 h-6 shrink-0" />
+                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>{g.name}</span>
+                                <span className="text-sm text-gray-400 shrink-0">/</span>
+                                <GolferAvatar pgaTourId={g.partner_pga_tour_id} name={g.partner_name} className="w-6 h-6 shrink-0" />
+                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
+                                  {g.partner_name}
+                                  {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-7 h-7 shrink-0" />
+                                <span className={`text-sm font-medium truncate ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
+                                  {g.name}
+                                  {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
+                                </span>
+                                {g.world_ranking != null && (
+                                  <span className="text-xs text-gray-400 shrink-0">#{g.world_ranking}</span>
+                                )}
+                              </>
                             )}
                           </div>
                         );
@@ -620,7 +668,11 @@ export function TournamentDetail() {
     // Apply search filter
     if (leaderboardSearch.trim()) {
       const q = leaderboardSearch.toLowerCase();
-      entries = entries.filter((e) => e.golfer_name.toLowerCase().includes(q));
+      entries = entries.filter(
+        (e) =>
+          e.golfer_name.toLowerCase().includes(q) ||
+          (e.partner_name?.toLowerCase().includes(q) ?? false),
+      );
     }
 
     return entries;
@@ -781,34 +833,23 @@ export function TournamentDetail() {
                         {/* Golfer */}
                         <td className="px-3 py-3">
                           {isTeamEvent && entry.partner_name ? (
-                            /* Team event: show both partners stacked */
-                            <div className="flex items-center gap-2 min-w-0">
-                              <div className="relative shrink-0 w-12 h-8">
-                                <GolferAvatar
-                                  pgaTourId={entry.golfer_pga_tour_id}
-                                  name={entry.golfer_name}
-                                  className="w-8 h-8 absolute left-0 top-0 ring-2 ring-white"
-                                />
-                                <GolferAvatar
-                                  pgaTourId={entry.partner_golfer_pga_tour_id ?? ""}
-                                  name={entry.partner_name}
-                                  className="w-8 h-8 absolute left-4 top-0 ring-2 ring-white"
-                                />
-                              </div>
-                              <div className="min-w-0">
-                                <p className={`text-sm font-semibold truncate ${isMyPick ? "text-green-900" : "text-gray-800"}`}>
-                                  {entry.golfer_id === myPickedGolferId ? (
-                                    <><span className="text-green-600">★</span> {entry.golfer_name} / {entry.partner_name}</>
-                                  ) : entry.partner_golfer_id === myPickedGolferId ? (
-                                    <>{entry.golfer_name} / <span className="text-green-600">★</span> {entry.partner_name}</>
-                                  ) : (
-                                    <>{entry.golfer_name} / {entry.partner_name}</>
-                                  )}
-                                </p>
-                                {entry.golfer_country && (
-                                  <p className="text-xs text-gray-400">{entry.golfer_country}</p>
-                                )}
-                              </div>
+                            /* Team event: each partner on their own row */
+                            <div className="flex flex-col gap-1 min-w-0">
+                              {[
+                                { pgaTourId: entry.golfer_pga_tour_id, name: entry.golfer_name, golfer_id: entry.golfer_id },
+                                { pgaTourId: entry.partner_golfer_pga_tour_id ?? "", name: entry.partner_name, golfer_id: entry.partner_golfer_id },
+                              ].map((p) => {
+                                const isPickedPlayer = p.golfer_id === myPickedGolferId;
+                                return (
+                                  <div key={p.golfer_id ?? p.name} className="flex items-center gap-2 min-w-0">
+                                    <GolferAvatar pgaTourId={p.pgaTourId} name={p.name} className="w-7 h-7 shrink-0" />
+                                    <p className={`text-sm font-semibold truncate ${isPickedPlayer ? "text-green-900" : "text-gray-800"}`}>
+                                      {isPickedPlayer && <span className="mr-1 text-green-600">★</span>}
+                                      {p.name}
+                                    </p>
+                                  </div>
+                                );
+                              })}
                             </div>
                           ) : (
                             /* Individual event: single golfer */
