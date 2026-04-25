@@ -431,28 +431,38 @@ def _fetch_competitor_status(
 _LEADERBOARD_API_BASE = "https://site.api.espn.com/apis/site/v2/sports/golf/leaderboard"
 
 
-def _fetch_start_holes(pga_tour_id: str) -> dict[str, tuple[int, int]]:
-    """Return {competitor_id: (round_number, start_hole)} from ESPN's leaderboard endpoint.
+_NOTABLE_LEADERBOARD_STATUSES = {"WD", "CUT", "MDF", "DQ"}
 
-    This endpoint populates ``status.startHole`` as soon as tee-time pairings are
-    released — well before the round begins — making it the only reliable pre-tournament
-    source for back-nine detection.  The per-golfer /linescores and /status endpoints
-    return empty data until the round is actually in progress.
 
-    Competitor IDs match what the Core API uses: individual athlete IDs for solo
-    tournaments, team competitor IDs for team events (e.g. Zurich Classic).
+def _fetch_start_holes(
+    pga_tour_id: str,
+) -> tuple[dict[str, tuple[int, int]], dict[str, str]]:
+    """Return start-hole and notable-status data from ESPN's site leaderboard endpoint.
+
+    Returns a 2-tuple:
+      start_holes — {competitor_id: (round_number, start_hole)}
+      statuses    — {competitor_id: short_detail} for CUT/WD/MDF/DQ competitors only
+
+    This endpoint is the only reliable pre-tournament source for back-nine detection
+    (startHole is populated when pairings are released, before /linescores or /status
+    return anything useful).  It also carries CUT/WD status for team events where the
+    Core API /status sub-endpoint returns only a $ref that never resolves to real data.
+
+    Competitor IDs match the Core API: individual athlete IDs for solo tournaments,
+    team competitor IDs for team events (e.g. Zurich Classic).
     """
     url = f"{_LEADERBOARD_API_BASE}?event={pga_tour_id}"
     try:
         data = _get_json(url)
     except Exception as exc:
         log.warning("Start-hole fetch failed for %s: %s", pga_tour_id, exc)
-        return {}
+        return {}, {}
 
-    result: dict[str, tuple[int, int]] = {}
+    start_holes: dict[str, tuple[int, int]] = {}
+    statuses: dict[str, str] = {}
     events = data.get("events", [])
     if not events:
-        return result
+        return start_holes, statuses
 
     comps = events[0].get("competitions", [{}])[0].get("competitors", [])
     for c in comps:
@@ -463,12 +473,20 @@ def _fetch_start_holes(pga_tour_id: str) -> dict[str, tuple[int, int]]:
         try:
             start_hole = int(status["startHole"])
             period = int(status["period"])
-            result[cid] = (period, start_hole)
+            start_holes[cid] = (period, start_hole)
         except (KeyError, TypeError, ValueError):
             pass
+        short_detail = status.get("type", {}).get("shortDetail", "")
+        if short_detail in _NOTABLE_LEADERBOARD_STATUSES:
+            statuses[cid] = short_detail
 
-    log.debug("Start-hole fetch for %s: %d competitors", pga_tour_id, len(result))
-    return result
+    log.debug(
+        "Start-hole fetch for %s: %d competitors, %d notable statuses",
+        pga_tour_id,
+        len(start_holes),
+        len(statuses),
+    )
+    return start_holes, statuses
 
 
 def _fetch_tournament_data(
@@ -637,7 +655,7 @@ def _fetch_tournament_data(
         # Supplement with the leaderboard endpoint which provides startHole
         # pre-tournament (before /status or /linescores return anything useful).
         # Only fills gaps — doesn't overwrite data already from /status.
-        leaderboard_holes = _fetch_start_holes(pga_tour_id)
+        leaderboard_holes, _leaderboard_statuses = _fetch_start_holes(pga_tour_id)
         for aid, hole_pair in leaderboard_holes.items():
             if aid not in start_hole_by_athlete:
                 start_hole_by_athlete[aid] = hole_pair
@@ -937,11 +955,21 @@ def _fetch_team_field(
                     except Exception as exc:
                         log.warning("Status fetch failed: %s", exc)
 
-        # Supplement with the leaderboard endpoint for pre-tournament start holes.
-        leaderboard_holes = _fetch_start_holes(pga_tour_id)
+        # Supplement with the leaderboard endpoint for pre-tournament start holes
+        # and CUT/WD/MDF/DQ statuses.  The Core API /status sub-endpoint returns only
+        # a $ref for team events (competition_id != pga_tour_id), so the site leaderboard
+        # is the only reliable source of notable statuses for team competitors.
+        leaderboard_holes, leaderboard_statuses = _fetch_start_holes(pga_tour_id)
         for tid, hole_pair in leaderboard_holes.items():
             if tid not in start_hole_by_team:
                 start_hole_by_team[tid] = hole_pair
+        # Leaderboard statuses take priority over /status endpoint results for team
+        # events: the Core API /status endpoint returns only a $ref that never
+        # resolves real data when competition_id != pga_tour_id, so it always yields
+        # None.  Overwrite any None already written by _fetch_competitor_status.
+        for tid, short_detail in leaderboard_statuses.items():
+            if not status_by_team.get(tid):
+                status_by_team[tid] = short_detail
 
     # Fetch earnings concurrently for completed team tournaments.
     # Team events use the team_competitor_id (not athlete_id) with is_team_event=True
