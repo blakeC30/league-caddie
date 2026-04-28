@@ -850,3 +850,172 @@ class TestFetchTeamField:
 
         assert golfers == []
         assert results == []
+
+
+# ---------------------------------------------------------------------------
+# Round-count CUT inference fallback
+# ---------------------------------------------------------------------------
+
+
+class TestFetchTeamFieldCutInference:
+    """
+    _fetch_team_field infers status='CUT' for teams with played rounds but
+    fewer than the max. This covers completed events where ESPN's site
+    leaderboard no longer returns shortDetail='CUT' (it reverts to 'F' once
+    the event is final), and the Core /status endpoint only returns a $ref
+    for team events.
+    """
+
+    _THREE_TEAMS = {
+        "items": [
+            {"id": "TEAM001", "type": "team", "order": 1},
+            {"id": "TEAM002", "type": "team", "order": 2},
+            {"id": "TEAM003", "type": "team", "order": 3},
+        ]
+    }
+
+    def _build_rounds(self, count: int) -> list[dict]:
+        return [_processed_round(r) for r in range(1, count + 1)]
+
+    def _patch_all(
+        self,
+        rounds_by_team: dict,
+        leaderboard_statuses: dict | None = None,
+        status_fn=None,
+    ):
+        """Patch all ESPN HTTP helpers. Returns an ExitStack context manager.
+
+        Args:
+            rounds_by_team: team_id → list of round dicts
+            leaderboard_statuses: what _fetch_start_holes returns as the
+                statuses dict. Defaults to {} (nothing from leaderboard).
+            status_fn: optional override for _fetch_competitor_status; receives
+                (pga, comp, tid) and returns (tid, short_detail, round, hole).
+                Defaults to always returning (tid, None, None, None).
+        """
+        from contextlib import ExitStack
+        from unittest.mock import patch
+
+        def fake_roster(pga, comp, tid):
+            return ["A1", "A2"]
+
+        def fake_athlete_info(aid):
+            return {"pga_tour_id": aid, "name": f"Golfer {aid}", "country": None}
+
+        def fake_rounds(pga, comp, tid):
+            return tid, rounds_by_team.get(tid, [])
+
+        def default_status(pga, comp, tid):
+            return tid, None, None, None
+
+        stack = ExitStack()
+        stack.enter_context(patch("app.services.scraper._get_json", return_value=self._THREE_TEAMS))
+        stack.enter_context(
+            patch("app.services.scraper._fetch_team_roster", side_effect=fake_roster)
+        )
+        stack.enter_context(
+            patch("app.services.scraper._fetch_athlete_info", side_effect=fake_athlete_info)
+        )
+        stack.enter_context(
+            patch("app.services.scraper._fetch_competitor_rounds", side_effect=fake_rounds)
+        )
+        stack.enter_context(
+            patch(
+                "app.services.scraper._fetch_competitor_status",
+                side_effect=status_fn or default_status,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.services.scraper._fetch_start_holes",
+                return_value=({}, leaderboard_statuses or {}),
+            )
+        )
+        return stack
+
+    def _statuses(self, results: list[dict]) -> dict[str, str | None]:
+        """Collapse results to {team_id: status}, keeping one entry per team."""
+        seen: dict[str, str | None] = {}
+        for r in results:
+            seen[r["team_competitor_id"]] = r["status"]
+        return seen
+
+    def test_cut_inferred_for_teams_with_fewer_rounds(self):
+        """Teams that played rounds 1-2 while the max is 4 (completed event)
+        get status='CUT' when the leaderboard returns no explicit statuses."""
+        rounds_by_team = {
+            "TEAM001": self._build_rounds(4),  # made cut
+            "TEAM002": self._build_rounds(2),  # cut after R2
+            "TEAM003": self._build_rounds(2),  # cut after R2
+        }
+        with self._patch_all(rounds_by_team):
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        statuses = self._statuses(results)
+        assert statuses["TEAM001"] is None
+        assert statuses["TEAM002"] == "CUT"
+        assert statuses["TEAM003"] == "CUT"
+
+    def test_both_athletes_on_cut_team_receive_cut_status(self):
+        """Both golfers on a CUT team must carry status='CUT', not just one."""
+        rounds_by_team = {
+            "TEAM001": self._build_rounds(4),
+            "TEAM002": self._build_rounds(4),
+            "TEAM003": self._build_rounds(2),  # cut
+        }
+        with self._patch_all(rounds_by_team):
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        team003_results = [r for r in results if r["team_competitor_id"] == "TEAM003"]
+        assert len(team003_results) == 2
+        assert all(r["status"] == "CUT" for r in team003_results)
+
+    def test_zero_round_teams_not_marked_cut(self):
+        """A team with 0 rounds is a pre-tournament WD, not a cut. Must stay None."""
+        rounds_by_team = {
+            "TEAM001": self._build_rounds(4),
+            "TEAM002": self._build_rounds(4),
+            "TEAM003": [],  # withdrew before playing
+        }
+        with self._patch_all(rounds_by_team):
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        statuses = self._statuses(results)
+        assert statuses["TEAM003"] is None
+
+    def test_explicit_status_from_status_endpoint_not_overwritten(self):
+        """If _fetch_competitor_status already returned an explicit status (e.g.
+        WD) for a team with fewer rounds, the round-count inference must not
+        overwrite it."""
+
+        def status_with_wd(pga, comp, tid):
+            if tid == "TEAM003":
+                return tid, "WD", None, None
+            return tid, None, None, None
+
+        rounds_by_team = {
+            "TEAM001": self._build_rounds(4),
+            "TEAM002": self._build_rounds(4),
+            "TEAM003": self._build_rounds(1),  # withdrew during R1
+        }
+        with self._patch_all(rounds_by_team, status_fn=status_with_wd):
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        statuses = self._statuses(results)
+        assert statuses["TEAM003"] == "WD"
+
+    def test_leaderboard_status_not_overwritten_by_round_count(self):
+        """If the leaderboard already supplied a status for a team, the
+        round-count inference must not overwrite it."""
+        rounds_by_team = {
+            "TEAM001": self._build_rounds(4),
+            "TEAM002": self._build_rounds(4),
+            "TEAM003": self._build_rounds(2),
+        }
+        # Leaderboard returns MDF (made cut, didn't finish) for TEAM003 —
+        # a more specific status than CUT; round-count fallback must keep it.
+        with self._patch_all(rounds_by_team, leaderboard_statuses={"TEAM003": "MDF"}):
+            _, results = _fetch_team_field("EVT001", "COMP001", fetch_round_data=True)
+
+        statuses = self._statuses(results)
+        assert statuses["TEAM003"] == "MDF"

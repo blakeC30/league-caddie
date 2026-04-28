@@ -971,6 +971,19 @@ def _fetch_team_field(
             if not status_by_team.get(tid):
                 status_by_team[tid] = short_detail
 
+        # Final fallback: infer CUT from round count for teams with no explicit
+        # status after all ESPN API attempts. The site leaderboard returns
+        # actionable CUT/WD status during live events but reverts to final-state
+        # values once a tournament is completed, so the round-count signal is
+        # the only reliable source for completed team events.
+        # Teams with 0 rounds are pre-tournament WDs — do not infer CUT for them.
+        if max_rounds_team > 0:
+            for tid in unique_team_ids_for_rounds:
+                if not status_by_team.get(tid):
+                    rounds = rounds_by_team.get(tid, [])
+                    if 0 < len(rounds) < max_rounds_team:
+                        status_by_team[tid] = "CUT"
+
     # Fetch earnings concurrently for completed team tournaments.
     # Team events use the team_competitor_id (not athlete_id) with is_team_event=True
     # to get the officialAmount stat. Each team member shares the same earnings.
