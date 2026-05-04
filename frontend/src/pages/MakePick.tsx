@@ -68,7 +68,7 @@ export function MakePick() {
   const pickTargetIsGloballyNext =
     !tournament ||
     tournament.status === "in_progress" ||
-    (!hasGloballyInProgress && globallyNextTournament !== null && tournament.id === globallyNextTournament.id);
+    (!hasGloballyInProgress && globallyNextTournament !== null && tournament.start_date === globallyNextTournament.start_date);
 
   const { data: myPod } = useMyPlayoffPod(leagueId!);
   const podIdForPrefs = myPod?.is_in_playoffs ? (myPod.active_pod_id ?? null) : null;

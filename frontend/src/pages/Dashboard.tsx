@@ -93,13 +93,13 @@ export function Dashboard() {
   // or when it's the globally-next scheduled PGA tournament. If the league's next
   // tournament is further out (a PGA event was skipped), picks stay closed until
   // that skipped event completes and earnings publish.
-  const globallyNextId = globalScheduled
+  const globallyNextStartDate = globalScheduled
     ?.slice()
-    .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]?.id ?? null;
+    .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]?.start_date ?? null;
   const hasGloballyInProgress = globalInProgress !== undefined && globalInProgress.length > 0;
   const pickWindowOpen =
     active?.status === "in_progress" ||
-    (!hasGloballyInProgress && globalScheduled !== undefined && active?.id === globallyNextId);
+    (!hasGloballyInProgress && globalScheduled !== undefined && active?.start_date === globallyNextStartDate);
 
   return (
     <div className="space-y-8">
