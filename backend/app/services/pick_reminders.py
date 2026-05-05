@@ -50,7 +50,7 @@ def _is_pick_window_open(db: Session, tournament) -> bool:
         .order_by(Tournament.start_date.asc())
         .first()
     )
-    return globally_next is not None and tournament.id == globally_next.id
+    return globally_next is not None and tournament.start_date == globally_next.start_date
 
 
 # ---------------------------------------------------------------------------

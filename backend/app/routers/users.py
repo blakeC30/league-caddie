@@ -146,7 +146,7 @@ def get_league_summaries(
         .order_by(Tournament.start_date.asc())
         .all()
     )
-    globally_next_id = global_scheduled[0].id if global_scheduled else None
+    globally_next_start_date = global_scheduled[0].start_date if global_scheduled else None
 
     # All non-completed global tournaments for the "preceding tournament" check
     all_global_non_completed = (
@@ -354,7 +354,7 @@ def get_league_summaries(
 
             # Pick window open
             pick_window_open = t.status == TournamentStatus.IN_PROGRESS.value or (
-                not has_global_in_progress and t.id == globally_next_id
+                not has_global_in_progress and t.start_date == globally_next_start_date
             )
 
             # Preceding tournament name (for "Picks open after X" message)
