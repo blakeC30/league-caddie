@@ -191,7 +191,7 @@ def validate_new_pick(
             (t for t in global_tournaments if t.status == TournamentStatus.SCHEDULED.value),
             None,
         )
-        if globally_next and tournament.id != globally_next.id:
+        if globally_next and tournament.start_date != globally_next.start_date:
             log.warning(
                 "Pick validation failed: tournament=%s not globally next, next=%s",
                 str(tournament_id),
