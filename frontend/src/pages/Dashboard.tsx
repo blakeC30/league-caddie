@@ -96,10 +96,14 @@ export function Dashboard() {
   const globallyNextStartDate = globalScheduled
     ?.slice()
     .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]?.start_date ?? null;
-  const hasGloballyInProgress = globalInProgress !== undefined && globalInProgress.length > 0;
+  // Only a prior-week in-progress tournament blocks the pick window.
+  // Concurrent events sharing the same start_date must not block each other.
+  const hasBlockingInProgress = (globalInProgress ?? []).some(
+    (t) => active?.start_date !== undefined && t.start_date < active.start_date
+  );
   const pickWindowOpen =
     active?.status === "in_progress" ||
-    (!hasGloballyInProgress && globalScheduled !== undefined && active?.start_date === globallyNextStartDate);
+    (!hasBlockingInProgress && globalScheduled !== undefined && active?.start_date === globallyNextStartDate);
 
   return (
     <div className="space-y-8">
@@ -365,8 +369,8 @@ export function Dashboard() {
                   ? allGlobalTournaments
                       .filter((t) => t.start_date < firstLeagueScheduled.start_date && t.status !== "completed")
                       .sort((a, b) => b.start_date.localeCompare(a.start_date))[0]
-                    ?? globalInProgress?.[0]
-                  : globalInProgress?.[0];
+                    ?? globalInProgress?.find((t) => t.start_date < firstLeagueScheduled.start_date)
+                  : globalInProgress?.find((t) => active && t.start_date < active.start_date);
                 return (
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center flex-shrink-0">

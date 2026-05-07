@@ -37,11 +37,18 @@ def _is_pick_window_open(db: Session, tournament) -> bool:
     if tournament.status == TournamentStatus.IN_PROGRESS.value:
         return True
 
-    has_global_in_progress = (
-        db.query(Tournament).filter(Tournament.status == TournamentStatus.IN_PROGRESS.value).first()
+    # Only a prior-week in-progress tournament should block the pick window.
+    # Concurrent events sharing the same start_date must not block each other.
+    has_earlier_in_progress = (
+        db.query(Tournament)
+        .filter(
+            Tournament.status == TournamentStatus.IN_PROGRESS.value,
+            Tournament.start_date < tournament.start_date,
+        )
+        .first()
     ) is not None
 
-    if has_global_in_progress:
+    if has_earlier_in_progress:
         return False
 
     globally_next = (

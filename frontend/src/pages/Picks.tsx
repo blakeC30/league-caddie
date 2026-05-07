@@ -90,9 +90,12 @@ export function Picks() {
   const globallyNextStartDate = globalScheduled
     ?.slice()
     .sort((a, b) => a.start_date.localeCompare(b.start_date))[0]?.start_date ?? null;
-  const hasGloballyInProgress = globalInProgress !== undefined && globalInProgress.length > 0;
+  // Only a prior-week in-progress tournament blocks the pick window.
+  const hasBlockingInProgress = (globalInProgress ?? []).some(
+    (t) => nextTournament?.start_date !== undefined && t.start_date < nextTournament.start_date
+  );
   const nextTournamentIsGloballyNext =
-    !hasGloballyInProgress && !!nextTournament && !!globallyNextStartDate && nextTournament.start_date === globallyNextStartDate;
+    !hasBlockingInProgress && !!nextTournament && !!globallyNextStartDate && nextTournament.start_date === globallyNextStartDate;
 
   // Hide the pick button when the live tournament's pick is locked (golfer has teed off),
   // or when all Round 1 tee times have passed and the member has no pick yet (window permanently closed).

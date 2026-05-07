@@ -138,7 +138,6 @@ def get_league_summaries(
     global_in_progress = (
         db.query(Tournament).filter(Tournament.status == TournamentStatus.IN_PROGRESS.value).all()
     )
-    has_global_in_progress = len(global_in_progress) > 0
 
     global_scheduled = (
         db.query(Tournament)
@@ -352,9 +351,12 @@ def get_league_summaries(
                     is_locked=pick.is_locked,
                 )
 
-            # Pick window open
+            # Pick window open.
+            # A concurrent in-progress event (same start_date) must not block picks —
+            # only a prior-week in-progress tournament should.
+            has_blocking_in_progress = any(g.start_date < t.start_date for g in global_in_progress)
             pick_window_open = t.status == TournamentStatus.IN_PROGRESS.value or (
-                not has_global_in_progress and t.start_date == globally_next_start_date
+                not has_blocking_in_progress and t.start_date == globally_next_start_date
             )
 
             # Preceding tournament name (for "Picks open after X" message)
@@ -367,8 +369,12 @@ def get_league_summaries(
                         and gt.status != TournamentStatus.COMPLETED.value
                     ):
                         preceding = gt  # keep last one before current
-                if preceding is None and global_in_progress:
-                    preceding = global_in_progress[0]
+                if preceding is None:
+                    earlier_in_progress = [
+                        g for g in global_in_progress if g.start_date < t.start_date
+                    ]
+                    if earlier_in_progress:
+                        preceding = earlier_in_progress[0]
                 if preceding is not None:
                     preceding_tournament_name = preceding.name
 

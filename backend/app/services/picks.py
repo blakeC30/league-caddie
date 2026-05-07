@@ -170,8 +170,16 @@ def validate_new_pick(
             .all()
         )
 
+        # Only block if an in-progress tournament started before this one.
+        # Concurrent events that share the same start_date (e.g. Truist + Myrtle Beach
+        # both starting Thursday) must not block each other.
         active = next(
-            (t for t in global_tournaments if t.status == TournamentStatus.IN_PROGRESS.value),
+            (
+                t
+                for t in global_tournaments
+                if t.status == TournamentStatus.IN_PROGRESS.value
+                and t.start_date < tournament.start_date
+            ),
             None,
         )
         if active:

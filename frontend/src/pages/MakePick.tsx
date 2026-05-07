@@ -61,14 +61,17 @@ export function MakePick() {
     ?.slice()
     .sort((a, b) => a.start_date.localeCompare(b.start_date))[0] ?? null;
 
-  const hasGloballyInProgress = globalInProgress !== undefined && globalInProgress.length > 0;
+  // Only a prior-week in-progress tournament blocks the pick window.
+  const hasBlockingInProgress = (globalInProgress ?? []).some(
+    (t) => tournament?.start_date !== undefined && t.start_date < tournament.start_date
+  );
 
   // True when the league pick target aligns with the global PGA schedule.
   // Only relevant for scheduled tournaments — in_progress is always current.
   const pickTargetIsGloballyNext =
     !tournament ||
     tournament.status === "in_progress" ||
-    (!hasGloballyInProgress && globallyNextTournament !== null && tournament.start_date === globallyNextTournament.start_date);
+    (!hasBlockingInProgress && globallyNextTournament !== null && tournament.start_date === globallyNextTournament.start_date);
 
   const { data: myPod } = useMyPlayoffPod(leagueId!);
   const podIdForPrefs = myPod?.is_in_playoffs ? (myPod.active_pod_id ?? null) : null;
