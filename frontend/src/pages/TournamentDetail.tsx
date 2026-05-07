@@ -519,8 +519,10 @@ export function TournamentDetail() {
                     <div className="flex flex-col gap-1.5">
                       {golfers.map((g) => {
                         const isMyPick =
-                          g.id === myPickedGolferIdForField ||
-                          g.partner_golfer_id === myPickedGolferIdForField;
+                          myPickedGolferIdForField !== null && (
+                            g.id === myPickedGolferIdForField ||
+                            g.partner_golfer_id === myPickedGolferIdForField
+                          );
                         return (
                           <div key={g.id} className={`flex items-center gap-1.5 rounded-lg px-2 py-0.5 -mx-2 ${isMyPick ? "bg-green-50" : ""}`}>
                             {isTeamEvent && g.partner_name && g.partner_pga_tour_id ? (
