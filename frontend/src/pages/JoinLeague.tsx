@@ -26,9 +26,9 @@ import { FlagIcon } from "../components/FlagIcon";
 
 function GradientShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-950 via-green-900 to-green-800 flex flex-col items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-fairway-900 flex flex-col items-center justify-center px-4 py-12">
       {/* Logo */}
-      <Link to="/" className="inline-flex items-center gap-2 text-lg font-bold text-green-300 hover:text-white mb-10 tracking-tight transition-colors">
+      <Link to="/" className="inline-flex items-center gap-2 text-lg font-bold text-fairway-300 hover:text-white mb-10 tracking-tight transition-colors">
         <FlagIcon className="w-5 h-5 flex-shrink-0" />
         League Caddie
       </Link>
@@ -84,17 +84,17 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   if (isError || !preview) {
     return (
       <GradientShell>
-        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
-          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+        <div className="bg-white rounded-sm shadow-raised shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
+          <div className="w-12 h-12 bg-flag-100 text-flag-600 rounded-full flex items-center justify-center mx-auto">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           </div>
-          <p className="font-semibold text-gray-900">Invalid invite link</p>
-          <p className="text-sm text-gray-500">This league could not be found. The link may have expired.</p>
+          <p className="font-semibold text-ink-900">Invalid invite link</p>
+          <p className="text-sm text-ink-500">This league could not be found. The link may have expired.</p>
           <button
             onClick={() => navigate("/leagues")}
-            className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+            className="w-full bg-fairway-700 hover:bg-fairway-700 text-white text-sm font-semibold py-3 rounded-xs transition-colors"
           >
             Back to my leagues
           </button>
@@ -108,24 +108,24 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   if (!preview.accepting_requests && preview.user_status === null) {
     return (
       <GradientShell>
-        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
-          <div className="w-12 h-12 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center mx-auto">
+        <div className="bg-white rounded-sm shadow-raised shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
+          <div className="w-12 h-12 bg-ink-100 text-ink-400 rounded-full flex items-center justify-center mx-auto">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-gray-400">
+            <p className="text-micro uppercase text-ink-400">
               Not accepting requests
             </p>
-            <h1 className="text-2xl font-bold text-gray-900">{preview.name}</h1>
+            <h1 className="text-2xl font-bold text-ink-900">{preview.name}</h1>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-500">
             This league is not currently accepting new join requests. Contact the league manager for more information.
           </p>
           <button
             onClick={() => navigate("/leagues")}
-            className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+            className="w-full bg-fairway-700 hover:bg-fairway-700 text-white text-sm font-semibold py-3 rounded-xs transition-colors"
           >
             Back to my leagues
           </button>
@@ -138,24 +138,24 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   if (atLeagueCap && preview.user_status === null) {
     return (
       <GradientShell>
-        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
-          <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto">
+        <div className="bg-white rounded-sm shadow-raised shadow-black/20 p-8 w-full max-w-sm text-center space-y-4">
+          <div className="w-12 h-12 bg-brass-100 text-brass-600 rounded-full flex items-center justify-center mx-auto">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-amber-600">
+            <p className="text-micro uppercase text-brass-600">
               League limit reached
             </p>
-            <h1 className="text-2xl font-bold text-gray-900">{preview.name}</h1>
+            <h1 className="text-2xl font-bold text-ink-900">{preview.name}</h1>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-500">
             You've reached the maximum of 5 leagues (including pending requests). Leave a league or withdraw a pending request before joining another.
           </p>
           <button
             onClick={() => navigate("/leagues")}
-            className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+            className="w-full bg-fairway-700 hover:bg-fairway-700 text-white text-sm font-semibold py-3 rounded-xs transition-colors"
           >
             Back to my leagues
           </button>
@@ -168,21 +168,21 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
   if (preview.user_status === "approved") {
     return (
       <GradientShell>
-        <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm text-center space-y-5">
-          <div className="w-12 h-12 bg-green-100 text-green-700 rounded-full flex items-center justify-center mx-auto">
+        <div className="bg-white rounded-sm shadow-raised shadow-black/20 p-8 w-full max-w-sm text-center space-y-5">
+          <div className="w-12 h-12 bg-fairway-100 text-fairway-700 rounded-full flex items-center justify-center mx-auto">
             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
           </div>
           <div className="space-y-1">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
+            <p className="text-micro uppercase text-fairway-700">
               You're already a member
             </p>
-            <h1 className="text-2xl font-bold text-gray-900">{preview.name}</h1>
+            <h1 className="text-2xl font-bold text-ink-900">{preview.name}</h1>
           </div>
           <button
             onClick={() => navigate(`/leagues/${preview.league_id}`)}
-            className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+            className="w-full bg-fairway-700 hover:bg-fairway-700 text-white text-sm font-semibold py-3 rounded-xs transition-colors"
           >
             Go to league →
           </button>
@@ -219,18 +219,18 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
 
   return (
     <GradientShell>
-      <div className="bg-white rounded-2xl shadow-xl shadow-black/20 p-8 w-full max-w-sm space-y-5">
+      <div className="bg-white rounded-sm shadow-raised shadow-black/20 p-8 w-full max-w-sm space-y-5">
         {/* League info */}
         <div className="text-center space-y-1.5">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
+          <p className="text-micro uppercase text-fairway-700">
             {preview.user_status === "pending"
               ? "You've already requested to join"
               : submitted
               ? "Request pending"
               : "You've been invited to join"}
           </p>
-          <h1 className="text-2xl font-bold text-gray-900">{preview.name}</h1>
-          <p className="text-xs text-gray-400">
+          <h1 className="text-2xl font-bold text-ink-900">{preview.name}</h1>
+          <p className="text-xs text-ink-400">
             {preview.member_count} member{preview.member_count !== 1 ? "s" : ""}
           </p>
         </div>
@@ -238,8 +238,8 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
         {isPending ? (
           /* Pending state */
           <div className="space-y-3 text-center">
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-              <p className="text-sm text-amber-800">
+            <div className="bg-brass-50 border border-brass-100 rounded-xs px-4 py-3">
+              <p className="text-sm text-brass-700">
                 {preview.user_status === "pending"
                   ? "You already have an open request for this league. A manager needs to approve it before you get access."
                   : "Your join request has been sent. A manager needs to approve it before you get access."}
@@ -247,39 +247,39 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
             </div>
             <button
               onClick={() => navigate("/leagues")}
-              className="w-full bg-green-800 hover:bg-green-700 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+              className="w-full bg-fairway-700 hover:bg-fairway-700 text-white text-sm font-semibold py-3 rounded-xs transition-colors"
             >
               Back to my leagues
             </button>
             <button
               onClick={() => setShowWithdrawConfirm(true)}
-              className="w-full text-sm font-medium text-red-500 hover:text-red-700 transition-colors py-1"
+              className="w-full text-sm font-medium text-flag-600 hover:text-flag-700 transition-colors py-1"
             >
               Withdraw request
             </button>
 
             {showWithdrawConfirm && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-                <div className="bg-white rounded-2xl shadow-lg p-6 max-w-sm w-full space-y-4">
-                  <h3 className="text-lg font-bold text-gray-900">Withdraw request?</h3>
-                  <p className="text-sm text-gray-600">
+                <div className="bg-white rounded-sm shadow-raised p-6 max-w-sm w-full space-y-4">
+                  <h3 className="text-lg font-bold text-ink-900">Withdraw request?</h3>
+                  <p className="text-sm text-ink-600">
                     Are you sure you want to withdraw your join request for{" "}
                     <span className="font-semibold">{preview.name}</span>? You can request to join again later.
                   </p>
                   {cancelRequest.isError && (
-                    <p className="text-sm text-red-600">Failed to withdraw request. Please try again.</p>
+                    <p className="text-sm text-flag-600">Failed to withdraw request. Please try again.</p>
                   )}
                   <div className="flex gap-3">
                     <button
                       onClick={() => setShowWithdrawConfirm(false)}
-                      className="flex-1 border border-gray-300 text-gray-700 text-sm font-semibold py-2.5 rounded-xl hover:border-green-400 transition-colors"
+                      className="flex-1 border border-ink-300 text-ink-700 text-sm font-semibold py-2.5 rounded-xs hover:border-fairway-400 transition-colors"
                     >
                       Cancel
                     </button>
                     <button
                       onClick={handleWithdraw}
                       disabled={cancelRequest.isPending}
-                      className="flex-1 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold py-2.5 rounded-xl disabled:opacity-40 transition-colors"
+                      className="flex-1 bg-flag-600 hover:bg-flag-700 text-white text-sm font-semibold py-2.5 rounded-xs disabled:opacity-40 transition-colors"
                     >
                       {cancelRequest.isPending ? "Withdrawing…" : "Withdraw"}
                     </button>
@@ -291,24 +291,24 @@ function JoinLeagueForm({ inviteCode }: { inviteCode: string }) {
         ) : (
           /* Confirm state */
           <div className="space-y-3">
-            <p className="text-sm text-gray-500 text-center">
+            <p className="text-sm text-ink-500 text-center">
               {preview.auto_accept_requests
                 ? "You'll be added to this league immediately."
                 : "Joining requires manager approval. Your request will be reviewed before you get access."}
             </p>
             {joinError && (
-              <p className="text-xs text-red-600 text-center">{joinError}</p>
+              <p className="text-xs text-flag-600 text-center">{joinError}</p>
             )}
             <button
               onClick={handleConfirm}
               disabled={joinByCode.isPending}
-              className="w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white text-sm font-semibold py-3 rounded-xl transition-colors"
+              className="w-full bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white text-sm font-semibold py-3 rounded-xs transition-colors"
             >
               {joinByCode.isPending ? "Joining…" : preview.auto_accept_requests ? "Join League" : "Request to Join"}
             </button>
             <button
               onClick={() => navigate("/leagues")}
-              className="w-full text-sm font-medium text-gray-500 hover:text-gray-700 py-1 transition-colors"
+              className="w-full text-sm font-medium text-ink-500 hover:text-ink-700 py-1 transition-colors"
             >
               Cancel
             </button>

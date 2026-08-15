@@ -154,15 +154,15 @@ export function PlatformAdmin() {
 
   return (
     <div className="space-y-10">
-      <h1 className="text-2xl font-bold text-gray-900">Platform Admin</h1>
+      <h1 className="text-2xl font-bold text-ink-900">Platform Admin</h1>
 
       {/* ── Platform Stats ───────────────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">Platform Stats</h2>
+          <h2 className="text-lg font-semibold text-ink-800">Platform Stats</h2>
           <button
             onClick={() => refetchStats()}
-            className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors"
+            className="text-xs font-medium text-ink-400 hover:text-ink-700 transition-colors"
           >
             ↻ Refresh
           </button>
@@ -171,9 +171,9 @@ export function PlatformAdmin() {
         {statsLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Array.from({ length: 12 }).map((_, i) => (
-              <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 animate-pulse">
-                <div className="h-3 bg-gray-100 rounded w-2/3 mb-3" />
-                <div className="h-6 bg-gray-100 rounded w-1/2" />
+              <div key={i} className="bg-white border border-ink-200 rounded-xs p-4 animate-pulse">
+                <div className="h-3 bg-ink-100 rounded w-2/3 mb-3" />
+                <div className="h-6 bg-ink-100 rounded w-1/2" />
               </div>
             ))}
           </div>
@@ -182,58 +182,58 @@ export function PlatformAdmin() {
             {/* Stat cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {/* Users */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_users.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Total Users</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.total_users.toLocaleString()}</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">New (30d)</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.new_users_30d.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">New (30d)</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.new_users_30d.toLocaleString()}</p>
               </div>
               {/* Leagues */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Total Leagues</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_leagues.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Total Leagues</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.total_leagues.toLocaleString()}</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Paid This Season</p>
-                <p className="text-2xl font-bold text-green-700 tabular-nums">{stats.paid_leagues_this_year.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Paid This Season</p>
+                <p className="text-2xl font-bold text-fairway-700 tabular-nums">{stats.paid_leagues_this_year.toLocaleString()}</p>
               </div>
               {/* Members */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Active Members</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_approved_memberships.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Active Members</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.total_approved_memberships.toLocaleString()}</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Avg Members / League</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.avg_members_per_league.toFixed(1)}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Avg Members / League</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.avg_members_per_league.toFixed(1)}</p>
               </div>
               {/* Leagues — breakdown */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">With Playoffs</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.leagues_with_playoffs.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">With Playoffs</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.leagues_with_playoffs.toLocaleString()}</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Accepting Members</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.leagues_accepting_requests.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Accepting Members</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.leagues_accepting_requests.toLocaleString()}</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Deleted Leagues</p>
-                <p className="text-2xl font-bold text-gray-500 tabular-nums">{stats.deleted_leagues_total.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Deleted Leagues</p>
+                <p className="text-2xl font-bold text-ink-500 tabular-nums">{stats.deleted_leagues_total.toLocaleString()}</p>
               </div>
               {/* Picks */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Total Picks</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.total_picks.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Total Picks</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.total_picks.toLocaleString()}</p>
               </div>
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Picks (7d)</p>
-                <p className="text-2xl font-bold text-gray-900 tabular-nums">{stats.picks_last_7d.toLocaleString()}</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-1">Picks (7d)</p>
+                <p className="text-2xl font-bold text-ink-900 tabular-nums">{stats.picks_last_7d.toLocaleString()}</p>
               </div>
               {/* Webhook failures — red if any open */}
-              <div className={`border rounded-xl p-4 ${stats.open_webhook_failures > 0 ? "bg-red-50 border-red-200" : "bg-white border-gray-200"}`}>
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">Webhook Failures</p>
-                <p className={`text-2xl font-bold tabular-nums ${stats.open_webhook_failures > 0 ? "text-red-600" : "text-gray-900"}`}>
+              <div className={`border rounded-xs p-4 ${stats.open_webhook_failures > 0 ? "bg-flag-50 border-flag-300" : "bg-white border-ink-200"}`}>
+                <p className="text-micro uppercase text-ink-400 mb-1">Webhook Failures</p>
+                <p className={`text-2xl font-bold tabular-nums ${stats.open_webhook_failures > 0 ? "text-flag-600" : "text-ink-900"}`}>
                   {stats.open_webhook_failures.toLocaleString()}
                 </p>
               </div>
@@ -242,38 +242,38 @@ export function PlatformAdmin() {
             {/* Second row: tournaments + tier breakdown side-by-side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {/* Tournament status breakdown */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-3">Tournaments</p>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-3">Tournaments</p>
                 <div className="space-y-2">
                   {[
-                    { label: "Completed", value: stats.tournaments_completed, color: "bg-green-500" },
-                    { label: "In Progress", value: stats.tournaments_in_progress, color: "bg-yellow-400" },
-                    { label: "Scheduled", value: stats.tournaments_scheduled, color: "bg-gray-300" },
+                    { label: "Completed", value: stats.tournaments_completed, color: "bg-fairway-500" },
+                    { label: "In Progress", value: stats.tournaments_in_progress, color: "bg-brass-500" },
+                    { label: "Scheduled", value: stats.tournaments_scheduled, color: "bg-ink-300" },
                   ].map(({ label, value, color }) => (
                     <div key={label} className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />
-                        <span className="text-sm text-gray-600">{label}</span>
+                        <span className="text-sm text-ink-600">{label}</span>
                       </div>
-                      <span className="text-sm font-semibold text-gray-900 tabular-nums">{value}</span>
+                      <span className="text-sm font-semibold text-ink-900 tabular-nums">{value}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Tier breakdown */}
-              <div className="bg-white border border-gray-200 rounded-xl p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-3">
-                  Leagues by Tier <span className="normal-case font-normal text-gray-400">(this season)</span>
+              <div className="bg-white border border-ink-200 rounded-xs p-4">
+                <p className="text-micro uppercase text-ink-400 mb-3">
+                  Leagues by Tier <span className="normal-case font-normal text-ink-400">(this season)</span>
                 </p>
                 {stats.leagues_by_tier.length === 0 ? (
-                  <p className="text-sm text-gray-400">No paid leagues yet.</p>
+                  <p className="text-sm text-ink-400">No paid leagues yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {stats.leagues_by_tier.map(({ tier, count }) => (
                       <div key={tier} className="flex items-center justify-between gap-3">
-                        <span className="text-sm text-gray-600">{TIER_LABELS[tier] ?? tier}</span>
-                        <span className="text-sm font-semibold text-gray-900 tabular-nums">{count}</span>
+                        <span className="text-sm text-ink-600">{TIER_LABELS[tier] ?? tier}</span>
+                        <span className="text-sm font-semibold text-ink-900 tabular-nums">{count}</span>
                       </div>
                     ))}
                   </div>
@@ -282,14 +282,14 @@ export function PlatformAdmin() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-red-500">Failed to load stats.</p>
+          <p className="text-sm text-flag-600">Failed to load stats.</p>
         )}
       </section>
 
       {/* Full data sync */}
       <section>
-        <h2 className="text-lg font-semibold text-gray-800 mb-2">Schedule Sync</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <h2 className="text-lg font-semibold text-ink-800 mb-2">Schedule Sync</h2>
+        <p className="text-sm text-ink-500 mb-4">
           Fetches the current year's PGA Tour schedule from ESPN and upserts any new or updated
           tournaments into the database, then clears and re-fetches all round data for every
           in-progress and completed event. Use this to pick up newly announced tournaments,
@@ -306,17 +306,17 @@ export function PlatformAdmin() {
             })
           }
           disabled={syncStatus === "running"}
-          className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-lg text-sm transition-colors"
+          className="bg-flag-600 hover:bg-flag-600 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xs text-sm transition-colors"
         >
           {syncStatus === "running" ? "Syncing…" : "⟳ Sync Schedule + Force Overwrite All"}
         </button>
 
         {syncResult && (
           <pre
-            className={`mt-4 text-xs rounded-lg p-4 overflow-auto max-h-64 ${
+            className={`mt-4 text-xs rounded-xs p-4 overflow-auto max-h-64 ${
               syncStatus === "error"
-                ? "bg-red-50 text-red-700 border border-red-200"
-                : "bg-gray-50 text-gray-700 border border-gray-200"
+                ? "bg-flag-50 text-flag-700 border border-flag-300"
+                : "bg-ink-50 text-ink-700 border border-ink-200"
             }`}
           >
             {syncResult}
@@ -327,18 +327,18 @@ export function PlatformAdmin() {
       {/* Per-tournament sync */}
       <section>
         <div className="flex flex-wrap items-start justify-between gap-4 mb-1">
-          <h2 className="text-lg font-semibold text-gray-800">Tournament Sync</h2>
+          <h2 className="text-lg font-semibold text-ink-800">Tournament Sync</h2>
           <div className="flex items-center gap-2">
             {bulkSyncStatus === "running" && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-ink-500">
                 {bulkSyncProgress.done}/{bulkSyncProgress.total}
               </span>
             )}
             {bulkSyncStatus === "done" && (
-              <span className="text-xs text-green-600 font-medium">All done ✓</span>
+              <span className="text-xs text-fairway-600 font-medium">All done ✓</span>
             )}
             {bulkSyncStatus === "error" && (
-              <span className="text-xs text-red-500 font-medium">Some failed ✗</span>
+              <span className="text-xs text-flag-600 font-medium">Some failed ✗</span>
             )}
             <button
               title="Force sync all tournaments (clear & re-fetch all data)"
@@ -351,64 +351,64 @@ export function PlatformAdmin() {
                   onConfirm: handleBulkSync,
                 })
               }
-              className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-4 py-1.5 rounded-lg text-xs transition-colors"
+              className="bg-flag-600 hover:bg-flag-600 disabled:opacity-40 text-white font-semibold px-4 py-1.5 rounded-xs text-xs transition-colors"
             >
               {bulkSyncStatus === "running" ? "Syncing…" : "⟳ Force Sync All"}
             </button>
           </div>
         </div>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-ink-500 mb-4">
           Force-sync individual tournaments — clears all cached round data and re-fetches everything from ESPN.
         </p>
 
         {tournamentsLoading ? (
           <TournamentListSkeleton />
         ) : sortedTournaments.length === 0 ? (
-          <div className="bg-gray-50 rounded-2xl p-10 text-center text-sm text-gray-400">
+          <div className="bg-ink-50 rounded-sm p-10 text-center text-sm text-ink-400">
             No tournaments found. Run a full sync first.
           </div>
         ) : (
-          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-x-auto">
+          <div className="bg-white border border-ink-200 rounded-sm shadow-sheet overflow-x-auto">
             <table className="w-full text-sm min-w-[600px]">
               <thead>
-                <tr className="border-b border-gray-100 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                <tr className="border-b border-ink-100 text-micro uppercase text-ink-500">
                   <th className="text-left px-5 py-3">Tournament</th>
                   <th className="text-left px-5 py-3 hidden sm:table-cell">Dates</th>
                   <th className="text-left px-5 py-3">Status</th>
                   <th className="text-right px-5 py-3">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-ink-100">
                 {sortedTournaments.map((t) => {
                   const state = syncState[t.pga_tour_id] ?? "idle";
                   const isSyncing = state === "syncing";
 
                   return (
-                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={t.id} className="hover:bg-ink-50 transition-colors">
                       {/* Name */}
-                      <td className="px-5 py-3 font-medium text-gray-900 max-w-[200px] truncate">
+                      <td className="px-5 py-3 font-medium text-ink-900 max-w-[200px] truncate">
                         {t.name}
                       </td>
 
                       {/* Dates — hidden on mobile */}
-                      <td className="px-5 py-3 text-gray-500 text-xs hidden sm:table-cell whitespace-nowrap">
+                      <td className="px-5 py-3 text-ink-500 text-xs hidden sm:table-cell whitespace-nowrap">
                         {t.start_date} – {t.end_date}
                       </td>
 
                       {/* Status badge */}
                       <td className="px-5 py-3">
                         {t.status === "completed" && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-xs text-xs font-medium bg-fairway-100 text-fairway-700">
                             Completed
                           </span>
                         )}
                         {t.status === "in_progress" && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-xs text-xs font-medium bg-brass-100 text-brass-700">
                             In Progress
                           </span>
                         )}
                         {t.status === "scheduled" && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-xs text-xs font-medium bg-ink-100 text-ink-600">
                             Scheduled
                           </span>
                         )}
@@ -419,13 +419,13 @@ export function PlatformAdmin() {
                         <div className="inline-flex items-center gap-2">
                           {/* Result indicator */}
                           {state === "done" && (
-                            <span className="text-xs text-green-600 font-medium">&#10003;</span>
+                            <span className="text-xs text-fairway-600 font-medium">&#10003;</span>
                           )}
                           {state === "error" && (
-                            <span className="text-xs text-red-500 font-medium">&#10007;</span>
+                            <span className="text-xs text-flag-600 font-medium">&#10007;</span>
                           )}
                           {state === "syncing" && (
-                            <span className="text-xs text-gray-400">Syncing…</span>
+                            <span className="text-xs text-ink-400">Syncing…</span>
                           )}
 
                           {/* Force sync button */}
@@ -440,7 +440,7 @@ export function PlatformAdmin() {
                                 onConfirm: () => handleSync(t.pga_tour_id),
                               })
                             }
-                            className="bg-red-600 hover:bg-red-500 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors"
+                            className="bg-flag-600 hover:bg-flag-600 disabled:opacity-40 text-white font-semibold px-3 py-1.5 rounded-xs text-xs transition-colors"
                           >
                             ⟳ Sync
                           </button>
@@ -456,20 +456,20 @@ export function PlatformAdmin() {
       </section>
 
       {/* ── Import Members Section ───────────────────────────────── */}
-      <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Import Members</h2>
-        <p className="text-sm text-gray-500">
-          Upload a CSV file with <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">name,email</code> columns to bulk-add members to a league.
-          New accounts are created with password <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">password123</code>.
+      <section className="bg-white border border-ink-200 rounded-sm p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-ink-800">Import Members</h2>
+        <p className="text-sm text-ink-500">
+          Upload a CSV file with <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">name,email</code> columns to bulk-add members to a league.
+          New accounts are created with password <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">password123</code>.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">League</label>
+            <label className="block text-sm font-medium text-ink-700 mb-1">League</label>
             <select
               value={importLeagueId}
               onChange={(e) => setImportLeagueId(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-ink-300 rounded-xs px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-500"
             >
               <option value="">Select a league</option>
               {myLeagues?.map((l) => (
@@ -478,12 +478,12 @@ export function PlatformAdmin() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+            <label className="block text-sm font-medium text-ink-700 mb-1">CSV File</label>
             <input
               type="file"
               accept=".csv"
               onChange={(e) => setImportMembersFile(e.target.files?.[0] ?? null)}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+              className="w-full text-sm text-ink-500 file:mr-4 file:py-2 file:px-4 file:rounded-xs file:border-0 file:text-sm file:font-semibold file:bg-fairway-50 file:text-fairway-700 hover:file:bg-fairway-100"
             />
           </div>
         </div>
@@ -504,34 +504,34 @@ export function PlatformAdmin() {
               setImportMembersResult(typeof detail === "string" ? detail : JSON.stringify(detail, null, 2));
             }
           }}
-          className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+          className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xs text-sm transition-colors"
         >
           {importMembersStatus === "running" ? <Spinner /> : "Import Members"}
         </button>
 
         {importMembersResult && (
-          <pre className={`text-xs p-4 rounded-xl overflow-x-auto ${importMembersStatus === "error" ? "bg-red-50 text-red-700" : "bg-gray-50 text-gray-700"}`}>
+          <pre className={`text-xs p-4 rounded-xs overflow-x-auto ${importMembersStatus === "error" ? "bg-flag-50 text-flag-700" : "bg-ink-50 text-ink-700"}`}>
             {importMembersResult}
           </pre>
         )}
       </section>
 
       {/* ── Import Picks Section ──────────────────────────────────── */}
-      <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-gray-800">Import Picks</h2>
-        <p className="text-sm text-gray-500">
-          Upload a CSV file with <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">email,golfer_name</code> columns.
-          Use <code className="text-xs bg-gray-100 px-1 py-0.5 rounded">No Pick</code> for members who didn&apos;t pick.
+      <section className="bg-white border border-ink-200 rounded-sm p-6 space-y-4">
+        <h2 className="text-lg font-semibold text-ink-800">Import Picks</h2>
+        <p className="text-sm text-ink-500">
+          Upload a CSV file with <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">email,golfer_name</code> columns.
+          Use <code className="text-xs bg-ink-100 px-1 py-0.5 rounded">No Pick</code> for members who didn&apos;t pick.
           Completed tournaments are auto-scored after import.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">League</label>
+            <label className="block text-sm font-medium text-ink-700 mb-1">League</label>
             <select
               value={picksLeagueId}
               onChange={(e) => { setPicksLeagueId(e.target.value); setPicksTournamentId(""); }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-ink-300 rounded-xs px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-500"
             >
               <option value="">Select a league</option>
               {myLeagues?.map((l) => (
@@ -540,12 +540,12 @@ export function PlatformAdmin() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Tournament</label>
+            <label className="block text-sm font-medium text-ink-700 mb-1">Tournament</label>
             <select
               value={picksTournamentId}
               onChange={(e) => setPicksTournamentId(e.target.value)}
               disabled={!picksLeagueId}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
+              className="w-full border border-ink-300 rounded-xs px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-500 disabled:opacity-50"
             >
               <option value="">Select a tournament</option>
               {leagueTournaments.map((t) => (
@@ -556,12 +556,12 @@ export function PlatformAdmin() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
+            <label className="block text-sm font-medium text-ink-700 mb-1">CSV File</label>
             <input
               type="file"
               accept=".csv"
               onChange={(e) => setImportPicksFile(e.target.files?.[0] ?? null)}
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+              className="w-full text-sm text-ink-500 file:mr-4 file:py-2 file:px-4 file:rounded-xs file:border-0 file:text-sm file:font-semibold file:bg-fairway-50 file:text-fairway-700 hover:file:bg-fairway-100"
             />
           </div>
         </div>
@@ -582,13 +582,13 @@ export function PlatformAdmin() {
               setImportPicksResult(typeof detail === "string" ? detail : JSON.stringify(detail, null, 2));
             }
           }}
-          className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xl text-sm transition-colors"
+          className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold px-5 py-2.5 rounded-xs text-sm transition-colors"
         >
           {importPicksStatus === "running" ? <Spinner /> : "Import Picks"}
         </button>
 
         {importPicksResult && (
-          <pre className={`text-xs p-4 rounded-xl overflow-x-auto ${importPicksStatus === "error" ? "bg-red-50 text-red-700" : "bg-gray-50 text-gray-700"}`}>
+          <pre className={`text-xs p-4 rounded-xs overflow-x-auto ${importPicksStatus === "error" ? "bg-flag-50 text-flag-700" : "bg-ink-50 text-ink-700"}`}>
             {importPicksResult}
           </pre>
         )}
@@ -597,13 +597,13 @@ export function PlatformAdmin() {
       {/* Confirmation modal */}
       {confirmAction && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4">
-            <h3 className="text-base font-semibold text-gray-900">{confirmAction.label}</h3>
-            <p className="text-sm text-gray-600">{confirmAction.description}</p>
+          <div className="bg-white rounded-sm shadow-raised w-full max-w-sm mx-4 p-6 space-y-4">
+            <h3 className="text-base font-semibold text-ink-900">{confirmAction.label}</h3>
+            <p className="text-sm text-ink-600">{confirmAction.description}</p>
             <div className="flex justify-end gap-3 pt-2">
               <button
                 onClick={() => setConfirmAction(null)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors"
+                className="px-4 py-2 rounded-xs text-sm font-medium text-ink-700 bg-ink-100 hover:bg-ink-200 transition-colors"
               >
                 Cancel
               </button>
@@ -612,7 +612,7 @@ export function PlatformAdmin() {
                   confirmAction.onConfirm();
                   setConfirmAction(null);
                 }}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-500 transition-colors"
+                className="px-4 py-2 rounded-xs text-sm font-semibold text-white bg-flag-600 hover:bg-flag-600 transition-colors"
               >
                 Confirm
               </button>

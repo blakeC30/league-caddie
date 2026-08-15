@@ -156,39 +156,39 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-5 space-y-4">
+    <section className="bg-white rounded-sm border border-ink-200 p-5 space-y-4">
       {fieldNotReleased && (
-        <div className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <svg className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="flex items-start gap-2.5 bg-brass-50 border border-brass-100 rounded-xs px-4 py-3">
+          <svg className="w-4 h-4 text-brass-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
           </svg>
-          <p className="text-xs text-amber-700 leading-relaxed">
+          <p className="text-xs text-brass-700 leading-relaxed">
             The official field hasn't been announced yet. If a golfer you rank doesn't enter the tournament, they'll be skipped and your next available pick will be used instead.
           </p>
         </div>
       )}
       {isWindowClosed && (
-        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
-          <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="flex items-center gap-2 bg-brass-50 border border-brass-100 rounded-xs px-4 py-3">
+          <svg className="w-4 h-4 text-brass-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
           </svg>
-          <p className="text-xs text-amber-700 font-medium">
+          <p className="text-xs text-brass-700 font-medium">
             The preference window is closed — the tournament has started.
           </p>
         </div>
       )}
       <div className="space-y-1">
-        <h2 className="text-sm font-bold text-gray-800">Your Rankings</h2>
+        <h2 className="text-sm font-bold text-ink-800">Your Rankings</h2>
         {requiredCount !== undefined ? (
-          <p className="text-xs text-gray-500">
-            Rank exactly <span className="font-semibold text-gray-700">{requiredCount} golfers</span> in order of preference — enough to cover all picks if earlier choices are taken.
+          <p className="text-xs text-ink-500">
+            Rank exactly <span className="font-semibold text-ink-700">{requiredCount} golfers</span> in order of preference — enough to cover all picks if earlier choices are taken.
           </p>
         ) : picksPerRound !== undefined && (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-500">
             Rank at least {picksPerRound} golfer{picksPerRound !== 1 ? "s" : ""} in order of preference.
           </p>
         )}
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-ink-500">
           The system assigns picks in draft order using your highest-ranked available golfer. Submit before the tournament starts.
         </p>
       </div>
@@ -197,9 +197,9 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
       {ranked.length > 0 ? (
         <div className="space-y-1">
           <div className="flex items-center justify-between mb-2">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Your ranked list</p>
+            <p className="text-micro uppercase text-ink-400">Your ranked list</p>
             {requiredCount !== undefined && (
-              <span className={`text-[10px] font-semibold ${ranked.length === requiredCount ? "text-green-600" : "text-amber-600"}`}>
+              <span className={`text-[10px] font-semibold ${ranked.length === requiredCount ? "text-fairway-600" : "text-brass-600"}`}>
                 {ranked.length}/{requiredCount}
               </span>
             )}
@@ -209,22 +209,22 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
             return (
               <div
                 key={id}
-                className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2"
+                className="flex items-center gap-2 bg-ink-50 rounded-xs px-3 py-2"
               >
-                <span className="text-[10px] font-bold text-gray-400 w-5 text-center flex-shrink-0">
+                <span className="text-[10px] font-bold text-ink-400 w-5 text-center flex-shrink-0">
                   {idx + 1}
                 </span>
-                <span className="flex-1 text-sm text-gray-800 truncate">
+                <span className="flex-1 text-sm text-ink-800 truncate">
                   {displayName[id] ?? g?.name ?? id}
                 </span>
                 {g?.world_ranking && (
-                  <span className="text-[10px] text-gray-400 flex-shrink-0">#{g.world_ranking}</span>
+                  <span className="text-[10px] text-ink-400 flex-shrink-0">#{g.world_ranking}</span>
                 )}
                 <div className="flex gap-1">
                   <button
                     onClick={() => moveUp(idx)}
                     disabled={idx === 0}
-                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center text-ink-400 hover:text-ink-700 disabled:opacity-20 rounded-xs hover:bg-ink-200 transition-colors"
                     title="Move up"
                     aria-label="Move up"
                   >
@@ -235,7 +235,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                   <button
                     onClick={() => moveDown(idx)}
                     disabled={idx === ranked.length - 1}
-                    className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-700 disabled:opacity-20 rounded-lg hover:bg-gray-200 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center text-ink-400 hover:text-ink-700 disabled:opacity-20 rounded-xs hover:bg-ink-200 transition-colors"
                     title="Move down"
                     aria-label="Move down"
                   >
@@ -245,7 +245,7 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
                   </button>
                   <button
                     onClick={() => removeGolfer(id)}
-                    className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                    className="w-8 h-8 flex items-center justify-center text-flag-500 hover:text-flag-600 rounded-xs hover:bg-flag-50 transition-colors"
                     title="Remove"
                     aria-label="Remove golfer from preferences"
                   >
@@ -259,8 +259,8 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
           })}
         </div>
       ) : (
-        <div className="bg-gray-50 rounded-xl p-6 text-center">
-          <p className="text-xs text-gray-400">Search for golfers below and add them to your ranked list.</p>
+        <div className="bg-ink-50 rounded-xs p-6 text-center">
+          <p className="text-xs text-ink-400">Search for golfers below and add them to your ranked list.</p>
         </div>
       )}
 
@@ -269,19 +269,19 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
         <button
           onClick={handleSubmit}
           disabled={isWindowClosed || submit.isPending || ranked.length === 0 || (requiredCount !== undefined && ranked.length !== requiredCount)}
-          className="text-sm font-bold text-white bg-green-700 hover:bg-green-600 px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
+          className="text-sm font-bold text-white bg-fairway-700 hover:bg-fairway-600 px-4 py-2 rounded-xs transition-colors disabled:opacity-50"
         >
           {submit.isPending ? "Submitting…" : "Save Rankings"}
         </button>
         {requiredCount !== undefined && ranked.length !== requiredCount && ranked.length > 0 && (
-          <span className="text-xs text-amber-600">
+          <span className="text-xs text-brass-600">
             {ranked.length < requiredCount
               ? `Add ${requiredCount - ranked.length} more`
               : `Remove ${ranked.length - requiredCount} extra`}
           </span>
         )}
         {saveSuccess && (
-          <span className="text-xs text-green-700 font-medium flex items-center gap-1">
+          <span className="text-xs text-fairway-700 font-medium flex items-center gap-1">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
             </svg>
@@ -289,21 +289,21 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
           </span>
         )}
       </div>
-      {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+      {saveError && <p className="text-xs text-flag-600">{saveError}</p>}
 
       {/* Search & add — hidden once the preference window has closed */}
-      {!isWindowClosed && <div className="space-y-2 border-t border-gray-100 pt-4">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Add golfers</p>
+      {!isWindowClosed && <div className="space-y-2 border-t border-ink-100 pt-4">
+        <p className="text-micro uppercase text-ink-400">Add golfers</p>
         <ClearableInput
           placeholder="Search tournament field…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onClear={() => setSearch("")}
-          className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-600"
+          className="w-full text-sm border border-ink-200 rounded-xs px-3 py-2 focus:outline-none focus:ring-2 focus:ring-fairway-600"
         />
         <div className="max-h-64 overflow-y-auto space-y-1">
           {filteredField.length === 0 && (
-            <p className="text-xs text-gray-400 py-2 text-center">
+            <p className="text-xs text-ink-400 py-2 text-center">
               {rawField !== undefined ? (search ? "No matches" : "All golfers ranked") : "Loading field…"}
             </p>
           )}
@@ -311,11 +311,11 @@ export function PlayoffPreferenceEditor(props: PlayoffPreferenceEditorProps) {
             <button
               key={g.id}
               onClick={() => addGolfer(g.id)}
-              className="w-full flex items-center justify-between gap-2 text-sm text-left text-gray-700 hover:bg-green-50 px-3 py-2 rounded-xl transition-colors"
+              className="w-full flex items-center justify-between gap-2 text-sm text-left text-ink-700 hover:bg-fairway-50 px-3 py-2 rounded-xs transition-colors"
             >
               <span className="truncate">{displayName[g.id] ?? g.name}</span>
               {g.world_ranking && (
-                <span className="text-[10px] text-gray-400 flex-shrink-0">#{g.world_ranking}</span>
+                <span className="text-[10px] text-ink-400 flex-shrink-0">#{g.world_ranking}</span>
               )}
             </button>
           ))}

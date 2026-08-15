@@ -203,29 +203,58 @@ Always use these exact key shapes — mismatches cause stale data:
 - **Points / numeric values**: abbreviate with M/K notation to prevent overflow in tight grid cells
 - **Test at 390×844** (iPhone 14 Pro size) — if it looks cramped or broken at that size, fix it before finishing
 
-## UI/UX Standard
+## Design Language — read `DESIGN.md` first
 
-All UI work must be done as a **seasoned UI/UX engineer** would do it. Every screen should feel polished, intentional, and cohesive — not like a functional prototype. Apply these principles to every change:
+All UI work follows **`frontend/DESIGN.md`** ("Pairings Sheet"). That document is
+the authority on colour, type, shape, elevation and motion; this section only
+summarises what you need to write a component. **If a value is not in
+`DESIGN.md`, add it there before using it.**
 
-- **Visual hierarchy**: use eyebrow labels (`text-xs font-bold uppercase tracking-[0.15em] text-green-700`), large headings (`text-3xl font-bold`), and subdued supporting text to guide the eye
-- **Breathing room**: generous padding (`p-6`, `p-8`, `p-10`), section spacing (`space-y-8`), never cramped layouts
-- **Rounded and soft**: `rounded-2xl` for cards and containers, `rounded-xl` for buttons and inputs
-- **Depth and surface**: `shadow-sm` on cards, `shadow-lg` on elevated modals/confirmations, `border border-gray-200` for subtle separation
-- **Gradient accents**: dark tournament/hero bands use `bg-gradient-to-r from-green-900 to-green-700` with white text; season-total cards use `bg-gradient-to-br from-green-900 via-green-800 to-green-700`
-- **Empty states**: never just plain text — use a centered icon + heading + subtext + action link inside a `bg-gray-50 rounded-2xl p-16 text-center` container
-- **Buttons**: primary = `bg-green-800 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl shadow-sm`; secondary/ghost = `border border-gray-300 hover:border-green-400 text-gray-700 rounded-xl`; destructive = `text-red-500 hover:text-red-700`
-- **Section icon badges**: precede headings with `<div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center">` containing a small SVG
-- **Overlay elements**: rings/outlines on focused/selected items need `p-1` buffer on the scroll container to avoid clipping
+Run the `unslop` skill (`.claude/skills/unslop/`) to audit a screen before
+shipping it — `audit` is read-only and lists AI-slop tells with file:line.
 
-## Styling Conventions
+### The short version
 
-- Color scheme: `green-800` (primary actions), `green-700` (hover), `green-50`/`green-100` (highlights), amber for warnings/majors
-- Cards: `bg-white border border-gray-200 rounded-2xl p-6` (standard), `rounded-2xl p-10` (centered full-page cards)
-- Primary button: `bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 px-6 rounded-xl shadow-sm`
-- Text input: `w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500`
-- Golf-style ranking: show `T2` for ties, no `#` prefix, first place as `1` (never `T1`)
-- Use `tabular-nums` on numeric table columns for aligned digits
-- Dates on dark backgrounds: `text-white/70` (not `text-green-300`, which is hard to read)
+- **Tokens only.** Colour comes from `ink-*`, `fairway-*`, `flag-*`, `brass-*`,
+  `page`, `sheet` — declared in `src/styles/theme.css`. No arbitrary hex, no
+  hue outside those four ramps.
+- **Type** is `font-display` (Archivo) for headings and figures, `font-sans`
+  (Spline Sans) for everything else, `font-mono` (Spline Sans Mono) for
+  in-table numerals. Size classes are `text-title`, `text-heading`,
+  `text-subhead`, `text-body`, `text-ui`, `text-small`, `text-micro`,
+  `text-figure`, `text-data` — not Tailwind's `text-xl`/`text-3xl`.
+- **`text-micro uppercase` is the only uppercase style**, and it is a column
+  header or a status mark. It is not a kicker above every heading.
+- **Shape:** `rounded-xs` (2px) for buttons/inputs/chips, `rounded-sm` (3px) for
+  panels, square for bands and table cells, `rounded-full` for circles only.
+- **Elevation:** `shadow-sheet` or `shadow-raised`. There is no third option.
+- **Separation ladder** — take the first rung that works: whitespace → the
+  `page`→`sheet` background step → a `border-ink-200` horizontal rule →
+  elevation → a full border. Rules divide; they do not enclose.
+- **No gradients, no blurred decorative blobs, no dark mode, no centred hero,
+  no three-up icon-card grid, no `hover:scale-*`.**
+- **Motion** is `duration-[120ms] ease-board` on colour only, and it must
+  survive `prefers-reduced-motion`.
+
+### Primitives
+
+`src/components/ui/index.tsx` exports `Button`, `ButtonLink`, `Panel`,
+`SectionHeading`, `PageHeader`, `Board`, `Chip`, `Figure`, `Empty`, `Field`,
+`Input`, `Rule`. Reach for these before writing new class strings.
+
+### Required states
+
+Every interactive element ships **hover, focus-visible, active, disabled**.
+Every data surface ships **loading, empty, error**. Focus is handled globally by
+the `:focus-visible` rule in `index.css` — do not remove outlines.
+
+### Standing conventions
+
+- Golf-style ranking: `T2` for ties, no `#` prefix, first place is `1` (never `T1`)
+- `tabular-nums` on every numeric column
+- Standings tables use the board header (`bg-fairway-900`); other tables use
+  `text-micro` headers over a rule
+- Text on the board: white for primary, `fairway-400` for meta
 
 ## Key Patterns
 

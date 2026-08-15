@@ -25,7 +25,7 @@ export function GolferAvatar({ pgaTourId, name, className = "w-10 h-10", fallbac
   if (failed) {
     return (
       <div
-        className={`rounded-full bg-green-800 text-white flex items-center justify-center text-xs font-bold shrink-0 ${className}`}
+        className={`rounded-full bg-fairway-700 text-white flex items-center justify-center text-xs font-bold shrink-0 ${className}`}
       >
         {fallback ?? "—"}
       </div>
@@ -36,7 +36,7 @@ export function GolferAvatar({ pgaTourId, name, className = "w-10 h-10", fallbac
     <img
       src={src}
       alt={name}
-      className={`rounded-full object-cover object-top bg-gray-100 shrink-0 ${className}`}
+      className={`rounded-full object-cover object-top bg-ink-100 shrink-0 ${className}`}
       onError={() => setFailed(true)}
     />
   );

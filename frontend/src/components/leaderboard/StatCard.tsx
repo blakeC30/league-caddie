@@ -1,20 +1,24 @@
 /**
  * StatCard — small metric card used in the tournament breakdown section.
+ *
+ * Separated from its neighbours by the page→sheet background step rather than
+ * by a border (DESIGN.md §4).
  */
 
 export interface StatCardProps {
   label: string;
   value: string;
   sub?: string;
+  /** Optional tone override for the figure, e.g. "text-flag-600" for under par. */
   color?: string;
 }
 
-export function StatCard({ label, value, sub, color = "text-gray-900" }: StatCardProps) {
+export function StatCard({ label, value, sub, color = "text-ink-950" }: StatCardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl px-4 py-3 space-y-0.5">
-      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{label}</p>
-      <p className={`text-lg font-bold ${color}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-400">{sub}</p>}
+    <div className="bg-sheet rounded-sm shadow-sheet px-4 py-3">
+      <p className="text-micro uppercase text-ink-500">{label}</p>
+      <p className={`font-display text-subhead tabular-nums mt-1 ${color}`}>{value}</p>
+      {sub && <p className="text-small text-ink-500 mt-0.5">{sub}</p>}
     </div>
   );
 }

@@ -1,5 +1,11 @@
 /**
  * StandingsTable — displays league standings rows.
+ *
+ * Pairings Sheet table (DESIGN.md §6): no outer box, micro column headers over
+ * a rule, rows separated by hairlines, figures right-aligned and tabular. The
+ * current user's row is the one place in the app permitted a coloured left
+ * strip, because "this row is you" is genuine semantic state rather than
+ * decoration.
  */
 
 import { useNavigate, useParams } from "react-router-dom";
@@ -19,57 +25,57 @@ export function StandingsTable({ rows, limit }: Props) {
   const displayed = limit ? rows.slice(0, limit) : rows;
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200">
-      <table className="min-w-full text-sm">
-        <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
-          <tr>
-            <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold w-12">Pos</th>
-            <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Player</th>
-            <th className="px-4 py-2.5 text-right text-xs uppercase tracking-wider font-semibold">Points</th>
-          </tr>
-        </thead>
-        <tbody>
-          {displayed.map((row, i) => {
-            const isMe = row.user_id === currentUserId;
-            const picksHref = leagueId
-              ? isMe
-                ? `/leagues/${leagueId}/picks`
-                : `/leagues/${leagueId}/picks?member=${row.user_id}`
-              : undefined;
-            return (
-              <tr
-                key={row.user_id}
-                onClick={() => picksHref && navigate(picksHref)}
-                className={`border-t border-gray-100 ${picksHref ? "cursor-pointer hover:bg-green-50" : ""} ${
-                  isMe
-                    ? "bg-green-50 border-l-2 border-l-green-400"
-                    : i % 2 === 0
-                    ? "bg-white"
-                    : "bg-gray-50"
+    <table className="w-full">
+      {/* Standings are the leaderboard, so they get the board header — the same
+          treatment the Dashboard and Standings pages use. */}
+      <thead className="bg-fairway-900 text-white">
+        <tr className="text-micro uppercase">
+          <th className="text-left font-semibold py-2.5 pl-3 pr-2 w-14">Pos</th>
+          <th className="text-left font-semibold py-2.5 px-2">Player</th>
+          <th className="text-right font-semibold py-2.5 pl-2 pr-3">Points</th>
+        </tr>
+      </thead>
+      <tbody>
+        {displayed.map((row) => {
+          const isMe = row.user_id === currentUserId;
+          const picksHref = leagueId
+            ? isMe
+              ? `/leagues/${leagueId}/picks`
+              : `/leagues/${leagueId}/picks?member=${row.user_id}`
+            : undefined;
+          return (
+            <tr
+              key={row.user_id}
+              onClick={() => picksHref && navigate(picksHref)}
+              className={`border-b border-ink-200 transition-colors duration-[120ms] ease-board ${
+                picksHref ? "cursor-pointer hover:bg-ink-100" : ""
+              } ${isMe ? "bg-fairway-50" : ""}`}
+            >
+              <td
+                className={`py-3 pl-3 pr-2 font-mono text-data tabular-nums ${rankClass(row.rank)} ${
+                  isMe ? "border-l-2 border-l-fairway-700 pl-2.5" : ""
                 }`}
               >
-                <td className={`px-4 py-3 tabular-nums ${rankClass(row.rank)}`}>
-                  {formatRank(row.rank, row.is_tied)}
-                </td>
-                <td className={`px-4 py-3 ${isMe ? "font-semibold" : ""}`}>
-                  {row.display_name}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums font-medium">
-                  <span className="sm:hidden">{formatPoints(row.total_points)}</span>
-                  <span className="hidden sm:inline">{formatPoints(row.total_points, false)}</span>
-                </td>
-              </tr>
-            );
-          })}
-          {displayed.length === 0 && (
-            <tr>
-              <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">
-                No standings yet — picks will appear after tournaments complete.
+                {formatRank(row.rank, row.is_tied)}
+              </td>
+              <td className={`py-3 px-2 text-body ${isMe ? "font-semibold text-ink-950" : "text-ink-800"}`}>
+                {row.display_name}
+              </td>
+              <td className="py-3 pl-2 pr-3 text-right font-mono text-data tabular-nums text-ink-950">
+                <span className="sm:hidden">{formatPoints(row.total_points)}</span>
+                <span className="hidden sm:inline">{formatPoints(row.total_points, false)}</span>
               </td>
             </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
+          );
+        })}
+        {displayed.length === 0 && (
+          <tr>
+            <td colSpan={3} className="py-8 px-3 text-body text-ink-500">
+              No standings yet — these fill in as tournaments complete.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }

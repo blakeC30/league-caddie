@@ -52,13 +52,13 @@ export function PickForm({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         onClear={() => setSearch("")}
-        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+        className="w-full border border-ink-300 rounded-xs px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-500"
       />
 
       {/* Golfer list */}
       <div className="space-y-2 max-h-[480px] overflow-y-auto p-1">
         {filtered.length === 0 && (
-          <p className="text-center text-gray-400 py-8">No golfers match your search.</p>
+          <p className="text-center text-ink-400 py-8">No golfers match your search.</p>
         )}
         {filtered.map((g) => (
           <GolferCard
@@ -73,7 +73,7 @@ export function PickForm({
       </div>
 
       {error && (
-        <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+        <p className="text-sm text-flag-600 bg-flag-50 border border-flag-300 rounded px-3 py-2">
           {error}
         </p>
       )}
@@ -82,7 +82,7 @@ export function PickForm({
       <button
         type="submit"
         disabled={!selected || submitting}
-        className="hidden sm:block w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 rounded-lg transition-colors"
+        className="hidden sm:block w-full bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold py-2.5 rounded-xs transition-colors"
       >
         {submitting ? "Saving…" : existingPick ? "Change Pick" : "Submit Pick"}
       </button>
@@ -90,11 +90,11 @@ export function PickForm({
       {/* Mobile: sticky bar directly above the bottom tab nav (h-16 = 4rem).
           Uses the same green gradient so the two bars feel like one unit. */}
       {selected && (
-        <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 z-40" style={{ bottom: "4rem" }}>
+        <div className="sm:hidden fixed left-0 right-0 bg-white border-t border-ink-200 px-4 py-3 z-40" style={{ bottom: "4rem" }}>
           <button
             type="submit"
             disabled={submitting}
-            className="w-full bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xl transition-colors text-base"
+            className="w-full bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold py-3 rounded-xs transition-colors text-base"
           >
             {submitting ? "Saving…" : existingPick ? "Change Pick" : "Submit Pick"}
           </button>

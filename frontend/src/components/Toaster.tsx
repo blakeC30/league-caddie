@@ -16,8 +16,8 @@ export function Toaster() {
       {toasts.map((t) => (
         <div
           key={t.id}
-          className={`flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg text-sm font-medium text-white pointer-events-auto
-            ${t.type === "success" ? "bg-green-800" : "bg-red-600"}`}
+          className={`flex items-center gap-2.5 px-4 py-3 rounded-xs shadow-raised text-ui text-white pointer-events-auto
+            ${t.type === "success" ? "bg-fairway-700" : "bg-flag-600"}`}
         >
           {t.type === "success" ? (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>

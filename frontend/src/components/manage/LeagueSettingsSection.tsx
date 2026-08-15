@@ -50,7 +50,7 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+    <section className="bg-white rounded-sm border border-ink-200 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SectionIcon>
@@ -59,21 +59,21 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
             </svg>
           </SectionIcon>
-          <h2 className="text-base font-bold text-gray-900">League Settings</h2>
+          <h2 className="text-base font-bold text-ink-900">League Settings</h2>
         </div>
         {!settingsEditing && (
           <button
             onClick={() => setSettingsEditing(true)}
-            className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+            className="text-sm font-semibold text-fairway-700 hover:text-fairway-900 transition-colors"
           >
             Edit
           </button>
         )}
       </div>
-      <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+      <div className="bg-ink-50 rounded-xs border border-ink-100 divide-y divide-ink-100">
         {/* Name */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
-          <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">Name</span>
+          <span className="text-sm text-ink-500 sm:w-36 sm:flex-shrink-0">Name</span>
           {settingsEditing ? (
             <div className="flex-1">
               <input
@@ -81,20 +81,20 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
                 value={settingsName}
                 onChange={(e) => setSettingsName(e.target.value)}
                 maxLength={50}
-                className="w-full text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-700"
+                className="w-full text-sm border border-ink-300 rounded-xs px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-fairway-700"
               />
-              {settingsName.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums mt-0.5">{settingsName.length}/50</p>}
+              {settingsName.length >= 40 && <p className="text-[11px] text-ink-400 text-right tabular-nums mt-0.5">{settingsName.length}/50</p>}
             </div>
           ) : (
-            <span className="text-sm font-medium text-gray-900 break-words">{league?.name}</span>
+            <span className="text-sm font-medium text-ink-900 break-words">{league?.name}</span>
           )}
         </div>
         {/* No-pick penalty */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
-          <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">No-pick penalty</span>
+          <span className="text-sm text-ink-500 sm:w-36 sm:flex-shrink-0">No-pick penalty</span>
           {settingsEditing ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">{"−"}</span>
+              <span className="text-sm font-medium text-ink-700">{"−"}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -105,19 +105,19 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
                 onBlur={() =>
                   setSettingsNoPick(String(Math.min(500000, parseInt(settingsNoPick, 10) || 0)))
                 }
-                className="w-36 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-700"
+                className="w-36 text-sm border border-ink-300 rounded-xs px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-fairway-700"
               />
-              <span className="text-xs text-gray-400">per missed pick · max $500,000</span>
+              <span className="text-xs text-ink-400">per missed pick · max $500,000</span>
             </div>
           ) : (
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-ink-900">
               {"−"}{Math.abs(league?.no_pick_penalty ?? 0).toLocaleString()} pts
             </span>
           )}
         </div>
         {/* Auto-accept join requests */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
-          <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">Auto-accept requests</span>
+          <span className="text-sm text-ink-500 sm:w-36 sm:flex-shrink-0">Auto-accept requests</span>
           {settingsEditing ? (
             <div className="flex items-center gap-3">
               <button
@@ -125,8 +125,8 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
                 role="switch"
                 aria-checked={settingsAutoAccept}
                 onClick={() => setSettingsAutoAccept(!settingsAutoAccept)}
-                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                  settingsAutoAccept ? "bg-green-700" : "bg-gray-200"
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fairway-500 focus:ring-offset-2 ${
+                  settingsAutoAccept ? "bg-fairway-700" : "bg-ink-200"
                 }`}
               >
                 <span
@@ -135,16 +135,16 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
                   }`}
                 />
               </button>
-              <span className="text-xs text-gray-400">Automatically accept new members when they request to join</span>
+              <span className="text-xs text-ink-400">Automatically accept new members when they request to join</span>
             </div>
           ) : (
-            <span className={`text-sm font-medium ${league?.auto_accept_requests ? "text-green-700" : "text-gray-400"}`}>
+            <span className={`text-sm font-medium ${league?.auto_accept_requests ? "text-fairway-700" : "text-ink-400"}`}>
               {league?.auto_accept_requests ? "On" : "Off"}
             </span>
           )}
         </div>
         {autoAcceptError && (
-          <p className="text-sm text-red-600 px-4 pb-2">{autoAcceptError}</p>
+          <p className="text-sm text-flag-600 px-4 pb-2">{autoAcceptError}</p>
         )}
       </div>
       {settingsEditing && (
@@ -152,13 +152,13 @@ export function LeagueSettingsSection({ league, leagueId }: LeagueSettingsSectio
           <button
             onClick={handleSaveSettings}
             disabled={updateLeague.isPending}
-            className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
+            className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xs text-sm transition-colors"
           >
             {updateLeague.isPending ? "Saving…" : "Save Settings"}
           </button>
           <button
             onClick={handleCancelSettings}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-ink-500 hover:text-ink-700 transition-colors"
           >
             Cancel
           </button>

@@ -36,7 +36,11 @@ When a member **leaves or is removed** during a season with an active playoff co
 
 ### Frontend
 - React + TypeScript + Vite
-- Tailwind CSS for styling
+- Tailwind CSS v4 for styling (CSS-first `@theme`, no `tailwind.config.js`)
+- Design language: **"Pairings Sheet"** — see `frontend/DESIGN.md`. Tokens live in
+  `frontend/src/styles/theme.css`; primitives in `frontend/src/components/ui/`.
+  Self-hosted variable fonts (Archivo / Spline Sans / Spline Sans Mono) via
+  `@fontsource-variable`, so there is no CDN request and no ongoing cost.
 - Zustand for state management
 - React Query (TanStack Query) for data fetching
 - React Router for navigation
@@ -108,6 +112,19 @@ This project has three CLAUDE.md files — keep all three current:
 - Tech stack or architecture decision changes → update this file
 
 Update the relevant CLAUDE.md as part of the same task, not as a separate follow-up.
+
+## Design
+
+The frontend has a committed design language documented in `frontend/DESIGN.md`.
+It is the authority on colour, type, shape, elevation, motion and copy voice —
+read it before writing any UI, and add a token there before using a new value.
+
+The `unslop` skill (`.claude/skills/unslop/`) enforces it. Use `audit` to check
+existing screens for AI-slop tells (unspecified defaults: gradients, uniform
+rounding, unthemed framework ramps, missing interaction states), and `build`
+before adding new UI. Slop is not ugliness — it is the absence of a decision, so
+the fix is always to consult the written direction rather than to restyle by
+feel.
 
 ## Guiding Principles
 

@@ -180,20 +180,20 @@ export function ManageLeague() {
       {/* Confirmation modal */}
       {confirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
-            <h3 className="text-base font-bold text-gray-900">{confirmModal.title}</h3>
-            <p className="text-sm text-gray-600">{confirmModal.message}</p>
+          <div className="bg-white rounded-sm shadow-raised w-full max-w-sm p-6 space-y-4">
+            <h3 className="text-base font-bold text-ink-900">{confirmModal.title}</h3>
+            <p className="text-sm text-ink-600">{confirmModal.message}</p>
             <div className="flex justify-end gap-3 pt-1">
               <button
                 onClick={() => setConfirmModal(null)}
-                className="px-5 py-2 text-sm font-semibold rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                className="px-5 py-2 text-sm font-semibold rounded-xs border border-ink-200 text-ink-600 hover:bg-ink-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
-                className={`px-5 py-2 text-sm font-semibold rounded-xl text-white transition-colors ${
-                  confirmModal.danger ? "bg-red-600 hover:bg-red-700" : "bg-green-800 hover:bg-green-700"
+                className={`px-5 py-2 text-sm font-semibold rounded-xs text-white transition-colors ${
+                  confirmModal.danger ? "bg-flag-600 hover:bg-flag-700" : "bg-fairway-700 hover:bg-fairway-700"
                 }`}
               >
                 {confirmModal.confirmLabel}
@@ -205,10 +205,7 @@ export function ManageLeague() {
 
       {/* Page header */}
       <div className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-          Manager Panel
-        </p>
-        <h1 className="text-3xl font-bold text-gray-900">{league?.name ?? "League Management"}</h1>
+        <h1 className="text-title text-ink-950">{league?.name ?? "League Management"}</h1>
       </div>
 
 

@@ -10,10 +10,10 @@ import type { LeagueSummary } from "../api/endpoints";
 import { fmtTournamentName, formatDate, formatPurse, formatPoints } from "../utils";
 
 function rankStyle(rank: number): string {
-  if (rank === 1) return "text-amber-500";
-  if (rank === 2) return "text-slate-400";
-  if (rank === 3) return "text-orange-400";
-  return "text-gray-800";
+  if (rank === 1) return "text-brass-600";
+  if (rank === 2) return "text-ink-400";
+  if (rank === 3) return "text-brass-500";
+  return "text-ink-800";
 }
 
 export function LeagueCard({ summary }: { summary: LeagueSummary }) {
@@ -23,16 +23,16 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
   return (
     <Link
       to={`/leagues/${summary.league_id}`}
-      className="group flex flex-col bg-white rounded-2xl border border-gray-200 hover:border-green-400 shadow-sm hover:shadow-xl overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
+      className="group flex flex-col bg-white rounded-sm border border-ink-200 hover:border-fairway-400 shadow-sheet hover:shadow-raised overflow-hidden transition-all duration-200 hover:-translate-y-0.5"
     >
       {/* Gradient header */}
-      <div className="bg-gradient-to-br from-green-900 to-green-700 px-5 pt-5 pb-4">
+      <div className="bg-fairway-900 px-5 pt-5 pb-4">
         <div className="flex items-start justify-between gap-2 mb-1">
           <h2 className="font-bold text-white text-xl leading-tight">
             {summary.league_name}
           </h2>
           {summary.is_manager && (
-            <span className="flex-shrink-0 mt-0.5 text-xs font-semibold bg-white/20 text-white px-2.5 py-0.5 rounded-full">
+            <span className="flex-shrink-0 mt-0.5 text-xs font-semibold bg-white/20 text-white px-2.5 py-0.5 rounded-xs">
               Manager
             </span>
           )}
@@ -40,70 +40,70 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
       </div>
 
       {/* Stats row */}
-      <div className="px-5 py-4 grid grid-cols-[1fr_2fr_1fr] divide-x divide-gray-100">
+      <div className="px-5 py-4 grid grid-cols-[1fr_2fr_1fr] divide-x divide-ink-100">
         <div className="pr-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Rank</p>
-          <p className={`text-2xl font-bold tabular-nums leading-none ${summary.rank !== null ? rankStyle(summary.rank) : "text-gray-200"}`}>
+          <p className="text-micro uppercase text-ink-400 mb-1">Rank</p>
+          <p className={`text-2xl font-bold tabular-nums leading-none ${summary.rank !== null ? rankStyle(summary.rank) : "text-ink-200"}`}>
             {summary.rank !== null ? (summary.is_tied ? `T${summary.rank}` : `${summary.rank}`) : "—"}
           </p>
         </div>
         <div className="px-4 min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Points</p>
-          <p className="text-2xl font-bold tabular-nums leading-none text-gray-800 break-all">
+          <p className="text-micro uppercase text-ink-400 mb-1">Points</p>
+          <p className="text-2xl font-bold tabular-nums leading-none text-ink-800 break-all">
             {summary.total_points !== null ? formatPoints(summary.total_points) : "—"}
           </p>
         </div>
         <div className="pl-4">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1">Members</p>
-          <p className="text-2xl font-bold tabular-nums leading-none text-gray-800">
+          <p className="text-micro uppercase text-ink-400 mb-1">Members</p>
+          <p className="text-2xl font-bold tabular-nums leading-none text-ink-800">
             {summary.member_count || "—"}
           </p>
         </div>
       </div>
 
       {/* Tournament section */}
-      <div className="border-t border-gray-100 bg-gray-50 px-5 py-3">
+      <div className="border-t border-ink-100 bg-ink-50 px-5 py-3">
         {!current && summary.total_points !== null ? (
           /* Season complete — no upcoming tournaments but has standings */
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-              <svg className="w-3.5 h-3.5 text-amber-500" viewBox="0 0 24 24" fill="currentColor">
+            <div className="w-7 h-7 rounded-full bg-brass-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-3.5 h-3.5 text-brass-600" viewBox="0 0 24 24" fill="currentColor">
                 <path fillRule="evenodd" d="M5.166 2.621v.858c-1.035.148-2.059.33-3.071.543a.75.75 0 0 0-.584.859 6.753 6.753 0 0 0 6.138 5.6 6.73 6.73 0 0 0 2.743 1.346A6.707 6.707 0 0 1 9.279 15H8.54c-1.036 0-1.875.84-1.875 1.875V19.5h-.375a.75.75 0 0 0 0 1.5h11.25a.75.75 0 0 0 0-1.5h-.374v-2.625c0-1.036-.84-1.875-1.875-1.875h-.74a6.707 6.707 0 0 1-1.112-3.173 6.73 6.73 0 0 0 2.743-1.347 6.753 6.753 0 0 0 6.139-5.6.75.75 0 0 0-.585-.858 47.077 47.077 0 0 0-3.07-.543V2.62a.75.75 0 0 0-.658-.744 49.22 49.22 0 0 0-6.093-.377c-2.063 0-4.096.128-6.093.377a.75.75 0 0 0-.657.744Z" clipRule="evenodd" />
               </svg>
             </div>
-            <p className="text-xs font-semibold text-amber-700">Season Complete</p>
+            <p className="text-xs font-semibold text-brass-700">Season Complete</p>
           </div>
         ) : current ? (
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-3.5 h-3.5 text-ink-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
                 </svg>
-                <p className="text-xs font-semibold text-gray-700 truncate">{fmtTournamentName(current.name)}</p>
+                <p className="text-xs font-semibold text-ink-700 truncate">{fmtTournamentName(current.name)}</p>
               </div>
               <div className="flex items-center flex-wrap gap-1.5 mt-0.5">
-                <span className="text-[11px] text-gray-400">
+                <span className="text-[11px] text-ink-400">
                   {formatDate(current.start_date)}–{formatDate(current.end_date)}
                   {current.status === "in_progress" && (
-                    <span className="ml-1.5 text-green-600 font-semibold">· Live</span>
+                    <span className="ml-1.5 text-fairway-600 font-semibold">· Live</span>
                   )}
                   {formatPurse(current.purse_usd) && (
                     <span className="ml-1.5">· {formatPurse(current.purse_usd)} purse</span>
                   )}
                 </span>
                 {current.effective_multiplier >= 2 && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-500 text-white flex-shrink-0">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-xs bg-brass-600 text-white flex-shrink-0">
                     {current.effective_multiplier}×
                   </span>
                 )}
                 {current.effective_multiplier > 1 && current.effective_multiplier < 2 && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-500 text-white flex-shrink-0">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-xs bg-ink-600 text-white flex-shrink-0">
                     {current.effective_multiplier}×
                   </span>
                 )}
                 {summary.is_playoff_week && (
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500 text-white flex-shrink-0">
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-xs bg-ink-600 text-white flex-shrink-0">
                     PLAYOFF
                   </span>
                 )}
@@ -111,7 +111,7 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
               {summary.is_playoff_week && summary.my_playoff_picks.length > 0 ? (
                 <div className="mt-0.5 space-y-0.5">
                   {summary.my_playoff_picks.map((p, i) => (
-                    <p key={i} className="text-[11px] text-green-700 font-medium flex items-center gap-1">
+                    <p key={i} className="text-[11px] text-fairway-700 font-medium flex items-center gap-1">
                       <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                       </svg>
@@ -120,9 +120,9 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                   ))}
                 </div>
               ) : summary.is_playoff_week && !summary.is_in_playoffs ? (
-                <p className="text-[11px] text-gray-400 font-medium mt-0.5">Not in playoff round</p>
+                <p className="text-[11px] text-ink-400 font-medium mt-0.5">Not in playoff round</p>
               ) : summary.playoff_scoring_pending ? (
-                <p className="text-[11px] text-amber-600 font-medium mt-0.5 flex items-center gap-1">
+                <p className="text-[11px] text-brass-600 font-medium mt-0.5 flex items-center gap-1">
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                   </svg>
@@ -131,29 +131,29 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                     : "Scoring in progress"}
                 </p>
               ) : summary.my_pick ? (
-                <p className="text-[11px] text-green-700 font-medium mt-0.5 flex items-center gap-1">
+                <p className="text-[11px] text-fairway-700 font-medium mt-0.5 flex items-center gap-1">
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                   </svg>
                   {summary.my_pick.golfer_name}
                   {summary.my_pick.is_locked && (
-                    <span className="ml-0.5 text-[10px] text-gray-400 font-normal">· locked</span>
+                    <span className="ml-0.5 text-[10px] text-ink-400 font-normal">· locked</span>
                   )}
                 </p>
               ) : !summary.pick_window_open && current.status === "scheduled" ? (
                 summary.preceding_tournament_name ? (
-                  <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                  <p className="text-[11px] text-ink-400 font-medium mt-0.5">
                     Picks open after {fmtTournamentName(summary.preceding_tournament_name)} completes
                   </p>
                 ) : null
               ) : current.status === "scheduled" || (current.status === "in_progress" && !current.all_r1_teed_off) ? (
-                <p className="text-[11px] text-amber-600 font-medium mt-0.5 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 flex-shrink-0 inline-block" />
+                <p className="text-[11px] text-brass-600 font-medium mt-0.5 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-brass-600 flex-shrink-0 inline-block" />
                   No pick yet
                 </p>
               ) : (
-                <p className="text-[11px] text-red-500 font-medium mt-0.5 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0 inline-block" />
+                <p className="text-[11px] text-flag-600 font-medium mt-0.5 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-flag-500 flex-shrink-0 inline-block" />
                   No Pick
                 </p>
               )}
@@ -164,7 +164,7 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                   e.preventDefault();
                   navigate(`/leagues/${summary.league_id}/pick`);
                 }}
-                className="flex-shrink-0 text-xs font-bold text-white bg-green-700 hover:bg-green-600 px-2.5 py-2 sm:py-1 rounded-lg transition-colors"
+                className="flex-shrink-0 text-xs font-bold text-white bg-fairway-700 hover:bg-fairway-600 px-2.5 py-2 sm:py-1 rounded-xs transition-colors"
               >
                 Pick →
               </button>
@@ -175,14 +175,14 @@ export function LeagueCard({ summary }: { summary: LeagueSummary }) {
                   e.preventDefault();
                   navigate(`/leagues/${summary.league_id}/pick`);
                 }}
-                className="flex-shrink-0 text-xs font-bold text-green-800 border border-green-700 hover:bg-green-50 px-2.5 py-2 sm:py-1 rounded-lg transition-colors"
+                className="flex-shrink-0 text-xs font-bold text-fairway-700 border border-fairway-700 hover:bg-fairway-50 px-2.5 py-2 sm:py-1 rounded-xs transition-colors"
               >
                 Change →
               </button>
             )}
           </div>
         ) : (
-          <p className="text-xs text-gray-400">No upcoming tournaments</p>
+          <p className="text-xs text-ink-400">No upcoming tournaments</p>
         )}
       </div>
     </Link>

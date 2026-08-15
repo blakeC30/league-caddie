@@ -40,30 +40,30 @@ function LeagueRow({
 
   if (confirming) {
     return (
-      <div className="rounded-xl border border-gray-100 px-4 py-3 space-y-2">
+      <div className="rounded-xs border border-ink-100 px-4 py-3 space-y-2">
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg">
+          <div className="flex items-center gap-2 bg-flag-50 border border-flag-300 text-flag-700 text-sm px-3 py-2 rounded-xs">
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
             Failed to leave league. Please try again.
           </div>
         )}
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-ink-700">
           Leave <span className="font-semibold">{league.name}</span>? This cannot be undone.
         </p>
         <div className="flex items-center gap-3">
           <button
             onClick={() => leaveLeague(league.id, { onSuccess: () => setConfirming(false) })}
             disabled={isPending}
-            className="text-sm font-medium bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-lg transition-colors"
+            className="text-sm font-medium bg-flag-600 hover:bg-flag-700 disabled:opacity-40 text-white px-3 py-1.5 rounded-xs transition-colors"
           >
             {isPending ? "Leaving…" : "Yes, leave"}
           </button>
           <button
             onClick={() => { setConfirming(false); reset(); }}
             disabled={isPending}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-ink-500 hover:text-ink-700 transition-colors"
           >
             Cancel
           </button>
@@ -73,24 +73,24 @@ function LeagueRow({
   }
 
   return (
-    <div className="rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-3">
-      <span className="text-sm font-medium text-gray-800">{league.name}</span>
+    <div className="rounded-xs border border-ink-100 px-4 py-3 flex items-center justify-between gap-3">
+      <span className="text-sm font-medium text-ink-800">{league.name}</span>
       <div className="flex items-center gap-2 flex-shrink-0">
         {!isEditing && (
           <Link
             to={`/leagues/${league.id}/rules`}
-            className="text-xs text-green-700 hover:text-green-900 border border-green-200 hover:border-green-400 px-2.5 py-1 rounded-lg transition-colors"
+            className="text-xs text-fairway-700 hover:text-fairway-900 border border-fairway-200 hover:border-fairway-400 px-2.5 py-1 rounded-xs transition-colors"
           >
             Rules
           </Link>
         )}
         {isEditing && (
           isManager ? (
-            <span className="text-xs text-gray-400">Manager</span>
+            <span className="text-xs text-ink-400">Manager</span>
           ) : (
             <button
               onClick={() => setConfirming(true)}
-              className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1 rounded-lg transition-colors"
+              className="text-xs text-flag-600 hover:text-flag-700 border border-flag-300 hover:border-flag-500 px-2.5 py-1 rounded-xs transition-colors"
             >
               Leave
             </button>
@@ -205,28 +205,25 @@ export function Settings() {
     <div className="space-y-8 max-w-xl mx-auto">
       {/* Page header */}
       <div className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-          Account
-        </p>
-        <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+        <h1 className="text-title text-ink-950">Settings</h1>
       </div>
 
       {/* Profile section */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">Profile</h2>
+            <h2 className="text-base font-bold text-ink-900">Profile</h2>
           </div>
           {!profileEditing ? (
             <button
               type="button"
               onClick={() => setProfileEditing(true)}
-              className="text-sm font-medium text-green-700 hover:text-green-900 transition-colors"
+              className="text-sm font-medium text-fairway-700 hover:text-fairway-900 transition-colors"
             >
               Edit
             </button>
@@ -234,7 +231,7 @@ export function Settings() {
             <button
               type="button"
               onClick={cancelProfileEditing}
-              className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-sm font-medium text-ink-500 hover:text-ink-700 transition-colors"
             >
               Cancel
             </button>
@@ -245,24 +242,24 @@ export function Settings() {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">First name</p>
-                <p className="text-sm text-gray-900">{user?.first_name || <span className="text-gray-300">—</span>}</p>
+                <p className="text-xs text-ink-400 mb-0.5">First name</p>
+                <p className="text-sm text-ink-900">{user?.first_name || <span className="text-ink-300">—</span>}</p>
               </div>
               <div>
-                <p className="text-xs text-gray-400 mb-0.5">Last name</p>
-                <p className="text-sm text-gray-900">{user?.last_name || <span className="text-gray-300">—</span>}</p>
+                <p className="text-xs text-ink-400 mb-0.5">Last name</p>
+                <p className="text-sm text-ink-900">{user?.last_name || <span className="text-ink-300">—</span>}</p>
               </div>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-0.5">Display name</p>
-              <p className="text-sm text-gray-900">{user?.display_name}</p>
+              <p className="text-xs text-ink-400 mb-0.5">Display name</p>
+              <p className="text-sm text-ink-900">{user?.display_name}</p>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="firstName" className="block text-sm font-medium text-ink-700">
                   First name
                 </label>
                 <input
@@ -271,12 +268,12 @@ export function Settings() {
                   value={firstName}
                   onChange={(e) => { setFirstName(e.target.value); setSaved(false); }}
                   maxLength={50}
-                  className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+                  className="w-full border border-ink-300 rounded-xs px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:border-transparent transition-shadow"
                 />
-                {firstName.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums">{firstName.length}/50</p>}
+                {firstName.length >= 40 && <p className="text-[11px] text-ink-400 text-right tabular-nums">{firstName.length}/50</p>}
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                <label htmlFor="lastName" className="block text-sm font-medium text-ink-700">
                   Last name
                 </label>
                 <input
@@ -285,14 +282,14 @@ export function Settings() {
                   value={lastName}
                   onChange={(e) => { setLastName(e.target.value); setSaved(false); }}
                   maxLength={50}
-                  className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+                  className="w-full border border-ink-300 rounded-xs px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:border-transparent transition-shadow"
                 />
-                {lastName.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums">{lastName.length}/50</p>}
+                {lastName.length >= 40 && <p className="text-[11px] text-ink-400 text-right tabular-nums">{lastName.length}/50</p>}
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="displayName" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="displayName" className="block text-sm font-medium text-ink-700">
                 Display name
               </label>
               <input
@@ -301,19 +298,19 @@ export function Settings() {
                 value={displayName}
                 onChange={(e) => { setDisplayName(e.target.value); setSaved(false); }}
                 maxLength={50}
-                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+                className="w-full border border-ink-300 rounded-xs px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:border-transparent transition-shadow"
               />
               {displayName.length >= 40 ? (
-                <p className="text-[11px] text-gray-400 text-right tabular-nums">{displayName.length}/50</p>
+                <p className="text-[11px] text-ink-400 text-right tabular-nums">{displayName.length}/50</p>
               ) : (
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-ink-400">
                   This is how you appear on standings and pick history.
                 </p>
               )}
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3.5 py-2.5 rounded-xl">
+              <div className="flex items-center gap-2 bg-flag-50 border border-flag-300 text-flag-700 text-sm px-3.5 py-2.5 rounded-xs">
                 <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
                 </svg>
@@ -325,12 +322,12 @@ export function Settings() {
               <button
                 type="submit"
                 disabled={loading || !hasProfileChanges}
-                className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-2.5 px-5 rounded-xl transition-colors shadow-sm text-sm"
+                className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold py-2.5 px-5 rounded-xs transition-colors shadow-sheet text-sm"
               >
                 {loading ? "Saving…" : "Save changes"}
               </button>
               {saved && (
-                <span className="inline-flex items-center gap-1.5 text-sm text-green-700 font-medium">
+                <span className="inline-flex items-center gap-1.5 text-sm text-fairway-700 font-medium">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                   </svg>
@@ -343,28 +340,28 @@ export function Settings() {
       </div>
 
       {/* Account info section */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
             </svg>
           </div>
-          <h2 className="text-base font-bold text-gray-900">Account</h2>
+          <h2 className="text-base font-bold text-ink-900">Account</h2>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-1">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Email</p>
-            <p className="text-sm text-gray-700">{user?.email}</p>
-            <p className="text-xs text-gray-400">Email cannot be changed.</p>
+            <p className="text-micro uppercase text-ink-400">Email</p>
+            <p className="text-sm text-ink-700">{user?.email}</p>
+            <p className="text-xs text-ink-400">Email cannot be changed.</p>
           </div>
 
-          <div className="h-px bg-gray-100" />
+          <div className="h-px bg-ink-100" />
 
           <div className="space-y-1">
-            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Member since</p>
-            <p className="text-sm text-gray-700">
+            <p className="text-micro uppercase text-ink-400">Member since</p>
+            <p className="text-sm text-ink-700">
               {user?.created_at ? formatDate(user.created_at) : "—"}
             </p>
           </div>
@@ -372,22 +369,22 @@ export function Settings() {
       </div>
 
       {/* Email notifications section */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
             </svg>
           </div>
-          <h2 className="text-base font-bold text-gray-900">Email Notifications</h2>
+          <h2 className="text-base font-bold text-ink-900">Email Notifications</h2>
         </div>
 
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-0.5 flex-1">
-            <p className="text-sm font-medium text-gray-800">
+            <p className="text-sm font-medium text-ink-800">
               Weekly pick reminders
             </p>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-ink-400 leading-relaxed">
               Remind me every Wednesday before a tournament to submit my pick.
             </p>
           </div>
@@ -397,8 +394,8 @@ export function Settings() {
             aria-checked={remindersEnabled}
             disabled={remindersLoading}
             onClick={() => handleReminderToggle(!remindersEnabled)}
-            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-50 ${
-              remindersEnabled ? "bg-green-700" : "bg-gray-300"
+            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:ring-offset-2 disabled:opacity-50 ${
+              remindersEnabled ? "bg-fairway-700" : "bg-ink-300"
             }`}
           >
             <span
@@ -411,10 +408,10 @@ export function Settings() {
 
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-0.5 flex-1">
-            <p className="text-sm font-medium text-gray-800">
+            <p className="text-sm font-medium text-ink-800">
               League manager emails
             </p>
-            <p className="text-xs text-gray-400 leading-relaxed">
+            <p className="text-xs text-ink-400 leading-relaxed">
               Receive emails sent by your league managers.
             </p>
           </div>
@@ -424,8 +421,8 @@ export function Settings() {
             aria-checked={managerEmailsEnabled}
             disabled={managerEmailsLoading}
             onClick={() => handleManagerEmailsToggle(!managerEmailsEnabled)}
-            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-50 ${
-              managerEmailsEnabled ? "bg-green-700" : "bg-gray-300"
+            className={`relative flex-shrink-0 inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:ring-offset-2 disabled:opacity-50 ${
+              managerEmailsEnabled ? "bg-fairway-700" : "bg-ink-300"
             }`}
           >
             <span
@@ -438,28 +435,28 @@ export function Settings() {
       </div>
 
       {/* Leagues section */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+      <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">My Leagues</h2>
+            <h2 className="text-base font-bold text-ink-900">My Leagues</h2>
           </div>
           {leagues?.length ? (
             isEditingLeagues ? (
               <button
                 onClick={() => setIsEditingLeagues(false)}
-                className="text-sm font-medium text-green-700 hover:text-green-900 transition-colors"
+                className="text-sm font-medium text-fairway-700 hover:text-fairway-900 transition-colors"
               >
                 Done
               </button>
             ) : (
               <button
                 onClick={() => setIsEditingLeagues(true)}
-                className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors"
+                className="text-sm font-medium text-ink-500 hover:text-ink-700 transition-colors"
               >
                 Edit
               </button>
@@ -470,14 +467,14 @@ export function Settings() {
         {leaguesLoading ? (
           <div className="space-y-2 animate-pulse">
             {Array.from({ length: 3 }, (_, i) => (
-              <div key={i} className="flex items-center justify-between px-4 py-3 border border-gray-100 rounded-xl">
+              <div key={i} className="flex items-center justify-between px-4 py-3 border border-ink-100 rounded-xs">
                 <SkeletonBlock className="h-4 w-32" />
                 <SkeletonBlock className="h-4 w-16" />
               </div>
             ))}
           </div>
         ) : !leagues?.length ? (
-          <p className="text-sm text-gray-500">You are not a member of any leagues.</p>
+          <p className="text-sm text-ink-500">You are not a member of any leagues.</p>
         ) : (
           <div className="space-y-2">
             {leagues.map((league) => (

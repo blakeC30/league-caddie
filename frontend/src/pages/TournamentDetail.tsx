@@ -37,10 +37,10 @@ function fmtStp(stp: number | null | undefined): string {
 }
 
 function stpClass(stp: number | null | undefined): string {
-  if (stp == null) return "text-gray-400";
-  if (stp < 0) return "text-green-700 font-semibold";
-  if (stp > 0) return "text-red-500 font-semibold";
-  return "text-gray-600";
+  if (stp == null) return "text-ink-400";
+  if (stp < 0) return "text-fairway-700 font-semibold";
+  if (stp > 0) return "text-flag-600 font-semibold";
+  return "text-ink-600";
 }
 
 function formatEarnings(usd: number | null): string {
@@ -58,12 +58,12 @@ function formatEarnings(usd: number | null): string {
 //   Double (+2):  double square — rounded-sm border + outer ring
 //   Triple+ (≥3): double square (same as double bogey, darker)
 const RESULT_STYLES: Record<HoleResult, { chip: string; shape: "double-circle" | "circle" | "none" | "square" | "double-square" }> = {
-  eagle:       { chip: "bg-yellow-50 text-yellow-800 border border-yellow-400 ring-2 ring-yellow-300 ring-offset-1",  shape: "double-circle" },
-  birdie:      { chip: "bg-green-100 text-green-800 border border-green-400",                                          shape: "circle" },
-  par:         { chip: "text-gray-600",                                                                                shape: "none" },
-  bogey:       { chip: "bg-red-50 text-red-600 border border-red-300",                                                shape: "square" },
-  double_bogey:{ chip: "bg-red-100 text-red-700 border border-red-400 ring-2 ring-red-300 ring-offset-1",             shape: "double-square" },
-  triple_plus: { chip: "bg-red-200 text-red-800 border border-red-500 ring-2 ring-red-400 ring-offset-1",             shape: "double-square" },
+  eagle:       { chip: "bg-brass-50 text-brass-700 border border-brass-500 ring-2 ring-brass-500 ring-offset-1",  shape: "double-circle" },
+  birdie:      { chip: "bg-fairway-100 text-fairway-700 border border-fairway-400",                                          shape: "circle" },
+  par:         { chip: "text-ink-600",                                                                                shape: "none" },
+  bogey:       { chip: "bg-flag-50 text-flag-600 border border-flag-300",                                                shape: "square" },
+  double_bogey:{ chip: "bg-flag-100 text-flag-700 border border-flag-500 ring-2 ring-flag-300 ring-offset-1",             shape: "double-square" },
+  triple_plus: { chip: "bg-flag-300 text-flag-700 border border-flag-600 ring-2 ring-flag-500 ring-offset-1",             shape: "double-square" },
 };
 
 const RESULT_LABELS: Record<HoleResult, string> = {
@@ -133,7 +133,7 @@ function ScorecardPanel({
           const { chip, shape } = RESULT_STYLES[h.result];
           const rounded = shape === "circle" || shape === "double-circle" ? "rounded-full" : shape === "none" ? "" : "rounded-sm";
           return <span className={`inline-flex items-center justify-center w-6 h-6 text-xs font-bold tabular-nums ${rounded} ${chip}`}>{h.score}</span>;
-        })() : <span className="inline-flex items-center justify-center w-6 h-6"><span className="block w-3 h-px bg-gray-600 rounded-full" /></span>}
+        })() : <span className="inline-flex items-center justify-center w-6 h-6"><span className="block w-3 h-px bg-ink-600 rounded-full" /></span>}
       </td>
     );
   }
@@ -141,7 +141,7 @@ function ScorecardPanel({
   return (
     <tr>
       <td colSpan={colSpan} className="p-0">
-        <div className="bg-gray-50 border-t border-gray-100 px-5 py-4">
+        <div className="bg-ink-50 border-t border-ink-100 px-5 py-4">
           {/* Phantom table — always in the DOM, invisible, zero height.
               Must be a structural clone of the real regular-round table
               (same element types, classes, and representative content)
@@ -151,41 +151,41 @@ function ScorecardPanel({
           <div aria-hidden style={{ visibility: "hidden", height: 0, overflow: "hidden", position: "absolute", pointerEvents: "none" }}>
             <table ref={phantomTableRef} className="text-xs border-collapse min-w-max">
               <thead>
-                <tr className="text-gray-400">
+                <tr className="text-ink-400">
                   <th className="pr-3 pb-1 text-left font-semibold w-14">Hole</th>
                   {[1,2,3,4,5,6,7,8,9].map((n) => (
                     <th key={n} className="px-1 pb-1 text-center w-7 font-medium tabular-nums">{n}</th>
                   ))}
-                  <th className="px-2 pb-1 text-center font-semibold text-gray-500 w-10">Out</th>
+                  <th className="px-2 pb-1 text-center font-semibold text-ink-500 w-10">Out</th>
                   {[10,11,12,13,14,15,16,17,18].map((n) => (
                     <th key={n} className="px-1 pb-1 text-center w-7 font-medium tabular-nums">{n}</th>
                   ))}
-                  <th className="px-2 pb-1 text-center font-semibold text-gray-500 w-10">In</th>
-                  <th className="pl-2 pb-1 text-center font-semibold text-gray-700 w-12">Total</th>
+                  <th className="px-2 pb-1 text-center font-semibold text-ink-500 w-10">In</th>
+                  <th className="pl-2 pb-1 text-center font-semibold text-ink-700 w-12">Total</th>
                 </tr>
-                <tr className="text-gray-400 border-b border-gray-200">
+                <tr className="text-ink-400 border-b border-ink-200">
                   <td className="pr-3 pb-1.5 font-semibold">Par</td>
                   {Array.from({ length: 9 }, (_, i) => (
                     <td key={i} className="px-1 pb-1.5 text-center tabular-nums">4</td>
                   ))}
-                  <td className="px-2 pb-1.5 text-center font-semibold text-gray-500 tabular-nums">36</td>
+                  <td className="px-2 pb-1.5 text-center font-semibold text-ink-500 tabular-nums">36</td>
                   {Array.from({ length: 9 }, (_, i) => (
                     <td key={i + 9} className="px-1 pb-1.5 text-center tabular-nums">4</td>
                   ))}
-                  <td className="px-2 pb-1.5 text-center font-semibold text-gray-500 tabular-nums">36</td>
-                  <td className="pl-2 pb-1.5 text-center font-semibold text-gray-700 tabular-nums">72</td>
+                  <td className="px-2 pb-1.5 text-center font-semibold text-ink-500 tabular-nums">36</td>
+                  <td className="pl-2 pb-1.5 text-center font-semibold text-ink-700 tabular-nums">72</td>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td className="pr-3 pt-1.5 font-semibold text-gray-700">Score</td>
+                  <td className="pr-3 pt-1.5 font-semibold text-ink-700">Score</td>
                   {Array.from({ length: 18 }, (_, i) => (
                     <td key={i} className="px-1 pt-1.5 text-center">
                       <span className="inline-flex items-center justify-center w-6 h-6 text-xs font-bold tabular-nums rounded-sm">4</span>
                     </td>
                   ))}
-                  <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-gray-700">36</td>
-                  <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-gray-700">36</td>
+                  <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-ink-700">36</td>
+                  <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-ink-700">36</td>
                   <td className="pl-2 pt-1.5 text-center font-bold tabular-nums">72</td>
                 </tr>
               </tbody>
@@ -194,22 +194,22 @@ function ScorecardPanel({
           <div className="mx-auto space-y-3" style={{ width: "fit-content", minWidth: minWrapperWidth }}>
           {/* Round tabs */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide mr-1">Round</span>
+            <span className="text-micro uppercase text-ink-400 mr-1">Round</span>
             {availableRounds.map((r) => (
               <button
                 key={r}
                 onClick={() => setRound(r)}
                 className={`text-xs font-semibold px-2.5 py-1 rounded-full transition-colors ${
                   round === r
-                    ? r > 4 ? "bg-amber-500 text-white" : "bg-green-800 text-white"
-                    : "bg-white border border-gray-200 text-gray-500 hover:border-green-400 hover:text-green-700"
+                    ? r > 4 ? "bg-brass-600 text-white" : "bg-fairway-700 text-white"
+                    : "bg-white border border-ink-200 text-ink-500 hover:border-fairway-400 hover:text-fairway-700"
                 }`}
               >
                 {r <= 4 ? `R${r}` : `Playoff${availableRounds.filter((x) => x > 4).length > 1 ? ` ${r - 4}` : ""}`}
               </button>
             ))}
             {isPlayoff && (
-              <span className="ml-1 text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+              <span className="ml-1 text-xs font-semibold text-brass-600 bg-brass-50 border border-brass-100 px-2 py-0.5 rounded-xs">
                 Sudden Death
               </span>
             )}
@@ -221,7 +221,7 @@ function ScorecardPanel({
               <SkeletonBlock className="h-3 w-3/4" />
             </div>
           ) : !scorecard || scorecard.holes.length === 0 ? (
-            <p className="text-sm text-gray-400 py-2">
+            <p className="text-sm text-ink-400 py-2">
               {isPlayoff
                 ? "Hole-by-hole playoff data is not available."
                 : "Hole-by-hole data is not available for this round."}
@@ -232,26 +232,26 @@ function ScorecardPanel({
               <div className="overflow-x-auto pb-1">
                 <table className="text-xs border-collapse">
                   <thead>
-                    <tr className="text-gray-400">
+                    <tr className="text-ink-400">
                       <th className="pr-4 pb-1 text-left font-semibold w-16">Hole</th>
                       {playoffHoles.map((h) => (
                         <th key={h.hole} className="px-1 pb-1 text-center w-7 font-medium tabular-nums">{h.hole}</th>
                       ))}
-                      <th className="pl-3 pb-1 text-center font-semibold text-gray-700 w-14">Result</th>
+                      <th className="pl-3 pb-1 text-center font-semibold text-ink-700 w-14">Result</th>
                     </tr>
-                    <tr className="text-gray-400 border-b border-gray-200">
+                    <tr className="text-ink-400 border-b border-ink-200">
                       <td className="pr-4 pb-1.5 font-semibold">Par</td>
                       {playoffHoles.map((h) => (
                         <td key={h.hole} className="px-1 pb-1.5 text-center tabular-nums">{h.par ?? "—"}</td>
                       ))}
-                      <td className="pl-3 pb-1.5 text-center font-semibold text-gray-500 tabular-nums">
+                      <td className="pl-3 pb-1.5 text-center font-semibold text-ink-500 tabular-nums">
                         {playoffHoles.reduce((s, h) => s + (h.par ?? 0), 0) || "—"}
                       </td>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="pr-4 pt-1.5 font-semibold text-gray-700">Score</td>
+                      <td className="pr-4 pt-1.5 font-semibold text-ink-700">Score</td>
                       {playoffHoles.map((h) => renderHoleCell(h, "px-1 pt-1.5 text-center"))}
                       <td className={`pl-3 pt-1.5 text-center font-bold tabular-nums ${stpClass(scorecard.total_score_to_par)}`}>
                         {scorecard.total_score ?? "—"}
@@ -264,7 +264,7 @@ function ScorecardPanel({
               <div className="mt-3">
                 <button
                   onClick={() => setShowLegend((v) => !v)}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-xs text-ink-400 hover:text-ink-600 transition-colors"
                 >
                   {showLegend ? "Hide legend ▲" : "Legend ▼"}
                 </button>
@@ -289,34 +289,34 @@ function ScorecardPanel({
               <div className="overflow-x-auto pb-1">
                 <table className="text-xs border-collapse min-w-max">
                   <thead>
-                    <tr className="text-gray-400">
+                    <tr className="text-ink-400">
                       <th className="pr-3 pb-1 text-left font-semibold w-14">Hole</th>
                       {front.map((h) => (
                         <th key={h.hole} className="px-1 pb-1 text-center w-7 font-medium tabular-nums">{h.hole}</th>
                       ))}
-                      <th className="px-2 pb-1 text-center font-semibold text-gray-500 w-10">Out</th>
+                      <th className="px-2 pb-1 text-center font-semibold text-ink-500 w-10">Out</th>
                       {back.map((h) => (
                         <th key={h.hole} className="px-1 pb-1 text-center w-7 font-medium tabular-nums">{h.hole}</th>
                       ))}
-                      {back.length > 0 && <th className="px-2 pb-1 text-center font-semibold text-gray-500 w-10">In</th>}
-                      <th className="pl-2 pb-1 text-center font-semibold text-gray-700 w-12">Total</th>
+                      {back.length > 0 && <th className="px-2 pb-1 text-center font-semibold text-ink-500 w-10">In</th>}
+                      <th className="pl-2 pb-1 text-center font-semibold text-ink-700 w-12">Total</th>
                     </tr>
-                    <tr className="text-gray-400 border-b border-gray-200">
+                    <tr className="text-ink-400 border-b border-ink-200">
                       <td className="pr-3 pb-1.5 font-semibold">Par</td>
                       {front.map((h) => <td key={h.hole} className="px-1 pb-1.5 text-center tabular-nums">{h.par ?? "—"}</td>)}
-                      <td className="px-2 pb-1.5 text-center font-semibold text-gray-500 tabular-nums">{frontPar || "—"}</td>
+                      <td className="px-2 pb-1.5 text-center font-semibold text-ink-500 tabular-nums">{frontPar || "—"}</td>
                       {back.map((h)  => <td key={h.hole} className="px-1 pb-1.5 text-center tabular-nums">{h.par ?? "—"}</td>)}
-                      {back.length > 0 && <td className="px-2 pb-1.5 text-center font-semibold text-gray-500 tabular-nums">{backPar || "—"}</td>}
-                      <td className="pl-2 pb-1.5 text-center font-semibold text-gray-700 tabular-nums">{(frontPar + backPar) || "—"}</td>
+                      {back.length > 0 && <td className="px-2 pb-1.5 text-center font-semibold text-ink-500 tabular-nums">{backPar || "—"}</td>}
+                      <td className="pl-2 pb-1.5 text-center font-semibold text-ink-700 tabular-nums">{(frontPar + backPar) || "—"}</td>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td className="pr-3 pt-1.5 font-semibold text-gray-700">Score</td>
+                      <td className="pr-3 pt-1.5 font-semibold text-ink-700">Score</td>
                       {front.map((h) => renderHoleCell(h, "px-1 pt-1.5 text-center"))}
-                      <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-gray-700">{frontScore ?? "—"}</td>
+                      <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-ink-700">{frontScore ?? "—"}</td>
                       {back.map((h) => renderHoleCell(h, "px-1 pt-1.5 text-center"))}
-                      {back.length > 0 && <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-gray-700">{backScore ?? "—"}</td>}
+                      {back.length > 0 && <td className="px-2 pt-1.5 text-center font-bold tabular-nums text-ink-700">{backScore ?? "—"}</td>}
                       <td className={`pl-2 pt-1.5 text-center font-bold tabular-nums ${frontScore !== null && backScore !== null ? stpClass(scorecard.total_score_to_par) : ""}`}>
                         {frontScore !== null && backScore !== null ? (scorecard.total_score ?? "—") : "—"}
                       </td>
@@ -328,7 +328,7 @@ function ScorecardPanel({
               <div className="mt-3">
                 <button
                   onClick={() => setShowLegend((v) => !v)}
-                  className="text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-xs text-ink-400 hover:text-ink-600 transition-colors"
                 >
                   {showLegend ? "Hide legend ▲" : "Legend ▼"}
                 </button>
@@ -398,13 +398,13 @@ export function TournamentDetail() {
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
-        <div className="bg-amber-50 rounded-full p-4 mb-6">
-          <svg className="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-brass-50 rounded-xs p-4 mb-6">
+          <svg className="w-12 h-12 text-brass-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
-        <p className="text-gray-600 max-w-sm mb-8">
+        <h2 className="text-2xl font-bold text-ink-900 mb-3">League Plan Required</h2>
+        <p className="text-ink-600 max-w-sm mb-8">
           {isManager
             ? "This league needs an active League Plan to access features. Purchase one to get started."
             : "Your league manager needs to purchase a League Plan to unlock all features."}
@@ -412,12 +412,12 @@ export function TournamentDetail() {
         {isManager ? (
           <Link
             to={`/leagues/${leagueId}/manage`}
-            className="bg-green-800 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="bg-fairway-700 hover:bg-fairway-700 text-white font-semibold px-6 py-3 rounded-xs transition-colors"
           >
             Manage &amp; Purchase
           </Link>
         ) : (
-          <p className="text-sm text-gray-500">Contact your league manager to activate this league.</p>
+          <p className="text-sm text-ink-500">Contact your league manager to activate this league.</p>
         )}
       </div>
     );
@@ -431,7 +431,7 @@ export function TournamentDetail() {
     // Scheduled tournament: leaderboard returns 400 — show tee time view instead.
     if (isScheduledError) {
       const backLink = (
-        <Link to={`/leagues/${leagueId}`} className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 transition-colors">
+        <Link to={`/leagues/${leagueId}`} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-fairway-700 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
@@ -491,29 +491,28 @@ export function TournamentDetail() {
           {backLink}
 
           {/* Tournament header */}
-          <div className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5">
-            <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-1">Tee Times — Round 1</p>
+          <div className="relative overflow-hidden bg-fairway-900 text-white rounded-sm px-6 py-5">
+            <p className="text-micro uppercase text-fairway-300 mb-1">Tee Times — Round 1</p>
             <p className="text-xl font-bold">{fmtTournamentName(thisTournament?.name ?? "")}</p>
             {myPickedGolferIdForField && (
-              <p className="text-sm text-green-300 mt-1">Your pick is highlighted below</p>
+              <p className="text-sm text-fairway-300 mt-1">Your pick is highlighted below</p>
             )}
             {hasBackNine && (
-              <p className="text-xs text-green-300/70 mt-2">* = starting on hole 10</p>
+              <p className="text-xs text-fairway-300/70 mt-2">* = starting on hole 10</p>
             )}
           </div>
 
           {groups.length === 0 ? (
-            <p className="text-sm text-gray-400">Tee times are not yet available for this tournament.</p>
+            <p className="text-sm text-ink-400">Tee times are not yet available for this tournament.</p>
           ) : (
-            <div className="overflow-x-auto rounded-2xl border border-gray-200">
-              <div className="bg-white divide-y divide-gray-200 min-w-max">
+            <div className="overflow-x-auto rounded-sm border border-ink-200">
+              <div className="bg-white divide-y divide-ink-200 min-w-max">
               {groups.map(({ time, onBack, golfers }) => {
                 const localTime = new Date(time).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
                 const suffix = onBack ? "*" : "";
                 return (
                   <div key={time + suffix} className="flex items-center gap-4 px-4 py-4">
-                    <span className="text-sm font-semibold text-gray-500 tabular-nums w-20 shrink-0 text-right">
+                    <span className="text-sm font-semibold text-ink-500 tabular-nums w-20 shrink-0 text-right">
                       {localTime}{suffix}
                     </span>
                     <div className="flex flex-col gap-1.5">
@@ -524,27 +523,27 @@ export function TournamentDetail() {
                             g.partner_golfer_id === myPickedGolferIdForField
                           );
                         return (
-                          <div key={g.id} className={`flex items-center gap-1.5 rounded-lg px-2 py-0.5 -mx-2 ${isMyPick ? "bg-green-50" : ""}`}>
+                          <div key={g.id} className={`flex items-center gap-1.5 rounded-xs px-2 py-0.5 -mx-2 ${isMyPick ? "bg-fairway-50" : ""}`}>
                             {isTeamEvent && g.partner_name && g.partner_pga_tour_id ? (
                               <>
                                 <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-6 h-6 shrink-0" />
-                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>{g.name}</span>
-                                <span className="text-sm text-gray-400 shrink-0">/</span>
+                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-fairway-900 font-semibold" : "text-ink-800"}`}>{g.name}</span>
+                                <span className="text-sm text-ink-400 shrink-0">/</span>
                                 <GolferAvatar pgaTourId={g.partner_pga_tour_id} name={g.partner_name} className="w-6 h-6 shrink-0" />
-                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
+                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-fairway-900 font-semibold" : "text-ink-800"}`}>
                                   {g.partner_name}
-                                  {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
+                                  {isMyPick && <span className="ml-1.5 text-xs font-bold text-fairway-600">★</span>}
                                 </span>
                               </>
                             ) : (
                               <>
                                 <GolferAvatar pgaTourId={g.pga_tour_id} name={g.name} className="w-7 h-7 shrink-0" />
-                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-green-900 font-semibold" : "text-gray-800"}`}>
+                                <span className={`text-sm font-medium whitespace-nowrap ${isMyPick ? "text-fairway-900 font-semibold" : "text-ink-800"}`}>
                                   {g.name}
-                                  {isMyPick && <span className="ml-1.5 text-xs font-bold text-green-600">★</span>}
+                                  {isMyPick && <span className="ml-1.5 text-xs font-bold text-fairway-600">★</span>}
                                 </span>
                                 {g.world_ranking != null && (
-                                  <span className="text-xs text-gray-400 shrink-0">#{g.world_ranking}</span>
+                                  <span className="text-xs text-ink-400 shrink-0">#{g.world_ranking}</span>
                                 )}
                               </>
                             )}
@@ -564,17 +563,17 @@ export function TournamentDetail() {
 
     return (
       <div className="max-w-4xl mx-auto space-y-4">
-        <Link to={`/leagues/${leagueId}/picks`} className="inline-flex items-center gap-1.5 text-sm text-green-700 hover:text-green-900 transition-colors">
+        <Link to={`/leagues/${leagueId}/picks`} className="inline-flex items-center gap-1.5 text-sm text-fairway-700 hover:text-fairway-900 transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
           </svg>
           Back to Picks
         </Link>
-        <p className="text-gray-500">Leaderboard not available for this tournament.</p>
+        <p className="text-ink-500">Leaderboard not available for this tournament.</p>
         {error && (
           <button
             onClick={() => refetch()}
-            className="text-sm font-medium text-green-700 hover:text-green-900 underline"
+            className="text-sm font-medium text-fairway-700 hover:text-fairway-900 underline"
           >
             Try again
           </button>
@@ -722,7 +721,7 @@ export function TournamentDetail() {
       {/* Back link */}
       <Link
         to={`/leagues/${leagueId}`}
-        className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-fairway-700 transition-colors"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -731,14 +730,13 @@ export function TournamentDetail() {
       </Link>
 
       {/* Tournament header */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-green-900 to-green-700 text-white rounded-2xl px-6 py-5">
-        <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-        <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-1">
+      <div className="relative overflow-hidden bg-fairway-900 text-white rounded-sm px-6 py-5">
+        <p className="text-micro uppercase text-fairway-300 mb-1">
           {isCompleted ? "Final" : "Live"}
         </p>
         <p className="text-xl font-bold">{fmtTournamentName(leaderboard.tournament_name)}</p>
         {thisTournament && (
-          <p className="text-sm text-green-300/70 mt-1">
+          <p className="text-sm text-fairway-300/70 mt-1">
             {formatDate(thisTournament.start_date)} – {formatDate(thisTournament.end_date)}
             {thisTournament.purse_usd != null && (
               <span className="ml-2">·  {formatPurse(thisTournament.purse_usd)}</span>
@@ -746,45 +744,45 @@ export function TournamentDetail() {
           </p>
         )}
         {(myPickedGolferId || playoffPickNames.length > 0) && (
-          <p className="text-sm text-green-300 mt-1">Your pick{playoffPickNames.length > 1 ? "s are" : " is"} highlighted below</p>
+          <p className="text-sm text-fairway-300 mt-1">Your pick{playoffPickNames.length > 1 ? "s are" : " is"} highlighted below</p>
         )}
       </div>
 
       {/* Search + Leaderboard table */}
       {leaderboard.entries.length === 0 ? (
-        <p className="text-gray-400 text-sm">No field data available yet.</p>
+        <p className="text-ink-400 text-sm">No field data available yet.</p>
       ) : (<>
         <ClearableInput
           placeholder="Search golfers..."
           value={leaderboardSearch}
           onChange={(e) => setLeaderboardSearch(e.target.value)}
           onClear={() => setLeaderboardSearch("")}
-          className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+          className="w-full px-3 py-2 border border-ink-300 rounded-xs text-sm focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:border-transparent transition-shadow"
         />
-        <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+        <div className="bg-white border border-ink-200 rounded-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-100 text-left">
-                  <th className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide w-14">Pos</th>
-                  <th className="px-3 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide">Golfer</th>
-                  <th className="px-3 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide text-center w-14">Score</th>
+                <tr className="bg-ink-50 border-b border-ink-100 text-left">
+                  <th className="px-4 py-2.5 text-micro uppercase text-ink-400 w-14">Pos</th>
+                  <th className="px-3 py-2.5 text-micro uppercase text-ink-400">Golfer</th>
+                  <th className="px-3 py-2.5 text-micro uppercase text-ink-400 text-center w-14">Score</th>
                   {isLive && (
                     <>
-                      <th className="px-2 py-2.5 text-xs font-semibold text-green-600 uppercase tracking-wide text-center w-14">Today</th>
-                      <th className="px-2 py-2.5 text-xs font-semibold text-green-600 uppercase tracking-wide text-center w-12">Thru</th>
+                      <th className="px-2 py-2.5 text-micro uppercase text-fairway-600 text-center w-14">Today</th>
+                      <th className="px-2 py-2.5 text-micro uppercase text-fairway-600 text-center w-12">Thru</th>
                     </>
                   )}
                   {[1, 2, 3, 4].map((r) => (
-                    <th key={r} className="px-2 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide text-center w-10">R{r}</th>
+                    <th key={r} className="px-2 py-2.5 text-micro uppercase text-ink-400 text-center w-10">R{r}</th>
                   ))}
                   {playoffRoundNums.map((r, i) => (
-                    <th key={r} className="px-2 py-2.5 text-xs font-semibold text-amber-500 uppercase tracking-wide text-center w-10">
+                    <th key={r} className="px-2 py-2.5 text-micro uppercase text-brass-600 text-center w-10">
                       {playoffRoundNums.length === 1 ? "PO" : `PO${i + 1}`}
                     </th>
                   ))}
                   {isCompleted
-                    ? <th className="px-4 py-2.5 text-xs font-semibold text-gray-400 uppercase tracking-wide text-right">Earnings</th>
+                    ? <th className="px-4 py-2.5 text-micro uppercase text-ink-400 text-right">Earnings</th>
                     : <th className="w-28" />
                   }
                 </tr>
@@ -810,12 +808,12 @@ export function TournamentDetail() {
                   return (
                     <React.Fragment key={entry.golfer_id}>
                       {showCutLine && (
-                        <tr className="border-b border-gray-100">
-                          <td colSpan={totalCols} className="px-4 py-1.5 bg-gray-50">
+                        <tr className="border-b border-ink-100">
+                          <td colSpan={totalCols} className="px-4 py-1.5 bg-ink-50">
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 h-px bg-gray-300" />
-                              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap">Cut Line</span>
-                              <div className="flex-1 h-px bg-gray-300" />
+                              <div className="flex-1 h-px bg-ink-300" />
+                              <span className="text-micro uppercase text-ink-400 whitespace-nowrap">Cut Line</span>
+                              <div className="flex-1 h-px bg-ink-300" />
                             </div>
                           </td>
                         </tr>
@@ -823,14 +821,14 @@ export function TournamentDetail() {
                       <tr
                         onClick={() => availableRounds.length > 0 && setExpandedGolferId((p) => p === entry.golfer_id ? null : entry.golfer_id)}
                         className={[
-                          "border-b border-gray-100 last:border-0 transition-colors",
-                          isMyPick ? "border-l-2 border-l-green-600 bg-green-50 hover:bg-green-100" : "hover:bg-gray-50",
+                          "border-b border-ink-100 last:border-0 transition-colors",
+                          isMyPick ? "border-l-2 border-l-fairway-600 bg-fairway-50 hover:bg-fairway-100" : "hover:bg-ink-50",
                           availableRounds.length > 0 ? "cursor-pointer" : "cursor-default",
                           isFaded ? "opacity-50" : "",
                         ].filter(Boolean).join(" ")}
                       >
                         {/* Position */}
-                        <td className={`px-4 py-3 text-sm font-bold tabular-nums ${isFaded ? "text-gray-400" : "text-gray-800"}`}>
+                        <td className={`px-4 py-3 text-sm font-bold tabular-nums ${isFaded ? "text-ink-400" : "text-ink-800"}`}>
                           {posLabel(entry)}
                         </td>
 
@@ -847,8 +845,8 @@ export function TournamentDetail() {
                                 return (
                                   <div key={p.golfer_id ?? p.name} className="flex items-center gap-2 min-w-0">
                                     <GolferAvatar pgaTourId={p.pgaTourId} name={p.name} className="w-7 h-7 shrink-0" />
-                                    <p className={`text-sm font-semibold truncate ${isPickedPlayer ? "text-green-900" : "text-gray-800"}`}>
-                                      {isPickedPlayer && <span className="mr-1 text-green-600">★</span>}
+                                    <p className={`text-sm font-semibold truncate ${isPickedPlayer ? "text-fairway-900" : "text-ink-800"}`}>
+                                      {isPickedPlayer && <span className="mr-1 text-fairway-600">★</span>}
                                       {p.name}
                                     </p>
                                   </div>
@@ -864,14 +862,14 @@ export function TournamentDetail() {
                                 className="w-8 h-8 shrink-0"
                               />
                               <div className="min-w-0">
-                                <p className={`text-sm font-semibold truncate ${isMyPick ? "text-green-900" : "text-gray-800"}`}>
+                                <p className={`text-sm font-semibold truncate ${isMyPick ? "text-fairway-900" : "text-ink-800"}`}>
                                   {entry.golfer_name}
                                   {isMyPick && (
-                                    <span className="ml-1.5 text-xs font-bold text-green-600">★</span>
+                                    <span className="ml-1.5 text-xs font-bold text-fairway-600">★</span>
                                   )}
                                 </p>
                                 {entry.golfer_country && (
-                                  <p className="text-xs text-gray-400">{entry.golfer_country}</p>
+                                  <p className="text-xs text-ink-400">{entry.golfer_country}</p>
                                 )}
                               </div>
                             </div>
@@ -905,10 +903,10 @@ export function TournamentDetail() {
                             : `${currentRd!.thru}${currentRd!.started_on_back ? "*" : ""}`;
                           return (
                             <>
-                              <td className={`px-2 py-3 text-xs text-center tabular-nums font-semibold ${todayStp !== null ? stpClass(todayStp) : "text-gray-300"}`}>
+                              <td className={`px-2 py-3 text-xs text-center tabular-nums font-semibold ${todayStp !== null ? stpClass(todayStp) : "text-ink-300"}`}>
                                 {todayStp !== null ? fmtStp(todayStp) : "—"}
                               </td>
-                              <td className="px-2 py-3 text-xs text-center tabular-nums text-gray-500">
+                              <td className="px-2 py-3 text-xs text-center tabular-nums text-ink-500">
                                 {thruLabel}
                               </td>
                             </>
@@ -924,7 +922,7 @@ export function TournamentDetail() {
                           const hasScore = roundComplete && rd?.score_to_par !== null && rd?.score_to_par !== undefined;
                           return (
                             <td key={r} className={`px-2 py-3 text-xs text-center tabular-nums ${hasScore ? stpClass(rd!.score_to_par) : ""}`}>
-                              {hasScore ? fmtStp(rd!.score_to_par) : <span className="block mx-auto w-3 h-px bg-gray-600 rounded-full" />}
+                              {hasScore ? fmtStp(rd!.score_to_par) : <span className="block mx-auto w-3 h-px bg-ink-600 rounded-full" />}
                             </td>
                           );
                         })}
@@ -936,14 +934,14 @@ export function TournamentDetail() {
                           const hasScore = roundComplete && rd?.score_to_par !== null && rd?.score_to_par !== undefined;
                           return (
                             <td key={r} className={`px-2 py-3 text-xs text-center tabular-nums ${hasScore ? stpClass(rd!.score_to_par) : ""}`}>
-                              {hasScore ? fmtStp(rd!.score_to_par) : <span className="block mx-auto w-3 h-px bg-gray-600 rounded-full" />}
+                              {hasScore ? fmtStp(rd!.score_to_par) : <span className="block mx-auto w-3 h-px bg-ink-600 rounded-full" />}
                             </td>
                           );
                         })}
 
                         {/* Earnings / spacer */}
                         {isCompleted
-                          ? <td className="px-4 py-3 text-xs text-right tabular-nums text-gray-600">{formatEarnings(entry.earnings_usd)}</td>
+                          ? <td className="px-4 py-3 text-xs text-right tabular-nums text-ink-600">{formatEarnings(entry.earnings_usd)}</td>
                           : <td />
                         }
                       </tr>

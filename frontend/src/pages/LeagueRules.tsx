@@ -28,19 +28,19 @@ function SettingCard({
   note?: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-5">
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-2">{label}</p>
-      <div className="text-lg font-bold text-gray-900">{value}</div>
-      {note && <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{note}</p>}
+    <div className="bg-white rounded-sm border border-ink-200 p-5">
+      <p className="text-micro uppercase text-ink-400 mb-2">{label}</p>
+      <div className="text-lg font-bold text-ink-900">{value}</div>
+      {note && <p className="text-xs text-ink-500 mt-1.5 leading-relaxed">{note}</p>}
     </div>
   );
 }
 
 function PlayoffDetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex justify-between items-start gap-4 py-2.5 border-t border-gray-100 first:border-t-0">
-      <span className="text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-semibold text-gray-900 text-right">{value}</span>
+    <div className="flex justify-between items-start gap-4 py-2.5 border-t border-ink-100 first:border-t-0">
+      <span className="text-sm text-ink-500">{label}</span>
+      <span className="text-sm font-semibold text-ink-900 text-right">{value}</span>
     </div>
   );
 }
@@ -57,10 +57,10 @@ function RuleSection({
   return (
     <div>
       <div className="flex items-center gap-3 mb-4">
-        <div className="w-8 h-8 rounded-xl bg-green-100 text-green-700 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-xs bg-fairway-100 text-fairway-700 flex items-center justify-center flex-shrink-0">
           {icon}
         </div>
-        <h3 className="font-bold text-gray-900">{title}</h3>
+        <h3 className="font-bold text-ink-900">{title}</h3>
       </div>
       <ul className="space-y-2.5 pl-11">{children}</ul>
     </div>
@@ -70,19 +70,19 @@ function RuleSection({
 function Bullet({ children }: { children: React.ReactNode }) {
   return (
     <li className="flex gap-2.5">
-      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
-      <span className="text-sm text-gray-600 leading-relaxed">{children}</span>
+      <span className="mt-2 w-1.5 h-1.5 rounded-full bg-fairway-500 flex-shrink-0" />
+      <span className="text-sm text-ink-600 leading-relaxed">{children}</span>
     </li>
   );
 }
 
 function InfoBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 flex gap-3">
-      <svg className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <div className="bg-brass-50 border border-brass-100 rounded-xs px-5 py-4 flex gap-3">
+      <svg className="w-4 h-4 text-brass-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
       </svg>
-      <p className="text-sm text-amber-800">{children}</p>
+      <p className="text-sm text-brass-700">{children}</p>
     </div>
   );
 }
@@ -132,25 +132,22 @@ export function LeagueRules() {
       <div>
         <Link
           to={`/leagues/${leagueId}`}
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-green-700 mb-3 transition-colors"
+          className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-fairway-700 mb-3 transition-colors"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
           </svg>
           Dashboard
         </Link>
-        <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700 mb-1">
-          League Rules
-        </p>
-        <h1 className="text-3xl font-bold text-gray-900">{league?.name ?? "…"}</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-title text-ink-950">{league?.name ?? "…"}</h1>
+        <p className="text-sm text-ink-500 mt-1">
           How this league is configured and how the game works.
         </p>
       </div>
 
       {/* ── Section 1: League Settings ─────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-4">League Settings</h2>
+        <h2 className="text-lg font-bold text-ink-900 mb-4">League Settings</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {/* No-pick penalty */}
           <SettingCard
@@ -161,11 +158,11 @@ export function LeagueRules() {
 
           {/* Playoffs */}
           {playoffsEnabled ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <div className="bg-white rounded-sm border border-ink-200 p-5">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">Playoffs</p>
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-200">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                <p className="text-micro uppercase text-ink-400">Playoffs</p>
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-fairway-700 bg-fairway-50 px-2 py-0.5 rounded-xs border border-fairway-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-fairway-500" />
                   Enabled
                 </span>
               </div>
@@ -185,7 +182,7 @@ export function LeagueRules() {
           ) : (
             <SettingCard
               label="Playoffs"
-              value={<span className="text-gray-400 text-base">Disabled</span>}
+              value={<span className="text-ink-400 text-base">Disabled</span>}
               note="The league manager can enable playoffs from the Manage League page."
             />
           )}
@@ -194,7 +191,7 @@ export function LeagueRules() {
 
       {/* ── Section 2: General Rules ───────────────────────────────────── */}
       <div>
-        <h2 className="text-lg font-bold text-gray-900 mb-6">How It Works</h2>
+        <h2 className="text-lg font-bold text-ink-900 mb-6">How It Works</h2>
         <div className="space-y-8">
 
           <RuleSection
@@ -335,7 +332,7 @@ export function LeagueRules() {
       {/* ── Section 3: Playoffs (only when enabled) ────────────────────── */}
       {playoffsEnabled && (
         <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Playoffs</h2>
+          <h2 className="text-lg font-bold text-ink-900 mb-4">Playoffs</h2>
           <div className="space-y-6">
             <InfoBox>
               This league has playoffs enabled. The top{" "}

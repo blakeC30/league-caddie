@@ -101,10 +101,9 @@ export function formatRank(rank: number, isTied: boolean): string {
 
 /** Returns a Tailwind text-color class based on podium position. */
 export function rankClass(rank: number): string {
-  if (rank === 1) return "text-amber-500 font-bold";
-  if (rank === 2) return "text-slate-400 font-semibold";
-  if (rank === 3) return "text-orange-400 font-semibold";
-  return "text-gray-500";
+  if (rank === 1) return "text-brass-600 font-bold";
+  if (rank <= 3) return "text-ink-950 font-semibold";
+  return "text-ink-500";
 }
 
 /**

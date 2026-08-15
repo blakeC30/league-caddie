@@ -97,13 +97,13 @@ export function Standings() {
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
-        <div className="bg-amber-50 rounded-full p-4 mb-6">
-          <svg className="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-brass-50 rounded-xs p-4 mb-6">
+          <svg className="w-12 h-12 text-brass-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
-        <p className="text-gray-600 max-w-sm mb-8">
+        <h2 className="text-2xl font-bold text-ink-900 mb-3">League Plan Required</h2>
+        <p className="text-ink-600 max-w-sm mb-8">
           {isManager
             ? "This league needs an active League Plan to access features. Purchase one to get started."
             : "Your league manager needs to purchase a League Plan to unlock all features."}
@@ -111,12 +111,12 @@ export function Standings() {
         {isManager ? (
           <Link
             to={`/leagues/${leagueId}/manage`}
-            className="bg-green-800 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="bg-fairway-700 hover:bg-fairway-700 text-white font-semibold px-6 py-3 rounded-xs transition-colors"
           >
             Manage &amp; Purchase
           </Link>
         ) : (
-          <p className="text-sm text-gray-500">Contact your league manager to activate this league.</p>
+          <p className="text-sm text-ink-500">Contact your league manager to activate this league.</p>
         )}
       </div>
     );
@@ -127,36 +127,33 @@ export function Standings() {
       {/* Page header */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div className="space-y-1">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-            Standings
-          </p>
-          <h1 className="text-3xl font-bold text-gray-900">
+          <h1 className="text-title text-ink-950">
             {pageView === "bracket" ? "Playoff Bracket" : "Season Standings"}
           </h1>
           {standings && (
-            <p className="text-sm text-gray-500">{standings.season_year} Season</p>
+            <p className="text-sm text-ink-500">{standings.season_year} Season</p>
           )}
         </div>
 
         {/* Standings / Bracket pill toggle — only shown when playoffs are configured */}
         {hasPlayoffs && (
-          <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 self-start">
+          <div className="flex items-center gap-1 bg-ink-100 rounded-xs p-1 self-start">
             <button
               onClick={() => setPageView("standings")}
-              className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors ${
+              className={`text-sm font-semibold px-4 py-1.5 rounded-xs transition-colors ${
                 pageView === "standings"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-ink-900 shadow-sheet"
+                  : "text-ink-500 hover:text-ink-700"
               }`}
             >
               Standings
             </button>
             <button
               onClick={() => setPageView("bracket")}
-              className={`text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors ${
+              className={`text-sm font-semibold px-4 py-1.5 rounded-xs transition-colors ${
                 pageView === "bracket"
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "bg-white text-ink-900 shadow-sheet"
+                  : "text-ink-500 hover:text-ink-700"
               }`}
             >
               Playoff
@@ -172,18 +169,18 @@ export function Standings() {
       {pageView === "standings" && isLoading ? (
         <LeaderboardSkeleton />
       ) : pageView === "standings" && isError ? (
-        <div className="bg-red-50 rounded-2xl border border-red-200 p-10 text-center space-y-2">
-          <p className="font-semibold text-red-700">Failed to load standings</p>
-          <p className="text-sm text-red-400">Please try refreshing the page.</p>
+        <div className="bg-flag-50 rounded-sm border border-flag-300 p-10 text-center space-y-2">
+          <p className="font-semibold text-flag-700">Failed to load standings</p>
+          <p className="text-sm text-flag-500">Please try refreshing the page.</p>
         </div>
       ) : pageView === "standings" && standings ? (
         <div className="space-y-3">
           {standings.scoring_pending_tournaments.length > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-3">
-              <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="bg-brass-50 border border-brass-100 rounded-xs px-4 py-3 flex items-start gap-3">
+              <svg className="w-5 h-5 text-brass-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
               </svg>
-              <p className="text-sm text-amber-700">
+              <p className="text-sm text-brass-700">
                 <span className="font-semibold">Scoring pending</span>
                 {" \u2014 "}
                 {standings.scoring_pending_tournaments.length === 1
@@ -200,22 +197,22 @@ export function Standings() {
               value={standingsSearch}
               onChange={(e) => { setStandingsSearch(e.target.value); setPage(0); }}
               onClear={() => { setStandingsSearch(""); setPage(0); }}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="w-full border border-ink-300 rounded-xs px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-500"
             />
           )}
-          <div className="overflow-x-auto rounded-xl border border-gray-200">
+          <div className="overflow-x-auto rounded-xs border border-ink-200">
             <table className="min-w-full text-sm">
-              <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
+              <thead className="bg-fairway-900 text-white">
                 <tr>
-                  <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold w-12">Pos</th>
-                  <th className="px-4 py-2.5 text-left text-xs uppercase tracking-wider font-semibold">Member</th>
-                  <th className="px-4 py-2.5 text-right text-xs uppercase tracking-wider font-semibold">Points</th>
+                  <th className="px-4 py-2.5 text-left text-micro uppercase w-12">Pos</th>
+                  <th className="px-4 py-2.5 text-left text-micro uppercase">Member</th>
+                  <th className="px-4 py-2.5 text-right text-micro uppercase">Points</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    <td colSpan={3} className="px-4 py-8 text-center text-ink-400 text-sm">
                       {standingsSearch ? "No members match your search." : "No standings yet — picks will appear after tournaments complete."}
                     </td>
                   </tr>
@@ -236,7 +233,7 @@ export function Standings() {
                         row={currentUserSeparatorRow}
                         isMe={true}
                         stripe={false}
-                        borderTop="border-t-2 border-gray-300"
+                        borderTop="border-t-2 border-ink-300"
                         leagueId={leagueId}
                       />
                     )}
@@ -251,7 +248,7 @@ export function Standings() {
               <button
                 type="button"
                 onClick={() => { setExpanded(true); setPage(0); }}
-                className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-900"
+                className="inline-flex items-center gap-1 text-sm font-medium text-fairway-700 hover:text-fairway-900"
               >
                 Show all {totalRows} members
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -268,18 +265,18 @@ export function Standings() {
                   type="button"
                   onClick={() => setPage((p) => Math.max(0, p - 1))}
                   disabled={page === 0}
-                  className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="text-sm font-medium text-ink-500 hover:text-ink-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-xs hover:bg-ink-100 transition-colors"
                 >
                   ← Prev
                 </button>
-                <span className="text-xs text-gray-400 tabular-nums">
+                <span className="text-xs text-ink-400 tabular-nums">
                   {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalFiltered)} of {totalFiltered}{standingsSearch ? " results" : ""}
                 </span>
                 <button
                   type="button"
                   onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                   disabled={page >= totalPages - 1}
-                  className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="text-sm font-medium text-ink-500 hover:text-ink-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-xs hover:bg-ink-100 transition-colors"
                 >
                   Next →
                 </button>
@@ -288,7 +285,7 @@ export function Standings() {
                 <button
                   type="button"
                   onClick={() => { setExpanded(false); setPage(0); }}
-                  className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-900"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-fairway-700 hover:text-fairway-900"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
@@ -303,7 +300,7 @@ export function Standings() {
             <button
               type="button"
               onClick={() => { setExpanded(false); setPage(0); }}
-              className="inline-flex items-center gap-1 text-sm font-medium text-green-700 hover:text-green-900"
+              className="inline-flex items-center gap-1 text-sm font-medium text-fairway-700 hover:text-fairway-900"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 15.75 7.5-7.5 7.5 7.5" />
@@ -313,7 +310,7 @@ export function Standings() {
           )}
         </div>
       ) : pageView === "standings" ? (
-        <p className="text-gray-400">No standings available yet.</p>
+        <p className="text-ink-400">No standings available yet.</p>
       ) : null}
 
       {/* Pick breakdown — hidden in bracket view */}

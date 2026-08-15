@@ -178,11 +178,11 @@ function BracketGrid({
               className="absolute flex flex-col items-center justify-center gap-1.5"
               style={{ left: colX, top: 0, width: COL_W, height: HDR_H }}
             >
-              <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${faint ? "text-gray-400" : "text-green-700"}`}>
+              <p className={`text-[11px] font-bold uppercase tracking-[0.14em] ${faint ? "text-ink-400" : "text-fairway-700"}`}>
                 {round.label}
               </p>
               {round.tournamentName && (
-                <p className="text-[10px] text-gray-400 truncate max-w-full px-2">{round.tournamentName}</p>
+                <p className="text-[10px] text-ink-400 truncate max-w-full px-2">{round.tournamentName}</p>
               )}
               {round.status && (
                 <StatusPill status={round.status} />
@@ -217,11 +217,11 @@ function BracketGrid({
 
 function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
-    pending:   "bg-blue-100 text-blue-700",
-    drafting:  "bg-amber-100 text-amber-700",
-    locked:    "bg-yellow-100 text-yellow-800",
-    scoring:   "bg-orange-100 text-orange-700",
-    completed: "bg-gray-100 text-gray-600",
+    pending:   "bg-ink-100 text-ink-700",
+    drafting:  "bg-brass-100 text-brass-700",
+    locked:    "bg-brass-100 text-brass-700",
+    scoring:   "bg-brass-100 text-brass-700",
+    completed: "bg-ink-100 text-ink-600",
   };
   const label: Record<string, string> = {
     pending: "Upcoming",
@@ -229,7 +229,7 @@ function StatusPill({ status }: { status: string }) {
     completed: "Final",
   };
   return (
-    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${map[status] ?? "bg-gray-100 text-gray-500"}`}>
+    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${map[status] ?? "bg-ink-100 text-ink-500"}`}>
       {label[status] ?? status}
     </span>
   );
@@ -303,18 +303,18 @@ function PodModal({
   if (selected.kind === "pending") {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-5 py-3.5 flex items-center justify-between gap-3">
+        <div className="bg-white rounded-sm shadow-raised w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-ink-500 px-5 py-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-white font-bold text-sm flex-shrink-0">Pod {selected.position}</span>
-              {selected.tournamentName && <span className="text-gray-200 text-xs truncate">{selected.tournamentName}</span>}
+              {selected.tournamentName && <span className="text-ink-200 text-xs truncate">{selected.tournamentName}</span>}
             </div>
             <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white transition-colors flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
             </button>
           </div>
           <div className="px-5 py-10 text-center">
-            <p className="text-sm text-gray-400">Awaiting results from the previous round.</p>
+            <p className="text-sm text-ink-400">Awaiting results from the previous round.</p>
           </div>
         </div>
       </div>
@@ -326,31 +326,31 @@ function PodModal({
     const sorted = [...selected.members].sort((a, b) => a.seed - b.seed);
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-5 py-3.5 flex items-center justify-between gap-3">
+        <div className="bg-white rounded-sm shadow-raised w-full max-w-sm overflow-hidden" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-ink-500 px-5 py-3.5 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <span className="text-white font-bold text-sm flex-shrink-0">Pod {selected.position}</span>
-              {selected.tournamentName && <span className="text-gray-200 text-xs truncate">{selected.tournamentName}</span>}
+              {selected.tournamentName && <span className="text-ink-200 text-xs truncate">{selected.tournamentName}</span>}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white italic">Projected</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-xs bg-white/20 text-white italic">Projected</span>
               <button onClick={onClose} aria-label="Close" className="text-white/60 hover:text-white transition-colors">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
               </button>
             </div>
           </div>
-          <div className="max-h-[65vh] overflow-y-auto divide-y divide-gray-100">
+          <div className="max-h-[65vh] overflow-y-auto divide-y divide-ink-100">
             {sorted.map((m, i) => {
               const isMe  = m.user_id === currentUserId;
               const isTbd = m.user_id === "";
               return (
                 <div key={isTbd ? `tbd-${m.seed}` : m.user_id}
-                  className={`flex items-center gap-2.5 px-5 py-3 ${isMe ? "bg-green-50" : i % 2 !== 0 ? "bg-gray-50" : ""}`}
+                  className={`flex items-center gap-2.5 px-5 py-3 ${isMe ? "bg-fairway-50" : i % 2 !== 0 ? "bg-ink-50" : ""}`}
                 >
-                  <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100 text-gray-500">
+                  <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-ink-100 text-ink-500">
                     {isTbd ? "?" : m.seed}
                   </span>
-                  <span className={`flex-1 text-sm ${isMe ? "font-semibold text-gray-900" : isTbd ? "text-gray-300 italic" : "text-gray-700"}`}>
+                  <span className={`flex-1 text-sm ${isMe ? "font-semibold text-ink-900" : isTbd ? "text-ink-300 italic" : "text-ink-700"}`}>
                     {m.display_name}
                                       </span>
                 </div>
@@ -390,15 +390,15 @@ function PodModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+        className="bg-white rounded-sm shadow-raised w-full max-w-md overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-900 to-green-700 px-5 py-3.5 flex items-center justify-between gap-3">
+        <div className="bg-fairway-900 px-5 py-3.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             <span className="text-white font-bold text-sm flex-shrink-0">Pod {pod.bracket_position}</span>
             {tournamentName && (
-              <span className="text-green-300 text-xs truncate">{tournamentName}</span>
+              <span className="text-fairway-300 text-xs truncate">{tournamentName}</span>
             )}
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -411,16 +411,16 @@ function PodModal({
         </div>
 
         {/* Body */}
-        <div className="max-h-[65vh] overflow-y-auto divide-y divide-gray-100">
+        <div className="max-h-[65vh] overflow-y-auto divide-y divide-ink-100">
           {isDrafting && !haspicks ? (
             <div className="px-5 py-10 text-center space-y-2">
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-ink-400">
                 Rankings are being collected — picks will be assigned automatically once the tournament begins.
               </p>
               {isInPod && (
                 <Link
                   to={`/leagues/${leagueId}/pick`}
-                  className="inline-block text-sm font-semibold text-green-700 hover:text-green-900"
+                  className="inline-block text-sm font-semibold text-fairway-700 hover:text-fairway-900"
                 >
                   Submit your rankings →
                 </Link>
@@ -435,23 +435,23 @@ function PodModal({
                 <div key={member.user_id}>
                   {/* Member row */}
                   <div className={`flex items-center gap-2.5 px-5 py-3 ${
-                    isWinner ? "bg-green-50" : member.is_eliminated ? "bg-gray-50" : ""
+                    isWinner ? "bg-fairway-50" : member.is_eliminated ? "bg-ink-50" : ""
                   }`}>
-                    <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100 text-gray-500">
+                    <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-ink-100 text-ink-500">
                       {member.seed}
                     </span>
                     <span className={`flex-1 text-sm font-semibold truncate ${
-                      isWinner ? "text-green-800" : "text-gray-900"
+                      isWinner ? "text-fairway-700" : "text-ink-900"
                     } ${member.is_eliminated ? "line-through opacity-50" : ""}`}>
                       {member.display_name}
                                           </span>
                     {isWinner && (
-                      <svg className="w-4 h-4 text-amber-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                      <svg className="w-4 h-4 text-brass-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                         <path fillRule="evenodd" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" clipRule="evenodd" />
                       </svg>
                     )}
                     {isCompleted && member.total_points != null && (
-                      <span className={`text-sm font-semibold tabular-nums flex-shrink-0 ${isWinner ? "text-green-700" : "text-gray-600"}`}>
+                      <span className={`text-sm font-semibold tabular-nums flex-shrink-0 ${isWinner ? "text-fairway-700" : "text-ink-600"}`}>
                         ${Math.round(member.total_points).toLocaleString()}
                       </span>
                     )}
@@ -463,23 +463,23 @@ function PodModal({
                     if (pick) {
                       const position = positionMap.get(pick.golfer_id);
                       return (
-                        <div key={pick.id} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-gray-50">
-                          <span className="flex-1 text-xs text-gray-700">{pick.partner_name ? `${pick.golfer_name} / ${pick.partner_name}` : pick.golfer_name}</span>
+                        <div key={pick.id} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-ink-50">
+                          <span className="flex-1 text-xs text-ink-700">{pick.partner_name ? `${pick.golfer_name} / ${pick.partner_name}` : pick.golfer_name}</span>
                           {isCompleted && pick.points_earned != null ? (
-                            <span className="text-xs font-semibold text-gray-600 tabular-nums">
+                            <span className="text-xs font-semibold text-ink-600 tabular-nums">
                               ${Math.round(pick.points_earned).toLocaleString()}
                             </span>
                           ) : needsLeaderboard && position ? (
-                            <span className="text-xs text-gray-500 tabular-nums">{position}</span>
+                            <span className="text-xs text-ink-500 tabular-nums">{position}</span>
                           ) : null}
                         </div>
                       );
                     }
                     return (
-                      <div key={`no-pick-${member.user_id}-${i}`} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-gray-50">
-                        <span className="flex-1 text-xs font-medium text-red-400">No pick</span>
+                      <div key={`no-pick-${member.user_id}-${i}`} className="flex items-center gap-2 pl-12 pr-5 py-2 bg-ink-50">
+                        <span className="flex-1 text-xs font-medium text-flag-500">No pick</span>
                         {isCompleted && noPickPenalty != null && (
-                          <span className="text-xs font-semibold text-red-500 tabular-nums">
+                          <span className="text-xs font-semibold text-flag-600 tabular-nums">
                             ${Math.round(noPickPenalty).toLocaleString()}
                           </span>
                         )}
@@ -521,12 +521,12 @@ function PodCard({
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } }}
       role="button"
       tabIndex={0}
-      className="bg-white rounded-2xl border border-gray-200 hover:shadow-md cursor-pointer transition-shadow overflow-hidden w-full"
+      className="bg-white rounded-sm border border-ink-200 hover:shadow-sheet cursor-pointer transition-shadow overflow-hidden w-full"
     >
-      <div className="bg-gradient-to-r from-green-900 to-green-700 px-4 py-2.5">
-        <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {pod.bracket_position}</span>
+      <div className="bg-fairway-900 px-4 py-2.5">
+        <span className="text-micro uppercase text-white">Pod {pod.bracket_position}</span>
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-ink-100">
         {pod.members.map((m: PlayoffPodMemberOut, i) => {
           const isWinner = pod.winner_user_id === m.user_id;
           const isMe     = m.user_id === currentUserId;
@@ -534,21 +534,21 @@ function PodCard({
             <div
               key={m.user_id}
               className={`flex items-center gap-2.5 px-4 py-2.5 ${
-                isWinner          ? "bg-green-50 border-l-2 border-l-green-400"
+                isWinner          ? "bg-fairway-50 border-l-2 border-l-fairway-400"
                 : m.is_eliminated ? "opacity-40"
-                : isMe            ? "bg-green-50 border-l-2 border-l-green-400"
-                : i % 2 !== 0     ? "bg-gray-50"
+                : isMe            ? "bg-fairway-50 border-l-2 border-l-fairway-400"
+                : i % 2 !== 0     ? "bg-ink-50"
                 : ""
               }`}
             >
-              <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100 text-gray-500">
+              <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-ink-100 text-ink-500">
                 {m.seed}
               </span>
-              <span className={`flex-1 text-sm truncate ${isMe || isWinner ? "font-semibold text-gray-900" : "text-gray-700"} ${m.is_eliminated ? "line-through" : ""}`}>
+              <span className={`flex-1 text-sm truncate ${isMe || isWinner ? "font-semibold text-ink-900" : "text-ink-700"} ${m.is_eliminated ? "line-through" : ""}`}>
                 {m.display_name}
               </span>
               {isWinner && (
-                <svg className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <svg className="w-3.5 h-3.5 text-brass-600 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
                   <path fillRule="evenodd" d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" clipRule="evenodd" />
                 </svg>
               )}
@@ -557,8 +557,8 @@ function PodCard({
         })}
       </div>
       {isDraftOpen && isInPod && (
-        <div className="bg-amber-50 border-t border-amber-100 px-4 py-2">
-          <p className="text-[11px] font-semibold text-amber-700">Rankings open — tap to submit your preferences</p>
+        <div className="bg-brass-50 border-t border-brass-100 px-4 py-2">
+          <p className="text-[11px] font-semibold text-brass-700">Rankings open — tap to submit your preferences</p>
         </div>
       )}
     </div>
@@ -572,20 +572,20 @@ function PodCard({
 function PendingPodCard({ position, numMembers, onClick }: { position: number; numMembers: number; onClick?: () => void }) {
   return (
     <div
-      className={`bg-white rounded-2xl border border-dashed border-gray-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+      className={`bg-white rounded-sm border border-dashed border-ink-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-sheet transition-shadow" : ""}`}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-4 py-2.5">
-        <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {position}</span>
+      <div className="bg-ink-500 px-4 py-2.5">
+        <span className="text-micro uppercase text-white">Pod {position}</span>
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-ink-100">
         {Array.from({ length: numMembers }).map((_, k) => (
-          <div key={k} className={`flex items-center gap-2.5 px-4 py-2.5 ${k % 2 !== 0 ? "bg-gray-50" : ""}`}>
-            <span className="w-5 h-5 rounded-full bg-gray-100 flex-shrink-0" />
-            <span className="text-sm text-gray-300 italic">Winner advances</span>
+          <div key={k} className={`flex items-center gap-2.5 px-4 py-2.5 ${k % 2 !== 0 ? "bg-ink-50" : ""}`}>
+            <span className="w-5 h-5 rounded-full bg-ink-100 flex-shrink-0" />
+            <span className="text-sm text-ink-300 italic">Winner advances</span>
           </div>
         ))}
       </div>
@@ -617,17 +617,17 @@ function ProjectedPodCard({
   const sorted = [...members].sort((a, b) => a.seed - b.seed);
   return (
     <div
-      className={`bg-white rounded-2xl border border-gray-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+      className={`bg-white rounded-sm border border-ink-200 overflow-hidden w-full ${onClick ? "cursor-pointer hover:shadow-sheet transition-shadow" : ""}`}
       onClick={onClick}
       onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
     >
-      <div className="bg-gradient-to-r from-gray-500 to-gray-400 px-4 py-2.5 flex items-center justify-between">
-        <span className="text-[11px] font-bold text-white uppercase tracking-wider">Pod {position}</span>
-        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white/20 text-white italic">Projected</span>
+      <div className="bg-ink-500 px-4 py-2.5 flex items-center justify-between">
+        <span className="text-micro uppercase text-white">Pod {position}</span>
+        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-xs bg-white/20 text-white italic">Projected</span>
       </div>
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-ink-100">
         {sorted.map((m, i) => {
           const isMe  = m.user_id === currentUserId;
           const isTbd = m.user_id === "";
@@ -635,15 +635,15 @@ function ProjectedPodCard({
             <div
               key={isTbd ? `tbd-${m.seed}` : m.user_id}
               className={`flex items-center gap-2.5 px-4 py-2.5 ${
-                isMe          ? "bg-green-50 border-l-2 border-l-green-400"
-                : i % 2 !== 0 ? "bg-gray-50"
+                isMe          ? "bg-fairway-50 border-l-2 border-l-fairway-400"
+                : i % 2 !== 0 ? "bg-ink-50"
                 : ""
               }`}
             >
-              <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-100 text-gray-500">
+              <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 bg-ink-100 text-ink-500">
                 {isTbd ? "?" : m.seed}
               </span>
-              <span className={`flex-1 text-sm truncate ${isMe ? "font-semibold text-gray-900" : isTbd ? "text-gray-300 italic" : "text-gray-700"}`}>
+              <span className={`flex-1 text-sm truncate ${isMe ? "font-semibold text-ink-900" : isTbd ? "text-ink-300 italic" : "text-ink-700"}`}>
                 {m.display_name}
                               </span>
             </div>
@@ -679,13 +679,13 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
-        <div className="bg-amber-50 rounded-full p-4 mb-6">
-          <svg className="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-brass-50 rounded-xs p-4 mb-6">
+          <svg className="w-12 h-12 text-brass-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
-        <p className="text-gray-600 max-w-sm mb-8">
+        <h2 className="text-2xl font-bold text-ink-900 mb-3">League Plan Required</h2>
+        <p className="text-ink-600 max-w-sm mb-8">
           {isManager
             ? "This league needs an active League Plan to access features. Purchase one to get started."
             : "Your league manager needs to purchase a League Plan to unlock all features."}
@@ -693,12 +693,12 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
         {isManager ? (
           <Link
             to={`/leagues/${leagueId}/manage`}
-            className="bg-green-800 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="bg-fairway-700 hover:bg-fairway-700 text-white font-semibold px-6 py-3 rounded-xs transition-colors"
           >
             Manage &amp; Purchase
           </Link>
         ) : (
-          <p className="text-sm text-gray-500">Contact your league manager to activate this league.</p>
+          <p className="text-sm text-ink-500">Contact your league manager to activate this league.</p>
         )}
       </div>
     );
@@ -710,9 +710,9 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
 
   if (bracketError || standingsError) {
     return (
-      <div className="bg-red-50 rounded-2xl border border-red-200 p-10 text-center space-y-2">
-        <p className="font-semibold text-red-700">Failed to load playoff data</p>
-        <p className="text-sm text-red-400">Please try refreshing the page.</p>
+      <div className="bg-flag-50 rounded-sm border border-flag-300 p-10 text-center space-y-2">
+        <p className="font-semibold text-flag-700">Failed to load playoff data</p>
+        <p className="text-sm text-flag-500">Please try refreshing the page.</p>
       </div>
     );
   }
@@ -720,10 +720,10 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
   // ── State 1: No config ────────────────────────────────────────────────────
   if (!bracket) {
     return (
-      <div className="bg-gray-50 rounded-2xl p-16 text-center space-y-3">
-        <div className="flex justify-center"><FlagIcon className="w-10 h-10 text-green-700" /></div>
-        <p className="font-semibold text-gray-700">No playoff bracket yet</p>
-        <p className="text-sm text-gray-400">The league manager will set up the playoff when the season is ready.</p>
+      <div className="bg-ink-50 rounded-sm p-16 text-center space-y-3">
+        <div className="flex justify-center"><FlagIcon className="w-10 h-10 text-fairway-700" /></div>
+        <p className="font-semibold text-ink-700">No playoff bracket yet</p>
+        <p className="text-sm text-ink-400">The league manager will set up the playoff when the season is ready.</p>
       </div>
     );
   }
@@ -796,7 +796,7 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
       <div className="space-y-6">
         {!hideHeader && <PageHeader config={config} badge="projected" />}
 
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-700">
+        <div className="bg-brass-50 border border-brass-100 rounded-sm px-4 py-3 text-sm text-brass-700">
           <strong>Projected bracket</strong> based on current standings — seedings will be confirmed when the playoff begins.
         </div>
 
@@ -804,9 +804,6 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
           <div className="overflow-x-auto pb-4">
             <BracketGrid rounds={rounds} numPodsRound1={numPodsRound1} numRounds={numRounds} faint={true} />
           </div>
-          {numRounds > 1 && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-gray-50 to-transparent sm:hidden" />
-          )}
         </div>
 
         {selectedPod && (
@@ -887,15 +884,15 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
       {!hideHeader && <PageHeader config={config} badge={config.status} />}
 
       {champion && (
-        <div className="bg-gradient-to-r from-amber-400 to-yellow-300 rounded-2xl px-6 py-5 flex items-center gap-4 shadow-md">
-          <svg className="w-10 h-10 text-amber-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+        <div className="bg-brass-500 rounded-sm px-6 py-5 flex items-center gap-4 shadow-sheet">
+          <svg className="w-10 h-10 text-brass-700 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
             <path d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z" />
           </svg>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800">Playoff Champion</p>
-            <p className="text-2xl font-bold text-amber-900 truncate">{champion.display_name}</p>
+            <p className="text-micro uppercase text-brass-700">Playoff Champion</p>
+            <p className="text-2xl font-bold text-brass-700 truncate">{champion.display_name}</p>
             {champion.total_points != null && (
-              <p className="text-sm font-semibold text-amber-800 mt-0.5">
+              <p className="text-sm font-semibold text-brass-700 mt-0.5">
                 ${Math.round(champion.total_points).toLocaleString()} earned
               </p>
             )}
@@ -907,9 +904,6 @@ export function PlayoffBracket({ hideHeader = false }: { hideHeader?: boolean })
         <div className="overflow-x-auto pb-4">
           <BracketGrid rounds={rounds} numPodsRound1={liveRound1Pods} numRounds={totalRounds} faint={false} />
         </div>
-        {totalRounds > 1 && (
-          <div className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-gray-50 to-transparent sm:hidden" />
-        )}
       </div>
 
       {selectedPod && (
@@ -938,20 +932,20 @@ function PageHeader({
   badge: string;
 }) {
   const badgeColors: Record<string, string> = {
-    projected: "bg-amber-100 text-amber-700",
-    active:    "bg-green-100 text-green-700",
-    completed: "bg-slate-100 text-slate-600",
+    projected: "bg-brass-100 text-brass-700",
+    active:    "bg-fairway-100 text-fairway-700",
+    completed: "bg-ink-100 text-ink-600",
   };
-  const cls = badgeColors[badge] ?? "bg-gray-100 text-gray-600";
+  const cls = badgeColors[badge] ?? "bg-ink-100 text-ink-600";
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">Playoff</p>
+      <p className="text-micro uppercase text-fairway-700">Playoff</p>
       <div className="flex items-start justify-between gap-4 mt-1">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Bracket</h1>
+          <h1 className="text-title text-ink-950">Bracket</h1>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-ink-500">
               {config.playoff_size} members · {config.draft_style} draft
             </span>
             {badge !== "projected" && (

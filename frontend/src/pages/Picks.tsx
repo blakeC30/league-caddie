@@ -199,13 +199,13 @@ export function Picks() {
   if (!purchaseLoading && purchase !== undefined && !purchase?.paid_at) {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 py-16 text-center">
-        <div className="bg-amber-50 rounded-full p-4 mb-6">
-          <svg className="w-12 h-12 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="bg-brass-50 rounded-xs p-4 mb-6">
+          <svg className="w-12 h-12 text-brass-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m2-10a4 4 0 100 8 4 4 0 000-8z" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-3">League Plan Required</h2>
-        <p className="text-gray-600 max-w-sm mb-8">
+        <h2 className="text-2xl font-bold text-ink-900 mb-3">League Plan Required</h2>
+        <p className="text-ink-600 max-w-sm mb-8">
           {isManager
             ? "This league needs an active League Plan to access features. Purchase one to get started."
             : "Your league manager needs to purchase a League Plan to unlock all features."}
@@ -213,12 +213,12 @@ export function Picks() {
         {isManager ? (
           <Link
             to={`/leagues/${leagueId}/manage`}
-            className="bg-green-800 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors"
+            className="bg-fairway-700 hover:bg-fairway-700 text-white font-semibold px-6 py-3 rounded-xs transition-colors"
           >
             Manage &amp; Purchase
           </Link>
         ) : (
-          <p className="text-sm text-gray-500">Contact your league manager to activate this league.</p>
+          <p className="text-sm text-ink-500">Contact your league manager to activate this league.</p>
         )}
       </div>
     );
@@ -229,15 +229,12 @@ export function Picks() {
       {/* Page header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="space-y-1">
-          <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-            Season History
-          </p>
-          <h1 className="text-3xl font-bold text-gray-900">Picks</h1>
+          <h1 className="text-title text-ink-950">Picks</h1>
         </div>
         {pickActionAvailable && (
           <Link
             to={`/leagues/${leagueId}/pick`}
-            className="inline-flex items-center gap-2 bg-green-800 hover:bg-green-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 bg-fairway-700 hover:bg-fairway-700 text-white text-sm font-semibold px-5 py-2.5 rounded-xs shadow-sheet transition-colors"
           >
             {hasPickForNext || myLivePick ? "Change Pick" : "Make Pick"}
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -288,7 +285,7 @@ export function Picks() {
         myPod={myPod}
       />
       {leagueTournaments?.some((t) => t.status === "in_progress" || t.status === "completed") && (
-        <p className="text-xs text-gray-400 text-center">
+        <p className="text-xs text-ink-400 text-center">
           Click a tournament to view leaderboard
         </p>
       )}

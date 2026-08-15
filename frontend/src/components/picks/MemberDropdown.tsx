@@ -87,33 +87,33 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
         ref={triggerRef}
         type="button"
         onClick={() => { setOpen((o) => !o); setSearch(""); setDebouncedSearch(""); }}
-        className="min-w-[180px] flex items-center gap-2 text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 hover:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-700 transition-colors"
+        className="min-w-[180px] flex items-center gap-2 text-sm border border-ink-300 rounded-xs px-3 py-1.5 bg-white text-ink-700 hover:border-fairway-500 focus:outline-none focus:ring-2 focus:ring-fairway-700 transition-colors"
       >
         <span className="flex-1 text-left truncate">
           {viewingMember ? viewingMember.user.display_name : "Select a member…"}
         </span>
         <svg
-          className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-4 w-4 text-ink-400 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
           fill="none" stroke="currentColor" viewBox="0 0 24 24"
         >
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {open && (
-        <div className={`absolute left-0 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10 ${dropDir === "up" ? "bottom-full mb-1" : "top-full mt-1"}`}>
-          <div className="px-3 py-2 border-b border-gray-100">
+        <div className={`absolute left-0 w-64 bg-white border border-ink-200 rounded-xs shadow-raised overflow-hidden z-10 ${dropDir === "up" ? "bottom-full mb-1" : "top-full mt-1"}`}>
+          <div className="px-3 py-2 border-b border-ink-100">
             <input
               ref={inputRef}
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search…"
-              className="w-full text-sm outline-none placeholder-gray-400 bg-transparent"
+              className="w-full text-sm outline-none placeholder-ink-400 bg-transparent"
             />
           </div>
           <div className="max-h-64 overflow-y-auto">
             {filteredMembers.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-gray-400">No results.</p>
+              <p className="px-4 py-3 text-sm text-ink-400">No results.</p>
             ) : (
               <>
                 {filteredMembers.map((m) => (
@@ -127,14 +127,14 @@ export function MemberDropdown({ approvedMembers, viewingUserId, onSelectUser }:
                       setDebouncedSearch("");
                     }}
                     className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition-colors ${
-                      m.user_id === viewingUserId ? "bg-green-50 text-green-900" : "hover:bg-gray-50 text-gray-700"
+                      m.user_id === viewingUserId ? "bg-fairway-50 text-fairway-900" : "hover:bg-ink-50 text-ink-700"
                     }`}
                   >
                     <span className="truncate">{m.user.display_name}</span>
                   </button>
                 ))}
                 {totalMatches > VISIBLE_LIMIT && (
-                  <p className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100">
+                  <p className="px-4 py-2 text-xs text-ink-400 border-t border-ink-100">
                     Showing {VISIBLE_LIMIT} of {totalMatches} — type to narrow results
                   </p>
                 )}

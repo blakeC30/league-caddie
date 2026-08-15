@@ -68,20 +68,20 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
   //   light green = all other golfers (soft, clearly secondary)
   //   muted red   = no pick submitted
   function barColor(b: Bar): string {
-    if (b.label === "No Pick") return "bg-red-300";
-    if (myGolferName && b.fullName === myGolferName) return "bg-green-800";
-    return "bg-green-300";
+    if (b.label === "No Pick") return "bg-flag-300";
+    if (myGolferName && b.fullName === myGolferName) return "bg-fairway-700";
+    return "bg-fairway-300";
   }
 
   function labelColor(b: Bar): string {
-    if (b.label === "No Pick") return "text-red-400";
-    if (myGolferName && b.fullName === myGolferName) return "text-green-800 font-semibold";
-    return "text-gray-500";
+    if (b.label === "No Pick") return "text-flag-500";
+    if (myGolferName && b.fullName === myGolferName) return "text-fairway-700 font-semibold";
+    return "text-ink-500";
   }
 
   function countColor(b: Bar): string {
-    if (myGolferName && b.fullName === myGolferName) return "text-green-800 font-semibold";
-    return "text-gray-500";
+    if (myGolferName && b.fullName === myGolferName) return "text-fairway-700 font-semibold";
+    return "text-ink-500";
   }
 
   function buildTooltip(b: Bar): { header: string; pct: string; names: string } {
@@ -125,7 +125,7 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
                 <div className={`text-[10px] mb-0.5 text-center leading-tight ${countColor(b)}`}>
                   <span className="block">{b.count}</span>
                   {totalMembers > 0 && (
-                    <span className="block text-gray-500">{((b.count / totalMembers) * 100).toFixed(1)}%</span>
+                    <span className="block text-ink-500">{((b.count / totalMembers) * 100).toFixed(1)}%</span>
                   )}
                 </div>
                 {/* Bar — percentage height resolves against the h-full column */}
@@ -160,10 +160,10 @@ export function PickBarChart({ groups, noPickMembers, isCompleted, myGolferName,
 
       {/* Tooltip */}
       {tooltip && (
-        <div className="text-xs bg-gray-100 rounded-lg px-3 py-2 mt-1 space-y-1">
-          <p className="font-semibold text-gray-800">{tooltip.header}</p>
-          {tooltip.pct && <p className="text-gray-500">{tooltip.pct}</p>}
-          {tooltip.names && <p className="text-gray-600">{tooltip.names}</p>}
+        <div className="text-xs bg-ink-100 rounded-xs px-3 py-2 mt-1 space-y-1">
+          <p className="font-semibold text-ink-800">{tooltip.header}</p>
+          {tooltip.pct && <p className="text-ink-500">{tooltip.pct}</p>}
+          {tooltip.names && <p className="text-ink-600">{tooltip.names}</p>}
         </div>
       )}
     </div>

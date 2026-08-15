@@ -20,7 +20,7 @@ interface PlayoffBracketCardProps {
 function TrophyIcon() {
   return (
     <svg
-      className="w-3.5 h-3.5 text-green-600 shrink-0"
+      className="w-3.5 h-3.5 text-fairway-600 shrink-0"
       fill="currentColor"
       viewBox="0 0 24 24"
     >
@@ -44,15 +44,15 @@ export function PlayoffBracketCard({
   const totalSlots = picksPerPlayer * pod.members.length;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all min-w-[220px] w-full">
+    <div className="bg-white border border-ink-200 rounded-sm p-4 shadow-sheet hover:shadow-sheet transition-all min-w-[220px] w-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+        <span className="text-micro uppercase text-ink-400">
           Round {roundNumber} &middot; Pod {pod.bracket_position}
         </span>
         {isDrafting && (
-          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-xs bg-brass-100 text-brass-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-brass-600 animate-pulse" />
             Draft Open
           </span>
         )}
@@ -69,15 +69,15 @@ export function PlayoffBracketCard({
             <div
               key={member.user_id}
               className={[
-                "flex items-center gap-2 px-2 py-1.5 rounded-xl transition-colors",
+                "flex items-center gap-2 px-2 py-1.5 rounded-xs transition-colors",
                 isWinner
-                  ? "bg-green-50 border-l-4 border-l-green-600"
+                  ? "bg-fairway-50 border-l-4 border-l-fairway-600"
                   : "border-l-4 border-l-transparent",
                 isEliminated && !isWinner ? "opacity-50" : "",
               ].join(" ")}
             >
               {/* Seed badge */}
-              <span className="text-xs font-bold text-gray-400 w-5 shrink-0 tabular-nums">
+              <span className="text-xs font-bold text-ink-400 w-5 shrink-0 tabular-nums">
                 {member.seed}
               </span>
 
@@ -85,7 +85,7 @@ export function PlayoffBracketCard({
               <span
                 className={[
                   "text-sm flex-1 truncate",
-                  isCurrentUser ? "font-semibold text-gray-900" : "font-medium text-gray-800",
+                  isCurrentUser ? "font-semibold text-ink-900" : "font-medium text-ink-800",
                 ].join(" ")}
               >
                 {member.display_name}
@@ -94,7 +94,7 @@ export function PlayoffBracketCard({
               {/* Points or winner trophy */}
               <div className="flex items-center gap-1 shrink-0">
                 {isWinner && <TrophyIcon />}
-                <span className="text-sm font-bold text-gray-700 tabular-nums">
+                <span className="text-sm font-bold text-ink-700 tabular-nums">
                   {member.total_points !== null
                     ? `$${member.total_points.toLocaleString()}`
                     : "—"}
@@ -107,7 +107,7 @@ export function PlayoffBracketCard({
 
       {/* Draft hint — total slots */}
       {isDrafting && (
-        <p className="mt-2 text-xs text-gray-400">
+        <p className="mt-2 text-xs text-ink-400">
           {totalSlots} total draft slots &middot; {picksPerPlayer} picks/player
         </p>
       )}
@@ -116,7 +116,7 @@ export function PlayoffBracketCard({
       {currentUserInPod && isDrafting && (
         <Link
           to={`/leagues/${leagueId}/pick`}
-          className="mt-3 flex items-center justify-center gap-1 w-full bg-green-700 hover:bg-green-600 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+          className="mt-3 flex items-center justify-center gap-1 w-full bg-fairway-700 hover:bg-fairway-600 text-white text-sm font-semibold px-4 py-2 rounded-xs transition-colors"
         >
           Submit Rankings
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

@@ -137,7 +137,7 @@ export function TournamentScheduleSection({
   }, {});
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+    <section className="bg-white rounded-sm border border-ink-200 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SectionIcon>
@@ -145,28 +145,28 @@ export function TournamentScheduleSection({
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
             </svg>
           </SectionIcon>
-          <h2 className="text-base font-bold text-gray-900">Tournament Schedule</h2>
+          <h2 className="text-base font-bold text-ink-900">Tournament Schedule</h2>
         </div>
         {isScheduleLocked ? (
-          <span className="relative group text-xs font-semibold text-gray-400 flex items-center gap-1 cursor-default">
+          <span className="relative group text-xs font-semibold text-ink-400 flex items-center gap-1 cursor-default">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
             Locked
-            <span className="pointer-events-none absolute top-full right-0 mt-2 hidden group-hover:block whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white z-20 shadow-lg font-normal">
+            <span className="pointer-events-none absolute top-full right-0 mt-2 hidden group-hover:block whitespace-nowrap rounded-xs bg-ink-800 px-2.5 py-1.5 text-xs text-white z-20 shadow-raised font-normal">
               The tournament schedule cannot be changed after picks open for the first playoff round
             </span>
           </span>
         ) : !scheduleEditing && (
           <button
             onClick={() => setScheduleEditing(true)}
-            className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+            className="text-sm font-semibold text-fairway-700 hover:text-fairway-900 transition-colors"
           >
             Edit
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-ink-500">
         Select which PGA Tour events count for your league. If playoffs are configured,
         the final scheduled tournaments in your schedule will automatically be used as playoff rounds.
       </p>
@@ -190,10 +190,10 @@ export function TournamentScheduleSection({
 
               return (
                 <div key={month}>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                  <p className="text-micro uppercase text-ink-400 mb-2">
                     {new Date(month + "-15").toLocaleString("default", { month: "long", year: "numeric" })}
                   </p>
-                  <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+                  <div className="bg-ink-50 rounded-xs border border-ink-100 divide-y divide-ink-100 overflow-hidden">
                     {weekEntries.map(([weekKey, weekTournaments]) => {
                       const selectedInWeek = weekTournaments.filter((t) => selectedIds.has(t.id));
                       const hasWeekConflict = selectedInWeek.length > 1;
@@ -211,7 +211,7 @@ export function TournamentScheduleSection({
                                 key={t.id}
                                 className={`flex items-center gap-3 px-4 py-3 ${
                                   isPast ? "opacity-50" : ""
-                                } ${hasWeekConflict && checked ? "bg-amber-50" : ""}`}
+                                } ${hasWeekConflict && checked ? "bg-brass-50" : ""}`}
                               >
                                 <label className={`flex items-center gap-1 flex-shrink-0 ${scheduleEditing ? "cursor-pointer" : "cursor-default"}`}>
                                   <input
@@ -223,11 +223,11 @@ export function TournamentScheduleSection({
                                       if (checked) n.delete(t.id); else n.add(t.id);
                                       updateSelectedIds(n);
                                     }}
-                                    className="accent-green-800 h-4 w-4 disabled:opacity-60"
+                                    className="accent-fairway-700 h-4 w-4 disabled:opacity-60"
                                   />
                                 </label>
 
-                                <span className="flex-1 text-sm text-gray-900">{fmtTournamentName(t.name)}</span>
+                                <span className="flex-1 text-sm text-ink-900">{fmtTournamentName(t.name)}</span>
 
                                 {/* Multiplier — picker when editing and checked, badge otherwise */}
                                 {checked && scheduleEditing ? (
@@ -243,11 +243,11 @@ export function TournamentScheduleSection({
                                         className={`text-xs px-2 py-0.5 rounded font-semibold transition-colors ${
                                           effectiveMultiplier === preset
                                             ? preset >= 2
-                                              ? "bg-amber-500 text-white"
+                                              ? "bg-brass-600 text-white"
                                               : preset === 1.5
-                                              ? "bg-blue-600 text-white"
-                                              : "bg-green-800 text-white"
-                                            : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                                              ? "bg-ink-700 text-white"
+                                              : "bg-fairway-700 text-white"
+                                            : "bg-ink-200 text-ink-500 hover:bg-ink-300"
                                         }`}
                                       >
                                         {preset === 1.0 ? "1×" : preset === 1.5 ? "1.5×" : "2×"}
@@ -258,8 +258,8 @@ export function TournamentScheduleSection({
                                   <span
                                     className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${
                                       effectiveMultiplier >= 2
-                                        ? "bg-amber-500 text-white"
-                                        : "bg-blue-500 text-white"
+                                        ? "bg-brass-600 text-white"
+                                        : "bg-ink-600 text-white"
                                     }`}
                                   >
                                     {effectiveMultiplier}×
@@ -267,16 +267,16 @@ export function TournamentScheduleSection({
                                 ) : null}
 
                                 {playoffRound !== null && (
-                                  <span className="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full bg-violet-600 text-white">
+                                  <span className="flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-xs bg-ink-700 text-white">
                                     PO R{playoffRound}
                                   </span>
                                 )}
-                                <span className="hidden sm:block text-xs text-gray-400 flex-shrink-0">{t.start_date}</span>
+                                <span className="hidden sm:block text-xs text-ink-400 flex-shrink-0">{t.start_date}</span>
                               </div>
                             );
                           })}
                           {hasWeekConflict && (
-                            <div className="flex items-start gap-2 px-4 py-2.5 bg-amber-50 text-amber-800 text-xs">
+                            <div className="flex items-start gap-2 px-4 py-2.5 bg-brass-50 text-brass-700 text-xs">
                               <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                               </svg>
@@ -300,7 +300,7 @@ export function TournamentScheduleSection({
       {scheduleEditing && parentHasPlayoffScheduleError && (() => {
         const required = REQUIRED_ROUNDS[playoffConfig?.playoff_size ?? 0] ?? 0;
         return (
-          <div className="flex items-start gap-2 px-1 text-xs text-red-600">
+          <div className="flex items-start gap-2 px-1 text-xs text-flag-600">
             <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
@@ -314,24 +314,24 @@ export function TournamentScheduleSection({
             <button
               onClick={handleSaveSchedule}
               disabled={updateSchedule.isPending || hasScheduleConflicts || parentHasPlayoffScheduleError}
-              className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
+              className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xs text-sm transition-colors"
             >
               {updateSchedule.isPending ? "Saving…" : "Save Schedule"}
             </button>
             <button
               onClick={handleCancelSchedule}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="text-sm text-ink-500 hover:text-ink-700 transition-colors"
             >
               Cancel
             </button>
           </div>
           {updateSchedule.isError && (
-            <p className="text-sm text-red-600">Failed to save schedule. Please try again.</p>
+            <p className="text-sm text-flag-600">Failed to save schedule. Please try again.</p>
           )}
         </div>
       )}
       {scheduleSaved && !scheduleEditing && (
-        <div className="flex items-center gap-1.5 text-sm text-green-700 font-medium pt-2">
+        <div className="flex items-center gap-1.5 text-sm text-fairway-700 font-medium pt-2">
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
           </svg>

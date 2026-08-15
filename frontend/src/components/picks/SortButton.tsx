@@ -12,7 +12,7 @@ export function SortButton({ label, active, dir, onClick }: SortButtonProps) {
     <button
       onClick={onClick}
       className={`inline-flex items-center gap-1 text-xs font-semibold transition-colors ${
-        active ? "text-green-700" : "text-gray-400 hover:text-gray-700"
+        active ? "text-fairway-700" : "text-ink-400 hover:text-ink-700"
       }`}
     >
       {label}

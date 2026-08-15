@@ -1,12 +1,59 @@
+/**
+ * Global stylesheet.
+ *
+ * Order matters: fonts, then Tailwind, then our `@theme` token layer, then
+ * base element styles. See frontend/DESIGN.md for the language these
+ * tokens express.
+ */
+
+/* Self-hosted variable fonts — bundled by Vite, no CDN request and no
+   ongoing cost. See DESIGN.md §2 for why these three faces. */
+@import "@fontsource-variable/archivo";
+@import "@fontsource-variable/spline-sans";
+@import "@fontsource-variable/spline-sans-mono";
+
 @import "tailwindcss";
+@import "./styles/theme.css";
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Prevent horizontal scroll on mobile — keeps the page feeling solid. */
 body {
+  /* Prevent horizontal scroll on mobile — keeps the page feeling solid. */
   overflow-x: hidden;
+  background-color: var(--color-page);
+  color: var(--color-ink-950);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--text-body--line-height);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Display face carries every heading. Hierarchy comes from weight and size,
+   never from introducing a third family. */
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -0.015em;
+}
+
+/* Figures align to the digit down a column — this is a scorecard. */
+table, .tabular-nums, [class*="text-data"], [class*="text-figure"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* One focus treatment for the whole app (DESIGN.md §6). Keyboard users get a
+   visible ring; pointer users do not. */
+:focus-visible {
+  outline: 2px solid var(--color-fairway-600);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+::selection {
+  background-color: var(--color-fairway-100);
+  color: var(--color-ink-950);
 }
 
 /* Prevent iOS Safari auto-zoom on input focus.
@@ -15,5 +62,15 @@ body {
 @media screen and (max-width: 768px) {
   input, select, textarea {
     font-size: 16px !important;
+  }
+}
+
+/* Motion communicates state or nothing at all (DESIGN.md §8). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

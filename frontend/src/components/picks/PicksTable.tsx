@@ -100,12 +100,12 @@ export function PicksTable({
     return (
       <div className="space-y-2 animate-pulse">
         <div className="flex gap-1">
-          <SkeletonBlock className="h-7 w-16 rounded-lg" />
-          <SkeletonBlock className="h-7 w-20 rounded-lg" />
-          <SkeletonBlock className="h-7 w-10 rounded-lg" />
+          <SkeletonBlock className="h-7 w-16 rounded-xs" />
+          <SkeletonBlock className="h-7 w-20 rounded-xs" />
+          <SkeletonBlock className="h-7 w-10 rounded-xs" />
         </div>
         {Array.from({ length: 5 }, (_, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-3 border-b border-gray-100">
+          <div key={i} className="flex items-center gap-3 px-3 py-3 border-b border-ink-100">
             <SkeletonBlock className="h-4 w-32" />
             <SkeletonBlock className="h-4 w-24" />
             <SkeletonBlock className="h-4 w-16 ml-auto" />
@@ -135,19 +135,19 @@ export function PicksTable({
                 key={value}
                 type="button"
                 onClick={() => setStatusFilter(value)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-xs text-xs font-semibold transition-colors ${
                   statusFilter === value
-                    ? "bg-green-800 text-white"
-                    : "text-gray-500 hover:bg-gray-100"
+                    ? "bg-fairway-700 text-white"
+                    : "text-ink-500 hover:bg-ink-100"
                 }`}
               >
                 {label}
               </button>
             ))}
           </div>
-          <div className="bg-gray-50 rounded-2xl border border-gray-200 p-10 text-center space-y-2">
-            <p className="font-semibold text-gray-700">Season complete</p>
-            <p className="text-sm text-gray-400">All tournaments in this league have been played.</p>
+          <div className="bg-ink-50 rounded-sm border border-ink-200 p-10 text-center space-y-2">
+            <p className="font-semibold text-ink-700">Season complete</p>
+            <p className="text-sm text-ink-400">All tournaments in this league have been played.</p>
           </div>
         </div>
       );
@@ -156,23 +156,23 @@ export function PicksTable({
     // Truly empty — no picks and season not over
     if (seasonOver) {
       return (
-        <div className="bg-gray-50 rounded-2xl border border-gray-200 p-10 text-center space-y-2">
-          <p className="font-semibold text-gray-700">Season complete</p>
-          <p className="text-sm text-gray-400">All tournaments in this league have been played.</p>
+        <div className="bg-ink-50 rounded-sm border border-ink-200 p-10 text-center space-y-2">
+          <p className="font-semibold text-ink-700">Season complete</p>
+          <p className="text-sm text-ink-400">All tournaments in this league have been played.</p>
         </div>
       );
     }
 
     return (
-      <div className="bg-gray-50 rounded-2xl border border-gray-200 p-16 text-center space-y-3">
-        <div className="w-12 h-12 rounded-2xl bg-green-100 text-green-700 flex items-center justify-center mx-auto">
+      <div className="bg-ink-50 rounded-sm border border-ink-200 p-16 text-center space-y-3">
+        <div className="w-12 h-12 rounded-sm bg-fairway-100 text-fairway-700 flex items-center justify-center mx-auto">
           <FlagIcon className="w-6 h-6" />
         </div>
-        <p className="font-semibold text-gray-700">No picks yet this season</p>
-        <p className="text-sm text-gray-400">Make your first pick for an upcoming tournament.</p>
+        <p className="font-semibold text-ink-700">No picks yet this season</p>
+        <p className="text-sm text-ink-400">Make your first pick for an upcoming tournament.</p>
         <Link
           to={`/leagues/${leagueId}/pick`}
-          className="inline-block text-sm font-semibold text-green-700 hover:text-green-900 mt-2 transition-colors"
+          className="inline-block text-sm font-semibold text-fairway-700 hover:text-fairway-900 mt-2 transition-colors"
         >
           Make your first pick &rarr;
         </Link>
@@ -196,8 +196,8 @@ export function PicksTable({
             onClick={() => setStatusFilter(val)}
             className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
               statusFilter === val
-                ? "bg-green-800 text-white"
-                : "text-gray-400 hover:text-gray-700"
+                ? "bg-fairway-700 text-white"
+                : "text-ink-400 hover:text-ink-700"
             }`}
           >
             {label}
@@ -206,7 +206,7 @@ export function PicksTable({
       </div>
 
       {/* Sort controls — hide Tournament/Golfer on mobile to save space */}
-      <div className="flex items-center justify-between px-1 pb-1 border-b border-gray-200">
+      <div className="flex items-center justify-between px-1 pb-1 border-b border-ink-200">
         <div className="flex items-center gap-4">
           <SortButton label="Date" active={sortField === "date"} dir={sortDir} onClick={() => handleSort("date")} />
           <span className="hidden sm:inline">
@@ -251,23 +251,23 @@ export function PicksTable({
         );
         const hasMissedRegularPick = !isPickHidden && !isPlayoffTournament && !pick && completedTournaments.some((t) => t.id === tournament.id);
         const hasPlayoffPenalty = !isPickHidden && isPlayoffTournament && tournament.status === "completed" && playoffData && playoffData.picks.length === 0;
-        const rowClass = `bg-white border rounded-xl p-3 sm:p-5 flex items-center justify-between gap-2 sm:gap-4 transition-all ${
+        const rowClass = `bg-white border rounded-xs p-3 sm:p-5 flex items-center justify-between gap-2 sm:gap-4 transition-all ${
           hasMissedRegularPick || hasPlayoffPenalty
-            ? "border-red-100"
-            : "border-gray-200"
-        } ${isClickable ? "hover:shadow-sm hover:border-green-300 cursor-pointer" : ""}`;
+            ? "border-flag-100"
+            : "border-ink-200"
+        } ${isClickable ? "hover:shadow-sheet hover:border-fairway-300 cursor-pointer" : ""}`;
         const rowContent = (
           <>
             <div className="space-y-0.5 min-w-0 flex-1">
               <TournamentBadgePills tournament={tournament} isPlayoff={isPlayoffTournament} />
-              <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{fmtTournamentName(tournament.name)}</p>
+              <p className="font-semibold text-ink-900 text-sm sm:text-base truncate">{fmtTournamentName(tournament.name)}</p>
               <TournamentBadgeDates tournament={tournament} />
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               {isPlayoffTournament ? (() => {
                 if (!playoffData) {
-                  return <p className="text-xs sm:text-sm text-gray-400 text-right">Not in playoff round</p>;
+                  return <p className="text-xs sm:text-sm text-ink-400 text-right">Not in playoff round</p>;
                 }
                 const { picks: poPicks, total_points, status: roundStatus } = playoffData;
                 const is_picks_visible = isViewingSelf ? true : (otherPlayoffData?.is_picks_visible ?? true);
@@ -276,17 +276,17 @@ export function PicksTable({
                     const isActiveRound = myPod?.tournament_id === tournament.id;
                     const hasSubmitted = isActiveRound ? (myPod?.has_submitted ?? false) : poPicks.length > 0;
                     return hasSubmitted ? (
-                      <div className="flex items-center gap-1.5 text-green-700">
+                      <div className="flex items-center gap-1.5 text-fairway-700">
                         <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
                         <p className="text-xs sm:text-sm font-semibold">Rankings submitted</p>
                       </div>
                     ) : (
-                      <p className="text-xs sm:text-sm font-medium text-amber-500">No rankings yet</p>
+                      <p className="text-xs sm:text-sm font-medium text-brass-600">No rankings yet</p>
                     );
                   }
-                  return <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
+                  return <p className="text-xs sm:text-sm font-medium text-ink-400 text-right">Picks hidden</p>;
                 }
                 if (roundStatus === "locked" && tournament.status === "in_progress") {
                   if (poPicks.length > 0) {
@@ -294,20 +294,20 @@ export function PicksTable({
                       <div className="text-right space-y-1">
                         {poPicks.map((p, i) => (
                           <div key={i} className="flex items-center gap-2 justify-end">
-                            <p className="text-xs sm:text-sm font-medium text-gray-600">{p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}</p>
+                            <p className="text-xs sm:text-sm font-medium text-ink-600">{p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}</p>
                             {"golfer_pga_tour_id" in p && (
                               <GolferAvatar pgaTourId={p.golfer_pga_tour_id} name={p.golfer_name} className="w-6 h-6 sm:w-7 sm:h-7 shrink-0 hidden sm:block" />
                             )}
                           </div>
                         ))}
-                        <p className="text-[10px] sm:text-xs text-gray-400">In progress</p>
+                        <p className="text-[10px] sm:text-xs text-ink-400">In progress</p>
                       </div>
                     );
                   }
                   if (isViewingSelf || is_picks_visible) {
-                    return <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">No picks assigned</p>;
+                    return <p className="text-xs sm:text-sm font-medium text-ink-400 text-right">No picks assigned</p>;
                   }
-                  return <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">Picks hidden</p>;
+                  return <p className="text-xs sm:text-sm font-medium text-ink-400 text-right">Picks hidden</p>;
                 }
                 if (roundStatus === "completed" || tournament.status === "completed") {
                   if (poPicks.length > 0) {
@@ -316,11 +316,11 @@ export function PicksTable({
                         {poPicks.map((p, i) => (
                           <div key={i} className="flex items-center gap-2 justify-end">
                             <div className="space-y-0.5 text-right">
-                              <p className="text-xs sm:text-sm font-medium text-gray-600">{p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}</p>
+                              <p className="text-xs sm:text-sm font-medium text-ink-600">{p.partner_name ? `${p.golfer_name} / ${p.partner_name}` : p.golfer_name}</p>
                               <p className={`text-xs sm:text-sm font-bold tabular-nums ${
-                                p.points_earned === null ? "text-gray-400"
-                                : p.points_earned > 0 ? "text-green-700"
-                                : "text-red-500"
+                                p.points_earned === null ? "text-ink-400"
+                                : p.points_earned > 0 ? "text-fairway-700"
+                                : "text-flag-600"
                               }`}>
                                 {formatPoints(p.points_earned)}
                               </p>
@@ -331,8 +331,8 @@ export function PicksTable({
                           </div>
                         ))}
                         {poPicks.length > 1 && (
-                          <p className={`text-[10px] sm:text-xs font-bold tabular-nums border-t border-gray-100 pt-1 ${
-                            (total_points ?? 0) >= 0 ? "text-green-700" : "text-red-500"
+                          <p className={`text-[10px] sm:text-xs font-bold tabular-nums border-t border-ink-100 pt-1 ${
+                            (total_points ?? 0) >= 0 ? "text-fairway-700" : "text-flag-600"
                           }`}>
                             Total: {formatPoints(total_points)}
                           </p>
@@ -342,14 +342,14 @@ export function PicksTable({
                   }
                   return (
                     <div className="text-right space-y-0.5">
-                      <p className="text-xs sm:text-sm font-medium text-red-400">No pick</p>
-                      <p className="text-base sm:text-lg font-bold text-red-500 tabular-nums">
+                      <p className="text-xs sm:text-sm font-medium text-flag-500">No pick</p>
+                      <p className="text-base sm:text-lg font-bold text-flag-600 tabular-nums">
                         {formatPoints(total_points)}
                       </p>
                     </div>
                   );
                 }
-                return <p className="text-xs sm:text-sm text-gray-400">Playoff round</p>;
+                return <p className="text-xs sm:text-sm text-ink-400">Playoff round</p>;
               })() : pick ? (() => {
                 const multiplier = "effective_multiplier" in tournament
                   ? (tournament as { effective_multiplier: number }).effective_multiplier
@@ -364,20 +364,20 @@ export function PicksTable({
                 return (
                   <>
                     <div className="text-right space-y-0.5">
-                      <p className="text-xs sm:text-sm font-medium text-gray-600">{pick.golfer.name}</p>
+                      <p className="text-xs sm:text-sm font-medium text-ink-600">{pick.golfer.name}</p>
                       <p
                         className={`text-base sm:text-lg font-bold leading-tight ${
                           statusLabel || displayPoints === null
-                            ? "text-gray-400"
+                            ? "text-ink-400"
                             : displayPoints > 0
-                            ? "text-green-700 tabular-nums"
-                            : "text-red-500 tabular-nums"
+                            ? "text-fairway-700 tabular-nums"
+                            : "text-flag-600 tabular-nums"
                         }`}
                       >
                         {statusLabel ?? formatPoints(displayPoints)}
                       </p>
                       {showBreakdown && (
-                        <p className="text-[10px] sm:text-xs text-gray-400 tabular-nums leading-tight">
+                        <p className="text-[10px] sm:text-xs text-ink-400 tabular-nums leading-tight">
                           {formatPoints(pick.earnings_usd)} &middot; {multiplier}&times;
                         </p>
                       )}
@@ -390,23 +390,23 @@ export function PicksTable({
                   </>
                 );
               })() : !isViewingSelf && (tournament.id === nextTournament?.id || (tournament.id === liveTournament?.id && !liveTournament?.all_r1_teed_off)) ? (
-                <p className="text-xs sm:text-sm font-medium text-gray-400 text-right">Pick hidden</p>
+                <p className="text-xs sm:text-sm font-medium text-ink-400 text-right">Pick hidden</p>
               ) : (
                 <div className="text-right space-y-0.5">
-                  <p className={`text-xs sm:text-sm font-medium ${tournament.status === "scheduled" ? "text-gray-400" : "text-red-400"}`}>
+                  <p className={`text-xs sm:text-sm font-medium ${tournament.status === "scheduled" ? "text-ink-400" : "text-flag-500"}`}>
                     {tournament.status === "scheduled" ? "No pick yet" : "No pick"}
                   </p>
                   {tournament.status === "completed" && !tournament.scoring_pending && league?.no_pick_penalty !== undefined ? (
-                    <p className="text-base sm:text-lg font-bold text-red-500 tabular-nums">
+                    <p className="text-base sm:text-lg font-bold text-flag-600 tabular-nums">
                       {formatPoints(league.no_pick_penalty)}
                     </p>
                   ) : (
-                    <p className="text-base sm:text-lg font-bold text-gray-300 tabular-nums">&mdash;</p>
+                    <p className="text-base sm:text-lg font-bold text-ink-300 tabular-nums">&mdash;</p>
                   )}
                 </div>
               )}
               {isClickable && (
-                <svg className="w-4 h-4 text-gray-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 text-ink-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                 </svg>
               )}

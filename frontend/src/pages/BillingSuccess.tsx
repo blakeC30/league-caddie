@@ -173,13 +173,13 @@ export function BillingSuccess() {
   const manageHref = leagueId ? `/leagues/${leagueId}/manage` : "/leagues";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-sm w-full text-center space-y-6">
+    <div className="min-h-screen bg-ink-50 flex items-center justify-center px-4">
+      <div className="bg-white rounded-sm border border-ink-200 shadow-sheet p-10 max-w-sm w-full text-center space-y-6">
         {/* Green checkmark circle */}
         <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-fairway-100 flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-green-600"
+              className="w-8 h-8 text-fairway-600"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -191,16 +191,16 @@ export function BillingSuccess() {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-gray-900">Payment Successful!</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-ink-900">Payment Successful!</h1>
+          <p className="text-ink-500 text-sm">
             Your league is now active for the 2026 season. You can access all features now.
           </p>
         </div>
 
         {scheduleWarning && (
-          <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-left space-y-1">
-            <p className="text-sm font-semibold text-amber-800">Tournament schedule not saved</p>
-            <p className="text-xs text-amber-700">
+          <div className="rounded-xs bg-brass-50 border border-brass-100 px-4 py-3 text-left space-y-1">
+            <p className="text-sm font-semibold text-brass-700">Tournament schedule not saved</p>
+            <p className="text-xs text-brass-700">
               Your payment was successful, but we couldn't save your tournament schedule
               automatically. Please set it manually from the{" "}
               <Link to={manageHref} className="underline font-medium">
@@ -212,9 +212,9 @@ export function BillingSuccess() {
         )}
 
         {readinessError ? (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-left space-y-1">
-            <p className="text-sm font-semibold text-red-800">League setup taking longer than expected</p>
-            <p className="text-xs text-red-700">
+          <div className="rounded-xs bg-flag-50 border border-flag-300 px-4 py-3 text-left space-y-1">
+            <p className="text-sm font-semibold text-flag-700">League setup taking longer than expected</p>
+            <p className="text-xs text-flag-700">
               Your payment was successful. Please refresh the page in a moment, or go to{" "}
               <Link to="/leagues" className="underline font-medium">
                 My Leagues
@@ -225,12 +225,12 @@ export function BillingSuccess() {
         ) : leagueReady ? (
           <Link
             to={leagueHref}
-            className="block w-full bg-green-800 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors shadow-sm"
+            className="block w-full bg-fairway-700 hover:bg-fairway-700 text-white font-semibold py-3 px-6 rounded-xs transition-colors shadow-sheet"
           >
             Go to My League
           </Link>
         ) : (
-          <div className="flex items-center justify-center gap-2 w-full bg-green-800/50 text-white font-semibold py-3 px-6 rounded-xl cursor-not-allowed select-none">
+          <div className="flex items-center justify-center gap-2 w-full bg-fairway-700/50 text-white font-semibold py-3 px-6 rounded-xs cursor-not-allowed select-none">
             <svg
               className="w-4 h-4 animate-spin flex-shrink-0"
               fill="none"

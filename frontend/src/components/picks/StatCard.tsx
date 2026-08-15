@@ -1,3 +1,8 @@
+/**
+ * StatCard — a labelled figure. Separated from its neighbours by the
+ * page→sheet background step rather than by a border (DESIGN.md §4).
+ */
+
 export interface StatCardProps {
   label: string;
   value: string;
@@ -6,10 +11,10 @@ export interface StatCardProps {
 
 export function StatCard({ label, value, sub }: StatCardProps) {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-4">
-      <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400 mb-1">{label}</p>
-      <p className="text-xl font-bold text-gray-900 tabular-nums">{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-0.5 truncate">{sub}</p>}
+    <div className="bg-sheet rounded-sm shadow-sheet p-4">
+      <p className="text-micro uppercase text-ink-500">{label}</p>
+      <p className="font-display text-subhead text-ink-950 tabular-nums mt-1">{value}</p>
+      {sub && <p className="text-small text-ink-500 mt-0.5 truncate">{sub}</p>}
     </div>
   );
 }

@@ -31,11 +31,11 @@ export function StandingsTr({
   return (
     <tr
       onClick={() => picksHref && navigate(picksHref)}
-      className={`${borderTop ?? "border-t border-gray-100"} ${picksHref ? "cursor-pointer hover:bg-green-50" : ""} ${
+      className={`${borderTop ?? "border-t border-ink-100"} ${picksHref ? "cursor-pointer hover:bg-fairway-50" : ""} ${
         isMe
-          ? "bg-green-50 border-l-2 border-l-green-400"
+          ? "bg-fairway-50 border-l-2 border-l-fairway-400"
           : stripe
-          ? "bg-gray-50"
+          ? "bg-ink-50"
           : "bg-white"
       }`}
     >

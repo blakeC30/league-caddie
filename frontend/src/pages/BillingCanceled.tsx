@@ -21,13 +21,13 @@ export function BillingCanceled() {
   const manageHref = leagueId ? `/leagues/${leagueId}` : "/leagues";
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-10 max-w-sm w-full text-center space-y-6">
+    <div className="min-h-screen bg-ink-50 flex items-center justify-center px-4">
+      <div className="bg-white rounded-sm border border-ink-200 shadow-sheet p-10 max-w-sm w-full text-center space-y-6">
         {/* Amber warning icon */}
         <div className="flex justify-center">
-          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-brass-100 flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-amber-500"
+              className="w-8 h-8 text-brass-600"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -43,15 +43,15 @@ export function BillingCanceled() {
         </div>
 
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold text-gray-900">Payment Canceled</h1>
-          <p className="text-gray-500 text-sm">
+          <h1 className="text-2xl font-bold text-ink-900">Payment Canceled</h1>
+          <p className="text-ink-500 text-sm">
             No charge was made. You can try again whenever you're ready.
           </p>
         </div>
 
         <Link
           to={manageHref}
-          className="block w-full border border-gray-300 hover:border-gray-400 bg-white text-gray-700 font-semibold py-3 px-6 rounded-xl transition-colors"
+          className="block w-full border border-ink-300 hover:border-ink-400 bg-white text-ink-700 font-semibold py-3 px-6 rounded-xs transition-colors"
         >
           Return to My Leagues
         </Link>

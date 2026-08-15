@@ -19,7 +19,7 @@ export function SortButton({ label, active, dir, onClick, align = "left" }: Sort
       className={`inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wider transition-colors ${
         align === "right" ? "flex-row-reverse" : ""
       } ${
-        active ? "text-green-300" : "text-white/60 hover:text-white"
+        active ? "text-fairway-300" : "text-white/60 hover:text-white"
       }`}
     >
       {label}

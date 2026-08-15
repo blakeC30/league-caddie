@@ -2,7 +2,7 @@ interface Props {
   className?: string;
 }
 
-export function Spinner({ className = "w-5 h-5 text-green-600" }: Props) {
+export function Spinner({ className = "w-5 h-5 text-fairway-600" }: Props) {
   return (
     <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24" role="status" aria-label="Loading">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />

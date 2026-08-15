@@ -124,30 +124,27 @@ export function CreateLeague() {
     <div className="space-y-8 max-w-2xl mx-auto">
       {/* Page header */}
       <div className="space-y-1">
-        <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-700">
-          New League
-        </p>
-        <h1 className="text-3xl font-bold text-gray-900">Create a League</h1>
-        <p className="text-sm text-gray-500 pt-1">
+        <h1 className="text-title text-ink-950">Create a League</h1>
+        <p className="text-sm text-ink-500 pt-1">
           Most settings can be adjusted later from the Manage page.
         </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* League details */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+        <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">League Details</h2>
+            <h2 className="text-base font-bold text-ink-900">League Details</h2>
           </div>
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="leagueName" className="block text-sm font-medium text-gray-700">
-                League name <span className="text-red-500">*</span>
+              <label htmlFor="leagueName" className="block text-sm font-medium text-ink-700">
+                League name <span className="text-flag-600">*</span>
               </label>
               <input
                 id="leagueName"
@@ -157,30 +154,30 @@ export function CreateLeague() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter league name"
                 maxLength={50}
-                className="w-full border border-gray-300 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-600 focus:border-transparent transition-shadow"
+                className="w-full border border-ink-300 rounded-xs px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-fairway-600 focus:border-transparent transition-shadow"
               />
-              {name.length >= 40 && <p className="text-[11px] text-gray-400 text-right tabular-nums">{name.length}/50</p>}
+              {name.length >= 40 && <p className="text-[11px] text-ink-400 text-right tabular-nums">{name.length}/50</p>}
             </div>
           </div>
         </div>
 
         {/* League Settings */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">League Settings</h2>
+            <h2 className="text-base font-bold text-ink-900">League Settings</h2>
           </div>
-          <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+          <div className="bg-ink-50 rounded-xs border border-ink-100 divide-y divide-ink-100">
             {/* No-pick penalty */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
-              <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">No-pick penalty</span>
+              <span className="text-sm text-ink-500 sm:w-36 sm:flex-shrink-0">No-pick penalty</span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-700">−</span>
+                <span className="text-sm font-medium text-ink-700">−</span>
                 <input
                   id="noPick"
                   type="text"
@@ -188,22 +185,22 @@ export function CreateLeague() {
                   value={noPick}
                   onChange={(e) => setNoPick(e.target.value.replace(/[^0-9]/g, ""))}
                   onBlur={() => setNoPick(String(Math.min(500000, parseInt(noPick, 10) || 0)))}
-                  className="w-36 text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-700"
+                  className="w-36 text-sm border border-ink-300 rounded-xs px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-fairway-700"
                 />
-                <span className="text-xs text-gray-400">per missed pick · max $500,000</span>
+                <span className="text-xs text-ink-400">per missed pick · max $500,000</span>
               </div>
             </div>
             {/* Auto-accept join requests */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-4 px-4 py-3">
-              <span className="text-sm text-gray-500 sm:w-36 sm:flex-shrink-0">Auto-accept requests</span>
+              <span className="text-sm text-ink-500 sm:w-36 sm:flex-shrink-0">Auto-accept requests</span>
               <div className="flex items-center gap-3">
                 <button
                   type="button"
                   role="switch"
                   aria-checked={autoAccept}
                   onClick={() => setAutoAccept(!autoAccept)}
-                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 ${
-                    autoAccept ? "bg-green-700" : "bg-gray-200"
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fairway-500 focus:ring-offset-2 ${
+                    autoAccept ? "bg-fairway-700" : "bg-ink-200"
                   }`}
                 >
                   <span
@@ -212,7 +209,7 @@ export function CreateLeague() {
                     }`}
                   />
                 </button>
-                <span className="text-xs text-gray-400">Automatically accept new members when they request to join</span>
+                <span className="text-xs text-ink-400">Automatically accept new members when they request to join</span>
               </div>
             </div>
           </div>
@@ -220,7 +217,7 @@ export function CreateLeague() {
 
         {/* Conflict banner — sticky so it stays visible while scrolling the schedule */}
         {hasConflicts && (
-          <div className="sticky top-4 z-10 flex items-start gap-2.5 bg-amber-50 border border-amber-300 text-amber-800 text-sm px-4 py-3 rounded-xl shadow-sm">
+          <div className="sticky top-4 z-10 flex items-start gap-2.5 bg-brass-50 border border-brass-500 text-brass-700 text-sm px-4 py-3 rounded-xs shadow-sheet">
             <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
@@ -231,19 +228,19 @@ export function CreateLeague() {
         )}
 
         {/* Tournament schedule */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+        <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">Tournament Schedule</h2>
+            <h2 className="text-base font-bold text-ink-900">Tournament Schedule</h2>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-ink-500">
             All tournaments are included by default. Majors default to{" "}
-            <span className="font-semibold text-amber-500">2×</span> and The Players Championship defaults to{" "}
-            <span className="font-semibold text-blue-500">1.5×</span>.{" "}
+            <span className="font-semibold text-brass-600">2×</span> and The Players Championship defaults to{" "}
+            <span className="font-semibold text-ink-600">1.5×</span>.{" "}
             Uncheck events you want to exclude,
             or adjust multipliers. This can be changed at any time from the Manage page.
           </p>
@@ -269,10 +266,10 @@ export function CreateLeague() {
 
                   return (
                     <div key={month}>
-                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+                      <p className="text-micro uppercase text-ink-400 mb-2">
                         {new Date(month + "-15").toLocaleString("default", { month: "long", year: "numeric" })}
                       </p>
-                      <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+                      <div className="bg-ink-50 rounded-xs border border-ink-100 divide-y divide-ink-100 overflow-hidden">
                         {weekEntries.map(([weekKey, weekTournaments]) => {
                           const selectedInWeek = weekTournaments.filter((t) => selectedIds.has(t.id));
                           const hasWeekConflict = selectedInWeek.length > 1;
@@ -285,16 +282,16 @@ export function CreateLeague() {
                                 return (
                                   <div
                                     key={t.id}
-                                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-gray-100 ${isPast ? "opacity-50" : ""} ${hasWeekConflict && checked ? "bg-amber-50" : ""}`}
+                                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-ink-100 ${isPast ? "opacity-50" : ""} ${hasWeekConflict && checked ? "bg-brass-50" : ""}`}
                                     onClick={() => toggleTournament(t.id)}
                                   >
                                     <input
                                       type="checkbox"
                                       checked={checked}
                                       onChange={() => {}}
-                                      className="accent-green-800 h-4 w-4 flex-shrink-0 pointer-events-none"
+                                      className="accent-fairway-700 h-4 w-4 flex-shrink-0 pointer-events-none"
                                     />
-                                    <span className="flex-1 text-sm text-gray-900">{fmtTournamentName(t.name)}</span>
+                                    <span className="flex-1 text-sm text-ink-900">{fmtTournamentName(t.name)}</span>
                                     {checked && (
                                       <div
                                         className="flex items-center gap-1 flex-shrink-0"
@@ -308,11 +305,11 @@ export function CreateLeague() {
                                             className={`text-xs px-2 py-0.5 rounded font-semibold transition-colors ${
                                               effectiveMultiplier === preset
                                                 ? preset >= 2
-                                                  ? "bg-amber-500 text-white"
+                                                  ? "bg-brass-600 text-white"
                                                   : preset === 1.5
-                                                  ? "bg-blue-600 text-white"
-                                                  : "bg-green-800 text-white"
-                                                : "bg-gray-200 text-gray-500 hover:bg-gray-300"
+                                                  ? "bg-ink-700 text-white"
+                                                  : "bg-fairway-700 text-white"
+                                                : "bg-ink-200 text-ink-500 hover:bg-ink-300"
                                             }`}
                                           >
                                             {preset === 1.0 ? "1×" : preset === 1.5 ? "1.5×" : "2×"}
@@ -320,14 +317,14 @@ export function CreateLeague() {
                                         ))}
                                       </div>
                                     )}
-                                    <span className="hidden sm:block text-xs text-gray-400 flex-shrink-0">
+                                    <span className="hidden sm:block text-xs text-ink-400 flex-shrink-0">
                                       {t.start_date}
                                     </span>
                                   </div>
                                 );
                               })}
                               {hasWeekConflict && (
-                                <div key={`conflict-${weekKey}`} className="flex items-start gap-2 px-4 py-2.5 bg-amber-50 text-amber-800 text-xs">
+                                <div key={`conflict-${weekKey}`} className="flex items-start gap-2 px-4 py-2.5 bg-brass-50 text-brass-700 text-xs">
                                   <svg className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
                                   </svg>
@@ -352,16 +349,16 @@ export function CreateLeague() {
 
         {/* Tier selection — hidden for platform admins (they get free Elite) */}
         {!user?.is_platform_admin && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+        <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-green-50 text-green-700 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 bg-fairway-50 text-fairway-700 rounded-xs flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
               </svg>
             </div>
-            <h2 className="text-base font-bold text-gray-900">League Plan</h2>
+            <h2 className="text-base font-bold text-ink-900">League Plan</h2>
           </div>
-          <p className="text-sm text-gray-500">Select the League Plan that fits your league size. You can upgrade your plan at any time from the Manage page.</p>
+          <p className="text-sm text-ink-500">Select the League Plan that fits your league size. You can upgrade your plan at any time from the Manage page.</p>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {pricingTiers.map((tier) => {
               const isSelected = selectedTier === tier.tier;
@@ -375,26 +372,26 @@ export function CreateLeague() {
                   key={tier.tier}
                   type="button"
                   onClick={() => setSelectedTier(tier.tier)}
-                  className={`relative flex flex-col items-center gap-1 rounded-xl border-2 p-4 text-center transition-colors ${
+                  className={`relative flex flex-col items-center gap-1 rounded-xs border-2 p-4 text-center transition-colors ${
                     isSelected
-                      ? "border-green-700 bg-green-50"
-                      : "border-gray-200 bg-white hover:border-green-300"
+                      ? "border-fairway-700 bg-fairway-50"
+                      : "border-ink-200 bg-white hover:border-fairway-300"
                   }`}
                 >
                   {isPopular && (
-                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full">
+                    <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 bg-brass-600 text-white text-micro uppercase px-2 py-0.5 rounded-xs">
                       Popular
                     </span>
                   )}
-                  <span className={`text-sm font-bold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
+                  <span className={`text-sm font-bold ${isSelected ? "text-fairway-700" : "text-ink-900"}`}>
                     {label}
                   </span>
-                  <span className={`text-lg font-extrabold ${isSelected ? "text-green-800" : "text-gray-900"}`}>
+                  <span className={`text-lg font-extrabold ${isSelected ? "text-fairway-700" : "text-ink-900"}`}>
                     {price}
                   </span>
-                  <span className="text-[10px] text-gray-400">per league / season</span>
-                  <span className="text-xs text-gray-500 mt-1">{members}</span>
-                  <span className="text-[10px] text-gray-400">{perMember}</span>
+                  <span className="text-[10px] text-ink-400">per league / season</span>
+                  <span className="text-xs text-ink-500 mt-1">{members}</span>
+                  <span className="text-[10px] text-ink-400">{perMember}</span>
                 </button>
               );
             })}
@@ -403,7 +400,7 @@ export function CreateLeague() {
         )}
 
         {error && (
-          <div className="flex items-center gap-2 bg-red-50 border border-red-200 text-red-700 text-sm px-3.5 py-2.5 rounded-xl">
+          <div className="flex items-center gap-2 bg-flag-50 border border-flag-300 text-flag-700 text-sm px-3.5 py-2.5 rounded-xs">
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
             </svg>
@@ -415,20 +412,20 @@ export function CreateLeague() {
           <button
             type="submit"
             disabled={loading || !name.trim() || selectedIds.size === 0 || hasConflicts || (!user?.is_platform_admin && !pricingTiers.some((t) => t.tier === selectedTier))}
-            className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold py-3 px-8 rounded-xl transition-colors shadow-sm"
+            className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold py-3 px-8 rounded-xs transition-colors shadow-sheet"
           >
             {loading ? (user?.is_platform_admin ? "Creating…" : "Redirecting…") : (user?.is_platform_admin ? "Create League" : "Continue to payment")}
           </button>
           <button
             type="button"
             onClick={() => navigate("/leagues")}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-ink-500 hover:text-ink-700 transition-colors"
           >
             Cancel
           </button>
         </div>
         {selectedIds.size === 0 && allTournaments && allTournaments.length > 0 && (
-          <p className="text-sm text-amber-600">Select at least one tournament to continue.</p>
+          <p className="text-sm text-brass-600">Select at least one tournament to continue.</p>
         )}
       </form>
     </div>

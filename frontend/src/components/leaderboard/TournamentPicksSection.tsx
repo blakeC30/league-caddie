@@ -162,9 +162,9 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
   const avgPoints = totalPickers > 0 ? Math.round(totalPoints / totalPickers) : null;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 p-6 space-y-5">
+    <div className="bg-white rounded-sm border border-ink-200 p-6 space-y-5">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <h2 className="text-lg font-bold text-gray-900">Tournament Breakdown</h2>
+        <h2 className="text-lg font-bold text-ink-900">Tournament Breakdown</h2>
         <div
           ref={dropdownRef}
           className="relative w-full sm:w-auto"
@@ -180,33 +180,33 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
             ref={dropdownTriggerRef}
             type="button"
             onClick={() => { setDropdownOpen((o) => !o); setDropdownSearch(""); }}
-            className="w-full sm:min-w-[220px] flex items-center gap-2 text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 hover:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-700 transition-colors"
+            className="w-full sm:min-w-[220px] flex items-center gap-2 text-sm border border-ink-300 rounded-xs px-3 py-1.5 bg-white text-ink-700 hover:border-fairway-500 focus:outline-none focus:ring-2 focus:ring-fairway-700 transition-colors"
           >
             <span className="flex-1 text-left truncate">
               {selectedTournament ? fmtTournamentName(selectedTournament.name) : "Select a tournament…"}
             </span>
             <svg
-              className={`h-4 w-4 text-gray-400 shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
+              className={`h-4 w-4 text-ink-400 shrink-0 transition-transform ${dropdownOpen ? "rotate-180" : ""}`}
               fill="none" stroke="currentColor" viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </button>
           {dropdownOpen && (
-            <div className={`absolute right-0 w-full sm:w-72 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden z-10 ${dropDir === "up" ? "bottom-full mb-1" : "top-full mt-1"}`}>
-              <div className="px-3 py-2 border-b border-gray-100">
+            <div className={`absolute right-0 w-full sm:w-72 bg-white border border-ink-200 rounded-xs shadow-raised overflow-hidden z-10 ${dropDir === "up" ? "bottom-full mb-1" : "top-full mt-1"}`}>
+              <div className="px-3 py-2 border-b border-ink-100">
                 <input
                   ref={dropdownInputRef}
                   type="text"
                   value={dropdownSearch}
                   onChange={(e) => setDropdownSearch(e.target.value)}
                   placeholder="Search…"
-                  className="w-full text-sm outline-none placeholder-gray-400 bg-transparent"
+                  className="w-full text-sm outline-none placeholder-ink-400 bg-transparent"
                 />
               </div>
               <div className="max-h-64 overflow-y-auto">
                 {filteredTournaments.length === 0 ? (
-                  <p className="px-4 py-3 text-sm text-gray-400">No results.</p>
+                  <p className="px-4 py-3 text-sm text-ink-400">No results.</p>
                 ) : (
                   filteredTournaments.map((t) => (
                     <button
@@ -214,22 +214,22 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                       type="button"
                       onClick={() => { setSelectedId(t.id); setDropdownOpen(false); setDropdownSearch(""); }}
                       className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between gap-3 transition-colors ${
-                        t.id === selectedId ? "bg-green-50 text-green-900" : "hover:bg-gray-50 text-gray-700"
+                        t.id === selectedId ? "bg-fairway-50 text-fairway-900" : "hover:bg-ink-50 text-ink-700"
                       }`}
                     >
                       <span className="truncate">{fmtTournamentName(t.name)}</span>
                       <div className="flex items-center gap-1.5 shrink-0">
                         {playoffRoundByTournamentId.has(t.id) && (
-                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-700 text-white">
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-xs bg-fairway-700 text-white">
                             PO
                           </span>
                         )}
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                           t.status === "in_progress"
-                            ? "bg-green-100 text-green-700"
+                            ? "bg-fairway-100 text-fairway-700"
                             : t.status === "completed"
-                            ? "bg-gray-100 text-gray-500"
-                            : "bg-blue-50 text-blue-600"
+                            ? "bg-ink-100 text-ink-500"
+                            : "bg-ink-50 text-ink-700"
                         }`}>
                           {t.status === "in_progress" ? "Live" : t.status === "completed" ? "Final" : "Upcoming"}
                         </span>
@@ -244,15 +244,15 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
       </div>
 
       {!selectedId && (
-        <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-400 text-sm">
+        <div className="bg-white border border-ink-200 rounded-xs p-8 text-center text-ink-400 text-sm">
           Select a tournament above to see pick breakdown.
         </div>
       )}
 
       {selectedId && isScheduled && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center space-y-1">
-          <p className="text-sm font-semibold text-amber-800">Picks are locked</p>
-          <p className="text-xs text-amber-600">
+        <div className="bg-brass-50 border border-brass-100 rounded-xs p-6 text-center space-y-1">
+          <p className="text-sm font-semibold text-brass-700">Picks are locked</p>
+          <p className="text-xs text-brass-600">
             Pick selections are revealed once the tournament begins to prevent copying.
           </p>
         </div>
@@ -262,14 +262,14 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
         <div className="space-y-4 animate-pulse">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {Array.from({ length: 3 }, (_, i) => (
-              <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+              <div key={i} className="bg-white rounded-xs border border-ink-200 p-4 space-y-2">
                 <SkeletonBlock className="h-3 w-20" />
                 <SkeletonBlock className="h-6 w-14" />
                 <SkeletonBlock className="h-3 w-24" />
               </div>
             ))}
           </div>
-          <SkeletonBlock className="h-8 w-36 rounded-lg" />
+          <SkeletonBlock className="h-8 w-36 rounded-xs" />
           <div className="space-y-2">
             {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="flex items-center gap-3 px-3 py-2">
@@ -282,7 +282,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
       )}
 
       {selectedId && !isScheduled && !isLoading && !selectedPlayoffRound && error && (
-        <p className="text-gray-400 text-sm">No pick data available for this tournament yet.</p>
+        <p className="text-ink-400 text-sm">No pick data available for this tournament yet.</p>
       )}
 
       {/* Playoff round breakdown — replaces stats/chart for playoff tournaments */}
@@ -302,7 +302,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
               label="Submission rate"
               value={`${Math.round(submissionRate)}%`}
               sub={`${totalPickers} of ${summary.member_count} members`}
-              color={submissionRate === 100 ? "text-green-700" : "text-gray-900"}
+              color={submissionRate === 100 ? "text-fairway-700" : "text-ink-900"}
             />
             {missedCutPicks > 0 && (
               <StatCard
@@ -326,19 +326,19 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
           </div>
 
           {/* View toggle */}
-          <div className="flex items-center gap-1 bg-gray-200 rounded-lg p-1 w-fit">
+          <div className="flex items-center gap-1 bg-ink-200 rounded-xs p-1 w-fit">
             <button
               onClick={() => setView("chart")}
-              className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
-                view === "chart" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              className={`text-xs font-semibold px-3 py-1 rounded-xs transition-colors ${
+                view === "chart" ? "bg-white text-ink-900 shadow-sheet" : "text-ink-500"
               }`}
             >
               Chart
             </button>
             <button
               onClick={() => setView("table")}
-              className={`text-xs font-semibold px-3 py-1 rounded-md transition-colors ${
-                view === "table" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"
+              className={`text-xs font-semibold px-3 py-1 rounded-xs transition-colors ${
+                view === "table" ? "bg-white text-ink-900 shadow-sheet" : "text-ink-500"
               }`}
             >
               Table
@@ -404,13 +404,13 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
             });
 
             function renderEarningsCell(row: PickRow) {
-              if (!isCompleted) return <span className="text-gray-400">&mdash;</span>;
-              if (row.pointsEarned === null) return <span className="text-gray-400">&mdash;</span>;
+              if (!isCompleted) return <span className="text-ink-400">&mdash;</span>;
+              if (row.pointsEarned === null) return <span className="text-ink-400">&mdash;</span>;
 
               // No-pick penalty row: show negative value in red
               if (row.golferName === null) {
                 return (
-                  <span className="text-red-500 font-semibold">
+                  <span className="text-flag-600 font-semibold">
                     {`-$${Math.abs(Math.round(row.pointsEarned)).toLocaleString()}`}
                   </span>
                 );
@@ -419,11 +419,11 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
               if (showMultiplier && row.earningsUsd !== null) {
                 return (
                   <div>
-                    <span className="text-gray-900 font-semibold">
+                    <span className="text-ink-900 font-semibold">
                       {`$${Math.round(row.earningsUsd).toLocaleString()}`}
                     </span>
                     <br />
-                    <span className="text-green-700 text-xs font-medium">
+                    <span className="text-fairway-700 text-xs font-medium">
                       {`${Math.round(row.pointsEarned).toLocaleString()} pts`}
                     </span>
                   </div>
@@ -431,7 +431,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
               }
 
               return (
-                <span className="text-gray-900 font-semibold">
+                <span className="text-ink-900 font-semibold">
                   {`$${Math.round(row.pointsEarned).toLocaleString()}`}
                 </span>
               );
@@ -448,23 +448,23 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
             );
 
             return (
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
+              <div className="rounded-xs border border-ink-200 overflow-hidden">
                 {/* Member search — shown when there are enough members */}
                 {allRows.length > BREAKDOWN_PAGE_SIZE && (
-                <div className="px-3 py-2 border-b border-gray-100 bg-white">
+                <div className="px-3 py-2 border-b border-ink-100 bg-white">
                   <ClearableInput
                     value={memberSearch}
                     onChange={(e) => { setMemberSearch(e.target.value); setBreakdownPage(0); }}
                     onClear={() => { setMemberSearch(""); setBreakdownPage(0); }}
                     placeholder="Search members…"
-                    className="w-full text-sm px-3 py-1.5 rounded-lg border border-gray-200 bg-gray-50 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-green-600 focus:border-green-600"
+                    className="w-full text-sm px-3 py-1.5 rounded-xs border border-ink-200 bg-ink-50 placeholder-ink-400 focus:outline-none focus:ring-1 focus:ring-fairway-600 focus:border-fairway-600"
                   />
                 </div>
                 )}
                 <div className="relative">
                 <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="bg-gradient-to-r from-green-900 to-green-700 text-white">
+                  <thead className="bg-fairway-900 text-white">
                     <tr>
                       <th className="px-4 py-2.5 text-left">
                         <SortButton
@@ -496,7 +496,7 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                   <tbody>
                     {allRows.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-6 text-center text-gray-400">
+                        <td colSpan={3} className="px-4 py-6 text-center text-ink-400">
                           No picks submitted for this tournament.
                         </td>
                       </tr>
@@ -506,20 +506,20 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                         return (
                           <tr
                             key={row.userId}
-                            className={`border-t border-gray-100 ${
+                            className={`border-t border-ink-100 ${
                               isNoPick
-                                ? "bg-red-50"
+                                ? "bg-flag-50"
                                 : i % 2 === 0
                                 ? "bg-white"
-                                : "bg-gray-50"
+                                : "bg-ink-50"
                             }`}
                           >
-                            <td className="px-4 py-3 font-medium text-gray-900">
+                            <td className="px-4 py-3 font-medium text-ink-900">
                               {row.displayName}
                             </td>
-                            <td className="px-4 py-3 text-gray-600">
+                            <td className="px-4 py-3 text-ink-600">
                               {isNoPick ? (
-                                <span className="italic text-red-400">No pick</span>
+                                <span className="italic text-flag-500">No pick</span>
                               ) : (
                                 row.golferName
                               )}
@@ -534,26 +534,25 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
                   </tbody>
                 </table>
               </div>
-              <div className="pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-white to-transparent sm:hidden" />
               </div>
               {breakdownTotalPages > 1 && (
-                <div className="flex items-center justify-center gap-3 px-4 py-2 border-t border-gray-100 bg-white">
+                <div className="flex items-center justify-center gap-3 px-4 py-2 border-t border-ink-100 bg-white">
                     <button
                       type="button"
                       onClick={() => setBreakdownPage((p) => Math.max(0, p - 1))}
                       disabled={breakdownPage === 0}
-                      className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="text-sm font-medium text-ink-500 hover:text-ink-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-xs hover:bg-ink-100 transition-colors"
                     >
                       ← Prev
                     </button>
-                    <span className="text-xs text-gray-400 tabular-nums">
+                    <span className="text-xs text-ink-400 tabular-nums">
                       {breakdownPage * BREAKDOWN_PAGE_SIZE + 1}–{Math.min((breakdownPage + 1) * BREAKDOWN_PAGE_SIZE, filteredRows.length)} of {filteredRows.length}{memberSearch ? " results" : ""}
                     </span>
                     <button
                       type="button"
                       onClick={() => setBreakdownPage((p) => Math.min(breakdownTotalPages - 1, p + 1))}
                       disabled={breakdownPage >= breakdownTotalPages - 1}
-                      className="text-sm font-medium text-gray-500 hover:text-gray-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="text-sm font-medium text-ink-500 hover:text-ink-900 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded-xs hover:bg-ink-100 transition-colors"
                     >
                       Next →
                     </button>
@@ -565,10 +564,10 @@ export function TournamentPicksSection({ leagueId }: TournamentPicksSectionProps
 
           {/* Chart view */}
           {view === "chart" && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <p className="text-sm font-semibold text-gray-700 mb-4">Pick Distribution</p>
+            <div className="bg-white border border-ink-200 rounded-xs p-5">
+              <p className="text-sm font-semibold text-ink-700 mb-4">Pick Distribution</p>
               {summary.picks_by_golfer.length === 0 ? (
-                <p className="text-gray-400 text-sm text-center py-8">No picks to display.</p>
+                <p className="text-ink-400 text-sm text-center py-8">No picks to display.</p>
               ) : (
                 <PickBarChart
                   groups={summary.picks_by_golfer}

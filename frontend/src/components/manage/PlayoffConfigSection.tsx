@@ -270,7 +270,7 @@ export function PlayoffConfigSection({
   }
 
   return (
-    <section className="bg-white rounded-2xl border border-gray-200 p-6 space-y-4">
+    <section className="bg-white rounded-sm border border-ink-200 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <SectionIcon>
@@ -278,34 +278,34 @@ export function PlayoffConfigSection({
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 18.75h-9m9 0a3 3 0 0 1 3 3h-15a3 3 0 0 1 3-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 0 1-.982-3.172M9.497 14.25a7.454 7.454 0 0 0 .981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 0 0 7.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25c2.291 0 4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 0 0 2.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 0 1 2.916.52 6.003 6.003 0 0 1-5.395 4.972m0 0a6.726 6.726 0 0 1-2.749 1.35m0 0a6.772 6.772 0 0 1-3.044 0" />
             </svg>
           </SectionIcon>
-          <h2 className="text-base font-bold text-gray-900">Playoff</h2>
+          <h2 className="text-base font-bold text-ink-900">Playoff</h2>
         </div>
         {!playoffEditing && playoffFullyLocked ? (
-          <span className="relative group text-xs font-semibold text-gray-400 flex items-center gap-1 cursor-default">
+          <span className="relative group text-xs font-semibold text-ink-400 flex items-center gap-1 cursor-default">
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
             </svg>
             Locked
-            <span className="pointer-events-none absolute top-full right-0 mt-2 hidden group-hover:block whitespace-nowrap rounded-lg bg-gray-800 px-2.5 py-1.5 text-xs text-white z-20 shadow-lg font-normal">
+            <span className="pointer-events-none absolute top-full right-0 mt-2 hidden group-hover:block whitespace-nowrap rounded-xs bg-ink-800 px-2.5 py-1.5 text-xs text-white z-20 shadow-raised font-normal">
               All rounds have started — there are no remaining settings to configure
             </span>
           </span>
         ) : !playoffEditing && (playoffConfig || playoffConfigNotFound) && (
           <button
             onClick={() => { setPlayoffEditing(true); setPlayoffSaved(false); }}
-            className="text-sm font-semibold text-green-700 hover:text-green-900 transition-colors"
+            className="text-sm font-semibold text-fairway-700 hover:text-fairway-900 transition-colors"
           >
             Edit
           </button>
         )}
       </div>
-      <p className="text-sm text-gray-500">
+      <p className="text-sm text-ink-500">
         Configure the bracket size and picks per round. The final scheduled tournaments in your season will automatically serve as playoff rounds.
       </p>
 
       {/* Playoff tournament count advisory */}
       {playoffSize > 0 && (playoffEditing || playoffConfig) && playoffConfig?.status !== "active" && eligibleFutureTournaments < requiredPlayoffTournaments && (
-        <div className="text-sm px-4 py-2.5 rounded-xl border bg-amber-50 border-amber-200 text-amber-700">
+        <div className="text-sm px-4 py-2.5 rounded-xs border bg-brass-50 border-brass-100 text-brass-700">
           A <strong>{playoffSize}-member</strong> bracket needs{" "}
           <strong>{requiredPlayoffTournaments}</strong> future tournament{requiredPlayoffTournaments !== 1 ? "s" : ""} —{" "}
           your schedule has <strong>{eligibleFutureTournaments}</strong> eligible. Add more future tournaments to the schedule above.
@@ -314,17 +314,17 @@ export function PlayoffConfigSection({
 
       {/* Schedule-lock warning */}
       {playoffEditing && playoffSize > 0 && (
-        <div className="text-sm px-4 py-2.5 rounded-xl border bg-amber-50 border-amber-300 text-amber-800 space-y-1">
+        <div className="text-sm px-4 py-2.5 rounded-xs border bg-brass-50 border-brass-500 text-brass-700 space-y-1">
           <p className="font-semibold">{"⚠"} Important — review your schedule before enabling playoffs</p>
           <p>Once the first playoff round opens for picks, your tournament schedule is <strong>permanently locked</strong>. No tournaments can be added or removed after that point. If your schedule is incomplete, your season will end earlier than intended and <strong>this cannot be undone</strong>.</p>
         </div>
       )}
 
       {/* Settings grid */}
-      <div className="bg-gray-50 rounded-xl border border-gray-100 divide-y divide-gray-100">
+      <div className="bg-ink-50 rounded-xs border border-ink-100 divide-y divide-ink-100">
         {/* Playoff size */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3">
-          <span className="text-sm text-gray-500 sm:w-44 flex-shrink-0">Playoff size</span>
+          <span className="text-sm text-ink-500 sm:w-44 flex-shrink-0">Playoff size</span>
           {playoffEditing && (!playoffConfig || playoffConfig.status === "pending") ? (
             <div className="flex gap-1.5 flex-wrap">
               {[0, 2, 4, 8, 16, 32].map((size) => {
@@ -336,8 +336,8 @@ export function PlayoffConfigSection({
                   disabled={tooLarge}
                   title={tooLarge ? `League only has ${approvedCount} approved member(s)` : undefined}
                   onClick={() => handlePlayoffSizeChange(size)}
-                  className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
-                    playoffSize === size ? "bg-green-800 text-white" : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                  className={`text-xs px-3 py-1.5 rounded-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    playoffSize === size ? "bg-fairway-700 text-white" : "bg-ink-200 text-ink-600 hover:bg-ink-300"
                   }`}
                 >
                   {size === 0 ? "No playoff" : `${size} members`}
@@ -346,7 +346,7 @@ export function PlayoffConfigSection({
               })}
             </div>
           ) : (
-            <span className="flex items-center text-sm font-medium text-gray-900">
+            <span className="flex items-center text-sm font-medium text-ink-900">
               {playoffSize === 0 ? "No playoff" : `${playoffSize} members`}
               {playoffEditing && <LockedBadge tooltip="Playoff size cannot be changed after the playoffs start" />}
             </span>
@@ -355,7 +355,7 @@ export function PlayoffConfigSection({
 
         {/* Draft style */}
         {playoffSize > 0 && <div className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 px-4 py-3">
-          <span className="text-sm text-gray-500 sm:w-44 flex-shrink-0 sm:pt-0.5">Draft style</span>
+          <span className="text-sm text-ink-500 sm:w-44 flex-shrink-0 sm:pt-0.5">Draft style</span>
           {playoffEditing && (!playoffConfig || playoffConfig.status === "pending") ? (
             <div className="flex flex-col gap-1.5">
               {(["snake", "linear", "top_seed_priority"] as const).map((style) => {
@@ -377,18 +377,18 @@ export function PlayoffConfigSection({
                       value={style}
                       checked={draftStyle === style}
                       onChange={() => { setDraftStyle(style); setPlayoffSaved(false); }}
-                      className="mt-0.5 accent-green-700"
+                      className="mt-0.5 accent-fairway-700"
                     />
                     <span className="text-sm">
-                      <span className="font-medium text-gray-800">{labels[style]}</span>
-                      <span className="text-gray-400 ml-1.5">{descs[style]}</span>
+                      <span className="font-medium text-ink-800">{labels[style]}</span>
+                      <span className="text-ink-400 ml-1.5">{descs[style]}</span>
                     </span>
                   </label>
                 );
               })}
             </div>
           ) : (
-            <span className="flex items-center text-sm font-medium text-gray-900">
+            <span className="flex items-center text-sm font-medium text-ink-900">
               {{ snake: "Snake", linear: "Linear", top_seed_priority: "Top seed priority" }[draftStyle] ?? draftStyle}
               {playoffEditing && <LockedBadge tooltip="Draft style cannot be changed after the playoffs start" />}
             </span>
@@ -398,7 +398,7 @@ export function PlayoffConfigSection({
         {/* Per-round picks */}
         {playoffSize > 0 && picksPerRound.map((picks, i) => (
           <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-4 py-3">
-            <span className="text-sm text-gray-500 sm:w-44 flex-shrink-0">Round {i + 1} picks / member</span>
+            <span className="text-sm text-ink-500 sm:w-44 flex-shrink-0">Round {i + 1} picks / member</span>
             {playoffEditing && (!playoffConfig || playoffConfig.status === "pending" || bracket?.rounds[i]?.status === "pending") ? (
               <div className="flex gap-1.5">
                 {[1, 2].map((n) => (
@@ -409,8 +409,8 @@ export function PlayoffConfigSection({
                       setPicksPerRound((prev) => prev.map((v, j) => j === i ? n : v));
                       setPlayoffSaved(false);
                     }}
-                    className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors ${
-                      picks === n ? "bg-green-800 text-white" : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+                    className={`text-xs px-3 py-1.5 rounded-xs font-semibold transition-colors ${
+                      picks === n ? "bg-fairway-700 text-white" : "bg-ink-200 text-ink-600 hover:bg-ink-300"
                     }`}
                   >
                     {n}
@@ -418,7 +418,7 @@ export function PlayoffConfigSection({
                 ))}
               </div>
             ) : (
-              <span className="flex items-center text-sm font-medium text-gray-900">
+              <span className="flex items-center text-sm font-medium text-ink-900">
                 {picks}
                 {playoffEditing && <LockedBadge tooltip={`Round ${i + 1}'s draft window has opened — picks per member can no longer be changed`} />}
               </span>
@@ -429,7 +429,7 @@ export function PlayoffConfigSection({
 
       {/* No config yet */}
       {!playoffConfig && playoffConfigNotFound && !playoffEditing && (
-        <p className="text-sm text-gray-400">No playoff configured yet. Click Edit to set up.</p>
+        <p className="text-sm text-ink-400">No playoff configured yet. Click Edit to set up.</p>
       )}
 
       {/* Save / Cancel / Success */}
@@ -450,51 +450,51 @@ export function PlayoffConfigSection({
               }
             }}
             disabled={createPlayoffConfig.isPending || updatePlayoffConfig.isPending || (playoffConfig?.status !== "active" && playoffSize > 0 && eligibleFutureTournaments < requiredPlayoffTournaments)}
-            className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
+            className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xs text-sm transition-colors"
           >
             {(createPlayoffConfig.isPending || updatePlayoffConfig.isPending) ? "Saving…" : "Save Playoff Settings"}
           </button>
           <button
             onClick={handleCancelPlayoff}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="text-sm text-ink-500 hover:text-ink-700 transition-colors"
           >
             Cancel
           </button>
         </div>
       )}
       {playoffSaved && !playoffEditing && (
-        <div className="flex items-center gap-1.5 text-sm text-green-700 font-medium pt-1">
+        <div className="flex items-center gap-1.5 text-sm text-fairway-700 font-medium pt-1">
           <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
           </svg>
           Playoff settings saved.
         </div>
       )}
-      {playoffSaveError && <p className="text-xs text-red-600">{playoffSaveError}</p>}
+      {playoffSaveError && <p className="text-xs text-flag-600">{playoffSaveError}</p>}
 
       {/* Revise Playoff Pick — shown once bracket is seeded */}
       {playoffConfig?.status === "active" && (
-        <div className="pt-2 border-t border-gray-100 space-y-4">
+        <div className="pt-2 border-t border-ink-100 space-y-4">
           <div>
-            <p className="text-sm font-semibold text-gray-700">Revise Playoff Pick</p>
-            <p className="text-xs text-gray-400 mt-0.5">Override a member's pick while a playoff tournament is in progress.</p>
+            <p className="text-sm font-semibold text-ink-700">Revise Playoff Pick</p>
+            <p className="text-xs text-ink-400 mt-0.5">Override a member's pick while a playoff tournament is in progress.</p>
           </div>
 
           {poInProgressRound ? (
             <>
               {/* Round context label */}
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span className="font-medium text-gray-900">Round {poInProgressRound.round_number}</span>
+              <div className="flex items-center gap-2 text-sm text-ink-600">
+                <span className="font-medium text-ink-900">Round {poInProgressRound.round_number}</span>
                 {poInProgressRound.tournament_name && (
-                  <><span className="text-gray-300">{"—"}</span><span>{poInProgressRound.tournament_name}</span></>
+                  <><span className="text-ink-300">{"—"}</span><span>{poInProgressRound.tournament_name}</span></>
                 )}
-                <span className="rounded-full bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-0.5">Live</span>
+                <span className="rounded-xs bg-brass-100 text-brass-700 text-xs font-semibold px-2 py-0.5">Live</span>
               </div>
 
               <div className="grid sm:grid-cols-3 gap-3">
                 {/* Member */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Member</label>
+                  <label className="text-micro uppercase text-ink-500">Member</label>
                   <DropdownSelect
                     value={poReviseUserId ?? ""}
                     onChange={(val) => setPoReviseUserId(val || null)}
@@ -505,7 +505,7 @@ export function PlayoffConfigSection({
 
                 {/* Pick slot */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pick slot</label>
+                  <label className="text-micro uppercase text-ink-500">Pick slot</label>
                   <DropdownSelect
                     value={poRevisePickId ?? ""}
                     onChange={(val) => setPoRevisePickId(val || null)}
@@ -519,7 +519,7 @@ export function PlayoffConfigSection({
 
                 {/* Golfer */}
                 <div className="space-y-1">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Golfer</label>
+                  <label className="text-micro uppercase text-ink-500">Golfer</label>
                   <DropdownSelect
                     value={poReviseGolferId}
                     onChange={(val) => { setPoReviseGolferId(val); setPoReviseSaved(false); }}
@@ -548,12 +548,12 @@ export function PlayoffConfigSection({
                     (!poRevisePickId?.startsWith("new:") &&
                       poReviseGolferId === (poRevisePickOptions.find((p) => p.id === poRevisePickId)?.golfer_id ?? ""))
                   }
-                  className="bg-green-800 hover:bg-green-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors"
+                  className="bg-fairway-700 hover:bg-fairway-700 disabled:opacity-40 text-white font-semibold px-5 py-2 rounded-xs text-sm transition-colors"
                 >
                   {(revisePlayoffPick.isPending || adminCreatePlayoffPick.isPending) ? "Saving…" : "Save Pick"}
                 </button>
                 {poReviseSaved && !revisePlayoffPick.isPending && !adminCreatePlayoffPick.isPending && (
-                  <div className="flex items-center gap-1.5 text-sm text-green-700 font-medium">
+                  <div className="flex items-center gap-1.5 text-sm text-fairway-700 font-medium">
                     <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                     </svg>
@@ -561,7 +561,7 @@ export function PlayoffConfigSection({
                   </div>
                 )}
                 {(revisePlayoffPick.isError || adminCreatePlayoffPick.isError) && (
-                  <p className="text-sm text-red-600">
+                  <p className="text-sm text-flag-600">
                     {(revisePlayoffPick.error as { response?: { data?: { detail?: string } } } | null)?.response?.data?.detail ??
                       (adminCreatePlayoffPick.error as { response?: { data?: { detail?: string } } } | null)?.response?.data?.detail ??
                       "Failed to save pick."}
@@ -570,7 +570,7 @@ export function PlayoffConfigSection({
               </div>
             </>
           ) : (
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-ink-400">
               Picks can only be revised while a playoff tournament is in progress. Check back once the current round's tournament has started.
             </p>
           )}

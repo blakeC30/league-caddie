@@ -1,3 +1,11 @@
+/**
+ * SeasonTotalCard — the running total, shown as a board panel.
+ *
+ * Was a three-stop gradient with a blurred blob behind it. Under the Pairings
+ * Sheet language this is one flat fill and one big tabular figure, because the
+ * number is the only thing on it worth looking at.
+ */
+
 export interface SeasonTotalCardProps {
   totalEarned: number;
   hasPlayoffs?: boolean;
@@ -5,13 +13,11 @@ export interface SeasonTotalCardProps {
 
 export function SeasonTotalCard({ totalEarned, hasPlayoffs }: SeasonTotalCardProps) {
   return (
-    <div className="relative overflow-hidden bg-gradient-to-br from-green-900 via-green-800 to-green-700 rounded-2xl p-6 text-white shadow-lg shadow-green-900/20">
-      {/* Decorative blob */}
-      <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/5 blur-2xl pointer-events-none" />
-      <p className="text-xs font-bold uppercase tracking-[0.15em] text-green-300 mb-2">
-        {hasPlayoffs ? "Regular Season Total" : "Season Total"}
+    <div className="bg-fairway-900 rounded-sm px-5 py-5 text-white">
+      <p className="text-micro uppercase text-fairway-400">
+        {hasPlayoffs ? "Regular season total" : "Season total"}
       </p>
-      <p className="text-4xl font-extrabold tabular-nums">
+      <p className="font-display text-figure tabular-nums mt-1.5">
         {totalEarned < 0 ? "-" : ""}${Math.round(Math.abs(totalEarned)).toLocaleString()}
       </p>
     </div>

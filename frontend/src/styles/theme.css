@@ -1,0 +1,126 @@
+/**
+ * Pairings Sheet — design tokens.
+ *
+ * The single source of colour, type, shape and elevation for the app.
+ * Every value here is specified in frontend/DESIGN.md; change that document
+ * first, then this file. Nothing in a component may invent a value.
+ *
+ * Tailwind v4 is CSS-first: keys declared in `@theme` generate utilities
+ * (`--color-fairway-700` → `bg-fairway-700`). Stock Tailwind ramps are an
+ * AI-slop tell in their own right, so nothing in this app uses `gray-*`,
+ * `slate-*` or framework `green-*` — every surface names one of the four
+ * ramps below.
+ */
+
+@theme {
+  /* ── Type ─────────────────────────────────────────────────────────────── */
+  --font-display: "Archivo Variable", "Archivo", system-ui, sans-serif;
+  --font-sans: "Spline Sans Variable", "Spline Sans", system-ui, sans-serif;
+  --font-mono: "Spline Sans Mono Variable", "Spline Sans Mono", ui-monospace, monospace;
+
+  --text-display: 2.75rem; /* 44px — landing headline only */
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 800;
+
+  --text-title: 1.875rem; /* 30px — one per page */
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 700;
+
+  --text-heading: 1.3125rem; /* 21px */
+  --text-heading--line-height: 1.2;
+  --text-heading--letter-spacing: -0.015em;
+  --text-heading--font-weight: 700;
+
+  --text-subhead: 1.0625rem; /* 17px */
+  --text-subhead--line-height: 1.3;
+  --text-subhead--letter-spacing: -0.01em;
+  --text-subhead--font-weight: 600;
+
+  --text-body: 1rem; /* 16px — floor for reading text */
+  --text-body--line-height: 1.55;
+
+  --text-ui: 0.9375rem; /* 15px */
+  --text-ui--line-height: 1.4;
+  --text-ui--font-weight: 500;
+
+  --text-small: 0.8125rem; /* 13px */
+  --text-small--line-height: 1.45;
+
+  --text-micro: 0.6875rem; /* 11px — column headers + status marks ONLY */
+  --text-micro--line-height: 1.3;
+  --text-micro--letter-spacing: 0.06em;
+  --text-micro--font-weight: 600;
+
+  --text-figure: 1.75rem; /* 28px — headline numbers */
+  --text-figure--line-height: 1;
+  --text-figure--letter-spacing: -0.02em;
+  --text-figure--font-weight: 700;
+
+  --text-data: 0.9375rem; /* 15px — in-table numerals */
+  --text-data--line-height: 1.4;
+  --text-data--font-weight: 500;
+
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  /* Cool newsprint, not cream. Neither is pure white. */
+  --color-page: #eceee9;
+  --color-sheet: #fbfcfa;
+
+  /* ── Ink — the neutral (~60%) ─────────────────────────────────────────── */
+  /* Near-black with a faint green-grey cast so neutrals belong to the brand. */
+  --color-ink-950: #0f1512;
+  --color-ink-900: #171e1a;
+  --color-ink-800: #232b27;
+  --color-ink-700: #3a433e;
+  --color-ink-600: #4c5551;
+  --color-ink-500: #69726d;
+  --color-ink-400: #878f8a;
+  --color-ink-300: #b4bab6;
+  --color-ink-200: #dadeda;
+  --color-ink-100: #e6e9e5;
+  --color-ink-50: #eef0ec;
+
+  /* ── Fairway — the brand (~30%) ───────────────────────────────────────── */
+  /* Painted leaderboard plywood: deeper and bluer than stock emerald. */
+  --color-fairway-950: #071a14;
+  --color-fairway-900: #0b2a20;
+  --color-fairway-800: #123829;
+  --color-fairway-700: #1a4b3b;
+  --color-fairway-600: #236049;
+  --color-fairway-500: #2f7a5c;
+  --color-fairway-400: #4e9a79;
+  --color-fairway-300: #7fb69b;
+  --color-fairway-200: #b8d3c7;
+  --color-fairway-100: #d9e7e0;
+  --color-fairway-50: #edf3f0;
+
+  /* ── Flag — the accent (~10%) ─────────────────────────────────────────── */
+  /* Golf's under-par red. Live / under par / destructive. */
+  --color-flag-700: #8e2a21;
+  --color-flag-600: #b4362b;
+  --color-flag-500: #c9483b;
+  --color-flag-300: #e5a49c;
+  --color-flag-100: #f6dfdc;
+  --color-flag-50: #fbefed;
+
+  /* ── Brass — restricted mark ──────────────────────────────────────────── */
+  /* Multipliers above 1x, champion marks. At most twice per screen. */
+  --color-brass-700: #85601f;
+  --color-brass-600: #a87a2c;
+  --color-brass-500: #c2913d;
+  --color-brass-100: #f2e7ce;
+  --color-brass-50: #faf4e6;
+
+  /* ── Shape ────────────────────────────────────────────────────────────── */
+  /* A pairings sheet has square corners. Applied by role, never uniformly. */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+
+  /* ── Elevation — three recipes, there is no fourth ────────────────────── */
+  --shadow-sheet: 0 1px 2px rgb(15 21 18 / 0.06);
+  --shadow-raised: 0 8px 24px -8px rgb(15 21 18 / 0.18);
+
+  /* ── Motion ───────────────────────────────────────────────────────────── */
+  --ease-board: cubic-bezier(0.2, 0, 0, 1);
+}
